@@ -23,7 +23,7 @@ export default function Coach() {
 
   useEffect(() => {
     if (!teamId) return
-    supabase.from('players').select('*').eq('team_id', teamId).eq('status', 'approved').order('last_name').then(async ({ data }) => {
+    supabase.from('players').select('*').eq('team_id', teamId).eq('status', 'approved').order('last_name').order('first_name').then(async ({ data }) => {
       const ids = (data || []).map((p) => p.id)
       const { data: gs } = ids.length ? await supabase.from('player_guardians').select('player_id, profile_id').in('player_id', ids) : { data: [] }
       const pids = [...new Set((gs || []).map((g) => g.profile_id))]

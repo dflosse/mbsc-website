@@ -9,6 +9,7 @@ export const DEMO_ROLES = {
   parent: { label: 'Parent – Sam Parker', user: 'u-parent' },
   coach: { label: 'Coach – U9 Red (sample)', user: 'u-coach' },
   committee: { label: 'Committee – Secretary', user: 'u-committee' },
+  treasurer: { label: 'Treasurer (sample)', user: 'u-treas' },
   admin: { label: 'Admin – Dan', user: 'u-admin' },
 }
 let current = 'visitor'
@@ -42,7 +43,7 @@ const visible = {
   player_private: () => exec(), audit_log: () => exec(),
   gala_jobs: () => !!me(), gala_job_signups: () => !!me(),
   kit: (r) => staff() || (r.player_id && myKids().includes(r.player_id)),
-  funding: () => staff() || exec(), funding_sources: () => staff() || exec(), payments: () => exec(),
+  funding: () => staff() || exec(), funding_sources: () => staff() || exec(), payments: () => exec(), gala_result_details: () => !!me(), season_awards: () => !!me(),
 }
 const writable = {
   players: (r) => exec() || myKids().includes(r.id),

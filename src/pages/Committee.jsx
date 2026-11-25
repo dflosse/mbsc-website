@@ -8,6 +8,7 @@ import { KitTags, kitText } from './kitInfo'
 import { wwccState } from './Volunteer'
 import Treasurer from './Treasurer'
 import { bondInfo } from './bond'
+import { sortPlayers, TEAM_SEL } from './sortPlayers'
 
 export default function Committee() {
   const { isExec } = useAuth()
@@ -62,9 +63,11 @@ function Overview() {
   }, [])
   const [due, setDue] = useState([])
   useEffect(() => { supabase.from('tasks').select('*').neq('status', 'done').order('due', { nullsFirst: false }).limit(6).then(({ data }) => setDue(data || [])) }, [])
+  const st = useSettings()
   if (!s) return <p className="muted">Loading…</p>
   return (
     <>
+      <p><b>Next AGM:</b> {st.agm || 'TBA'} <span className="muted small">(committee and executive only – not shown on the public site; set it in Fees & settings)</span></p>
       <div className="stats">
         <Stat n={s.pending} l="player registrations awaiting sign-off" to="approvals" warn={s.pending > 0} />
         <Stat n={s.vols} l="volunteer / coach applications awaiting sign-off" to="approvals" warn={s.vols > 0} />
@@ -113,7 +116,7 @@ function Players() {
         {season === REG_SEASON && teamOpts.length === 0 && <span className="muted small">No {REG_SEASON} teams yet – add them under Teams to assign players.</span>}</div>
       {note && <p className="ok">{note}</p>}
       <p className="muted small">Registrations are signed off by the executive on the <NavLink to="/committee/approvals">Approvals</NavLink> tab. {season === PREV_SEASON ? `Last season's players are kept here. Use ➜${REG_SEASON} to carry a returning player over. ` : ''}Edits save as you go. "Approved" + FV registered + paid = fully registered. Use 🔗 to link a parent's account to a player.</p>
-      <EditTable key={season} table="players" filter={filter} order={order} search={['first_name', 'last_name']}
+      <EditTable key={season} table="players" filter={filter} order={order} select={'*, ' + TEAM_SEL} sortRows={sortPlayers} search={['first_name', 'last_name']}
         defaults={{ season, first_name: 'New', last_name: 'Player', status: 'pending' }}
         cols={[
           { key: 'first_name', label: 'First', width: 100 }, { key: 'last_name', label: 'Last', width: 110 },
@@ -230,9 +233,9 @@ function KitRequests() {
   const [rows, setRows] = useState([])
   const [err, setErr] = useState('')
   const load = useCallback(async () => {
-    const { data } = await supabase.from('players').select('id, first_name, last_name, dob, uniform_size, boot_size, needs_uniform, needs_boots, boots_status, bond_paid, bond_refunded, created_at')
-      .eq('season', REG_SEASON).neq('status', 'withdrawn').or('needs_uniform.eq.true,needs_boots.eq.true').order('created_at')
-    setRows(data || [])
+    const { data } = await supabase.from('players').select('id, first_name, last_name, dob, season, uniform_size, boot_size, needs_uniform, needs_boots, boots_status, bond_paid, bond_refunded, created_at, ' + TEAM_SEL)
+      .eq('season', REG_SEASON).neq('status', 'withdrawn').or('needs_uniform.eq.true,needs_boots.eq.true')
+    setRows(sortPlayers(data))
   }, [])
   useEffect(() => { load() }, [load])
   async function set(id, patch) { const { error } = await supabase.from('players').update(patch).eq('id', id); setErr(error?.message || ''); load() }
@@ -253,7 +256,7 @@ function KitRequests() {
   return (
     <section className="card">
       <h3>{REG_SEASON} uniform and boots requests</h3>
-      <p className="small muted">Asked for on the registration form. Loan boots: {boots.length} families interested, {out} allocated (very limited supply). Bonds: boots {s.boots_bond || 'TBA'}, uniform {bondInfo(s).text}. {isExec ? 'Listed in order of registration.' : 'Only the executive can allocate boots or record bonds.'}</p>
+      <p className="small muted">Asked for on the registration form. Loan boots: {boots.length} families interested, {out} allocated (very limited supply). Bonds: boots {s.boots_bond || 'TBA'}, uniform {bondInfo(s).text}. Sorted by team, youngest first. {isExec ? '' : 'Only the executive can allocate boots or record bonds.'}</p>
       {err && <p className="err">{err}</p>}
       {rows.length === 0 ? <p className="muted">No requests yet.</p> : (
         <div className="table-wrap"><table>
@@ -277,7 +280,7 @@ function Kit() {
   const order = useMemo(() => [['sort_order']], [])
   const { isExec } = useAuth()
   const [players, setPlayers] = useState([])
-  useEffect(() => { supabase.from('players').select('id, first_name, last_name, season').gte('season', PREV_SEASON).neq('status', 'withdrawn').order('last_name').then(({ data }) => setPlayers(data || [])) }, [])
+  useEffect(() => { supabase.from('players').select('id, first_name, last_name, season, dob, ' + TEAM_SEL).gte('season', PREV_SEASON).neq('status', 'withdrawn').then(({ data }) => setPlayers(sortPlayers(data))) }, [])
   const popts = players.map((p) => [p.id, `${p.first_name} ${p.last_name} (${p.season})`])
   return (
     <>
@@ -382,8 +385,9 @@ function Approvals() {
   const [gInv, setGInv] = useState([])
   const [dupes, setDupes] = useState({})
   const load = useCallback(async () => {
-    const { data: p } = await supabase.from('players').select('*, teams(name), player_guardians(profile_id)').eq('status', 'pending').order('created_at')
-    setPlayers(p || [])
+    const { data: p0 } = await supabase.from('players').select('*, ' + TEAM_SEL + ', player_guardians(profile_id)').eq('status', 'pending')
+    const p = sortPlayers(p0)
+    setPlayers(p)
     const { data: all } = await supabase.from('players').select('id, first_name, last_name, dob, season, status')
     const key = (x) => `${(x.first_name || '').trim().toLowerCase()}|${(x.last_name || '').trim().toLowerCase()}|${x.dob}`
     const dm = {}
@@ -563,7 +567,8 @@ function Directory() {
   const [copied, setCopied] = useState('')
   useEffect(() => {
     (async () => {
-      const { data: ps } = await supabase.from('players').select('*, teams(name)').eq('season', season).order('last_name')
+      const { data: ps0 } = await supabase.from('players').select('*, ' + TEAM_SEL).eq('season', season)
+      const ps = sortPlayers(ps0)
       const ids = (ps || []).map((p) => p.id)
       const { data: gs } = ids.length ? await supabase.from('player_guardians').select('player_id, profile_id').in('player_id', ids) : { data: [] }
       const pids = [...new Set((gs || []).map((g) => g.profile_id))]

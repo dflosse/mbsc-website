@@ -80,7 +80,7 @@ export default function About() {
             <FeesCard s={s} />
             <div className="card soft">
               <h3>Key dates</h3>
-              <dl><dt>AGM</dt><dd>{s.agm || 'TBA'}</dd><dt>Come n Try</dt><dd>{s.come_n_try || 'TBA'}</dd><dt>Gala days</dt><dd><Link to="/galas">TBA – see Gala days</Link></dd></dl>
+              <dl><dt>Come n Try</dt><dd>{s.come_n_try || 'TBA'}</dd><dt>Gala days</dt><dd><Link to="/galas">TBA – see Gala days</Link></dd></dl>
             </div>
             <div className="card"><h3>Contact</h3><p>mtbeautysoccerclub@gmail.com</p><p className="muted small">Or message the committee once you've signed in.</p></div>
           </aside>
@@ -92,7 +92,7 @@ export default function About() {
           {Object.entries(groups).map(([g, rs]) => (
             <div key={g} className="card">
               <h3>{g}</h3>
-              <ul className="roles">{rs.map((r) => <li key={r.id}><span>{r.role}</span><b className={r.person ? '' : 'vacant'}>{r.person || 'Vacant'}</b>{r.notes && <small>{r.notes}</small>}</li>)}</ul>
+              <ul className="roles">{rs.map((r) => <li key={r.id}><span>{r.role}</span><b className={r.person ? '' : 'vacant'}>{r.person || 'TBA'}</b>{r.notes && <small>{r.notes}</small>}</li>)}</ul>
             </div>
           ))}
         </div>

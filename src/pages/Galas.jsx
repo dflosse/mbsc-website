@@ -19,16 +19,7 @@ export default function Galas() {
       {upcoming.length === 0 && <div className="card"><p>2027 dates are still being set with the other clubs. Check back soon.</p></div>}
       {upcoming.map((g) => <GalaCard key={g.id} g={g} user={user} />)}
       {user ? <p><Link className="btn" to="/family">Tell us who's coming</Link></p> : <p className="muted">Families: <Link to="/login">sign in</Link> to tell us if your child can play each gala.</p>}
-      {Object.keys(bySeason).sort().reverse().map((s) => (
-        <section key={s}>
-          <h2>{s} series</h2>
-          <div className="table-wrap"><table>
-            <thead><tr><th>Date</th><th>Host</th><th>Venue</th></tr></thead>
-            <tbody>{bySeason[s].slice().reverse().map((g) => <tr key={g.id}><td>{fmtDate(g.gala_date)}</td><td>{g.host_club}</td><td>{g.venue}</td></tr>)}</tbody>
-          </table></div>
-        </section>
-      ))}
-      <p className="muted small">The 2026 draws, pitch maps and results are on the <a href="https://mbscgalas2026.netlify.app" target="_blank" rel="noreferrer">2026 gala site</a>.</p>
+      {Object.keys(bySeason).sort().reverse().map((s) => <SeasonResults key={s} season={Number(s)} galas={bySeason[s].slice().reverse()} />)}
     </div>
   )
 }
@@ -74,5 +65,70 @@ function Roster({ gala }) {
           <span className="nowrap">{s.length}/{j.slots} {mine ? <button className="link danger" onClick={() => drop(j)}>Remove me</button> : s.length < j.slots && (isVolunteer ? <button className="btn small" onClick={() => take(j)}>I'll help</button> : <Link className="small" to="/volunteer">Volunteer to help</Link>)}</span></li>) })}</ul>
       {err && <p className="err small">{err}</p>}
     </div>
+  )
+}
+
+const AGE_N = (a) => parseInt(String(a).replace(/\D/g, ''), 10) || 99
+const TEAM_N = { Red: 1, Green: 2, Blue: 3 }
+const tally = (rs) => rs.reduce((t, r) => ({ ...t, [r.outcome]: (t[r.outcome] || 0) + 1 }), {})
+const Rec = ({ t }) => <span className="rec"><b className="w">{t.win || 0}W</b> <b className="d">{t.draw || 0}D</b> <b className="l">{t.loss || 0}L</b></span>
+
+function SeasonResults({ season, galas }) {
+  const { user } = useAuth()
+  const [results, setResults] = useState([])
+  const [details, setDetails] = useState({})
+  const [awards, setAwards] = useState([])
+  const [open, setOpen] = useState(null)
+  useEffect(() => {
+    const ids = galas.map((g) => g.id)
+    supabase.from('gala_results').select('*').in('gala_id', ids).then(({ data }) => setResults(data || []))
+    if (user) {
+      supabase.from('gala_result_details').select('*').then(({ data }) => setDetails(Object.fromEntries((data || []).map((d) => [d.result_id, d]))))
+      supabase.from('season_awards').select('*').eq('season', season).order('sort').then(({ data }) => setAwards(data || []))
+    }
+  }, [galas, season, user])
+  const all = tally(results)
+  const games = results.filter((r) => r.outcome !== 'pending').length
+  return (
+    <section>
+      <h2>{season} season</h2>
+      {results.length > 0 && <p className="muted">Mount Beauty across {galas.length} gala days: {games} games – {all.win || 0} wins, {all.draw || 0} draws, {all.loss || 0} losses.</p>}
+      <div className="galarecs">
+        {galas.map((g, i) => {
+          const rs = results.filter((r) => r.gala_id === g.id).sort((a, b) => AGE_N(a.age_group) - AGE_N(b.age_group) || (TEAM_N[a.team] || 0) - (TEAM_N[b.team] || 0) || a.sort - b.sort)
+          const groups = rs.reduce((a, r) => { const k = r.age_group + (r.team ? ' ' + r.team : ''); (a[k] = a[k] || []).push(r); return a }, {})
+          const isOpen = open === g.id
+          return (
+            <div key={g.id} className="card galarec">
+              <button className="galarec-head" onClick={() => setOpen(isOpen ? null : g.id)} aria-expanded={isOpen}>
+                <span><b>Gala {i + 1} – {g.host_club.replace(/ (SC|FC)$/, '')}</b><span className="muted small"> {fmtDate(g.gala_date)}{g.venue ? `, ${g.venue}` : ''}</span></span>
+                {rs.length > 0 ? <Rec t={tally(rs)} /> : <span className="muted small">no results</span>}
+              </button>
+              {isOpen && Object.entries(groups).map(([k, list]) => (
+                <div key={k} className="resgroup">
+                  <h3>{k}</h3>
+                  {list.map((r) => {
+                    const d = details[r.id]
+                    return (
+                      <div key={r.id} className={'result ' + r.outcome}>
+                        <div className="result-line"><span>{r.opponent ? `v ${r.opponent}` : 'Game'}</span><b>{r.score || (r.outcome === 'pending' ? 'not recorded' : 'score not recorded')}</b><span className={'pill ' + ({ win: 'good', draw: 'wait', loss: 'bad' }[r.outcome] || '')}>{{ win: 'Win', draw: 'Draw', loss: 'Loss', pending: '–' }[r.outcome]}</span></div>
+                        {d?.scorers && <div className="small">Goals: {d.scorers}</div>}
+                        {d?.highlight && <div className="small hl">{d.highlight}</div>}
+                      </div>
+                    )
+                  })}
+                </div>
+              ))}
+            </div>
+          )
+        })}
+      </div>
+      {user ? (awards.length > 0 && (
+        <div className="card">
+          <h3>{season} awards</h3>
+          <ul className="roles">{awards.map((a) => <li key={a.id}><span>{a.award}</span><b>{a.recipients}</b>{a.note && <span className="small muted"> {a.note}</span>}</li>)}</ul>
+        </div>
+      )) : <p className="muted small">Club families can <Link to="/login">sign in</Link> to see goal scorers and end-of-season awards.</p>}
+    </section>
   )
 }

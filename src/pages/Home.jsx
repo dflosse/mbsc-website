@@ -53,7 +53,7 @@ export default function Home() {
 
             <h2>The season at a glance</h2>
             <div className="glance">
-              <Link to="/about"><Icon d="M14 3a11 11 0 1 0 0 22 11 11 0 0 0 0-22zM14 8v6l4 3" /><div><b>Wednesdays, 4 to 5pm</b><span>Training at Les Peart Oval, School Term 2</span></div></Link>
+              <Link to="/about"><Icon d="M14 3a11 11 0 1 0 0 22 11 11 0 0 0 0-22zM14 8v6l4 3" /><div><b>Wednesdays, 4 to 5pm</b><span>Training, School Term 2</span></div></Link>
               <Link to="/teams"><Icon d="M3 23 L11 9 L16 17 L19 12 L25 23 Z" /><div><b>Ages 4 to 13</b><span>Squads by age, girls and boys</span></div></Link>
               <Link to="/about#fees"><Icon d="M4 7h20v14H4zM4 12h20" /><div><b>{!s.fees || /^tba/i.test(s.fees) ? 'Fee to be confirmed' : s.fees.split(/[.(]/)[0].trim()}</b><span>Paid through Football Victoria's PlayFootball</span></div></Link>
             </div>

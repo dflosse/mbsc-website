@@ -28,6 +28,22 @@ export default function Privacy() {
         <li>We don't sell or share your information. Football Victoria registration happens separately on its PlayFootball system, under Football Victoria's own privacy policy (see <a href="https://footballvictoria.com.au" target="_blank" rel="noreferrer">footballvictoria.com.au</a>).</li>
       </ul>
 
+      <h2>Working With Children Checks</h2>
+      <p><b>Who needs one:</b> every coach, every committee member (including the executive) and every volunteer who helps with the club – including casual helpers at training or gala days, such as canteen, BBQ or pack-up. This is a club rule, and Football Victoria also requires a current check for coaches, officials and club contacts. Parents who only watch their own child don't need one.</p>
+      <p><b>What we collect:</b> your full name, address, email and mobile, your WWCC card number and expiry date, and a photo or scan of the card. These are the details the club needs to check and record your card under Victoria's rules.</p>
+      <p><b>How we use it:</b></p>
+      <ul>
+        <li>An executive committee member checks that your card is current using the Service Victoria WWC status check.</li>
+        <li>They connect you to the club in WWC Connect, which has been required in Victoria since October 2026. This means the club is told if your check status changes.</li>
+        <li>We record the date each step was done. Your coach, committee or volunteer role is only switched on once both are complete.</li>
+        <li>We use the expiry date to remind you (and the executive) to renew before it runs out.</li>
+        <li>If a check is suspended, revoked or expires, the role is switched off until it's sorted.</li>
+      </ul>
+      <p><b>Who sees it:</b> only you and the executive committee. Coaches, other committee members and parents cannot see your WWCC details. We don't share them with anyone except Service Victoria (through the checks above), or Football Victoria if it asks us to confirm a coach or official is checked.</p>
+
+      <h2>Gala results</h2>
+      <p>Scores and results are shown on the public website. Goal scorers and end-of-season awards include children's first names, so they're only shown to signed-in club families.</p>
+
       <h2>Photos</h2>
       <p>We only use photos of children on club social media or this website if a parent has given permission. You can change this at any time in My family.</p>
 

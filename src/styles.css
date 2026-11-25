@@ -326,3 +326,15 @@ dl.mini dd { margin: 0; }
 .stat span { display: block; font-size: .86rem; color: var(--muted); }
 
 .bondpay { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin: 6px 0; }
+
+.galarec { padding: 0; overflow: hidden; }
+.galarec-head { width: 100%; display: flex; justify-content: space-between; align-items: center; gap: 10px; background: none; border: 0; padding: 14px 16px; font: inherit; color: inherit; text-align: left; cursor: pointer; min-height: 52px; }
+.rec b { font-weight: 800; } .rec .w { color: var(--good); } .rec .d { color: var(--wait); } .rec .l { color: var(--bad); }
+.resgroup { padding: 0 16px 8px; }
+.resgroup h3 { font-size: 1rem; margin: 10px 0 4px; }
+.result { border-left: 4px solid var(--rule); padding: 6px 10px; margin: 4px 0; background: var(--ground); border-radius: 6px; }
+.result.win { border-left-color: var(--good); } .result.draw { border-left-color: #c99a2e; } .result.loss { border-left-color: var(--bad); }
+.result-line { display: grid; grid-template-columns: 1fr auto auto; gap: 10px; align-items: center; }
+.result .hl { color: var(--timber); font-weight: 600; }
+.rec { white-space: nowrap; flex: none; }
+.galarec-head > span:first-child { min-width: 0; }

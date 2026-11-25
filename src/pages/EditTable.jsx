@@ -3,7 +3,7 @@ import { supabase } from '../supabase'
 
 // Generic editable table for committee data.
 // cols: [{ key, label, type: 'text'|'date'|'bool'|'select'|'textarea'|'number', options: [[value,label]], width }]
-export default function EditTable({ table, cols, order = [], filter, defaults = {}, select = '*', search = [], rowActions }) {
+export default function EditTable({ table, cols, order = [], filter, defaults = {}, select = '*', search = [], rowActions, sortRows }) {
   const [rows, setRows] = useState([])
   const [q, setQ] = useState('')
   const [err, setErr] = useState('')
@@ -14,8 +14,8 @@ export default function EditTable({ table, cols, order = [], filter, defaults = 
     if (filter) query = filter(query)
     for (const [k, asc] of order) query = query.order(k, { ascending: asc !== false })
     const { data, error } = await query
-    if (error) setErr(error.message); else setRows(data || [])
-  }, [table, select, filter, order])
+    if (error) setErr(error.message); else setRows(sortRows ? sortRows(data || []) : data || [])
+  }, [table, select, filter, order, sortRows])
   useEffect(() => { load() }, [load])
 
   async function update(id, key, value) {
