@@ -88,11 +88,11 @@ export default function Family() {
               <legend>Uniform and boots</legend>
               <label className="check"><input type="checkbox" checked={f.uniform} onChange={(e) => setF({ ...f, uniform: e.target.checked })} /> My child needs a club uniform this season</label>
               {f.uniform && <label className="sub">Approximate size (child's age or size, if you know it)<input value={f.uSize} onChange={(e) => setF({ ...f, uSize: e.target.value })} placeholder="e.g. size 10" /></label>}
-              {f.uniform && bondText(settings.uniform_bond) && <p className="small muted sub">Uniforms are loaned for the season. A refundable bond of {bondText(settings.uniform_bond)} applies, returned when the uniform comes back.</p>}
+              {f.uniform && <p className="small muted sub">Uniforms are loaned for the season. A refundable bond{bondText(settings.uniform_bond) && bondText(settings.uniform_bond) !== 'TBA' ? ` of ${bondText(settings.uniform_bond)}` : ' (amount to be confirmed)'} applies – it's returned when the uniform comes back at the end of the season.</p>}
               <label className="check"><input type="checkbox" checked={f.boots} onChange={(e) => setF({ ...f, boots: e.target.checked })} /> My child would like to borrow football boots</label>
               {f.boots && <>
                 <label className="sub">Shoe size<input value={f.bSize} onChange={(e) => setF({ ...f, bSize: e.target.value })} placeholder="e.g. kids 13 or adult 2" required /></label>
-                <p className="small muted sub">We only have a limited number of boots, so they go to those who need them first and we can't guarantee a pair. A refundable bond of {bondText(settings.boots_bond) || 'TBA'} applies – it's returned in full when the boots come back at the end of the season. The committee will let you know if a pair is available.</p>
+                <p className="small muted sub">Our supply of loan boots varies from year to year, so <b>a pair may not be available</b> in your child's size. If we have one, a refundable bond{bondText(settings.boots_bond) && bondText(settings.boots_bond) !== 'TBA' ? ` of ${bondText(settings.boots_bond)}` : ' (amount to be confirmed)'} applies – it's returned in full when the boots come back at the end of the season. The committee will let you know.</p>
               </>}
             </fieldset>
             <FeesCard s={settings} compact />

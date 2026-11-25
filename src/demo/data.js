@@ -112,8 +112,7 @@ export const settings = [
   { id: 's3', key: 'agm', label: 'AGM date', value: 'TBA' },
   { id: 's4', key: 'come_n_try', label: 'Come n Try day', value: 'TBA' },
   { id: 's5', key: 'boots_bond', label: 'Boots bond (refundable)', value: 'TBA' },
-  { id: 's6', key: 'uniform_bond', label: 'Uniform bond (refundable, blank = none)', value: '' },
-  { id: 's7', key: 'boots_available', label: 'Loan boots available (number of pairs)', value: '' },
+  { id: 's6', key: 'uniform_bond', label: 'Uniform bond (refundable)', value: 'TBA' },
 ]
 
 const K = (t, o, n, c, s = 'todo', due = null) => ({ id: 'tk' + t.length + o.length, season: 2027, title: t, owner: o, notes: n, category: c, status: s, due })

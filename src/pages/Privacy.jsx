@@ -12,7 +12,7 @@ export default function Privacy() {
       <h2>What we collect</h2>
       <ul>
         <li><b>Parents and guardians:</b> name, email, mobile and (if you volunteer) home address.</li>
-        <li><b>Children:</b> name, date of birth, gender, medical conditions or allergies you tell us about, an emergency contact, photo permission, team, gala availability, and whether Football Victoria registration and fees are complete.</li>
+        <li><b>Children:</b> name, date of birth, gender, medical conditions or allergies you tell us about, an emergency contact, photo permission, team, gala availability, whether they need a loan uniform or boots (and sizes), whether a refundable bond has been paid or returned, and whether Football Victoria registration and fees are complete.</li>
         <li><b>Coaches, committee members and volunteers:</b> name, contact details, home address, and your Working With Children Check number, expiry and a copy of the card.</li>
       </ul>
 

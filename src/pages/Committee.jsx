@@ -4,6 +4,7 @@ import { supabase, REG_SEASON, PREV_SEASON, fmtDate, ageGroupFor } from '../supa
 import { useAuth } from '../auth'
 import EditTable from './EditTable'
 import useSettings from '../useSettings'
+import { KitTags, kitText } from './kitInfo'
 import { wwccState } from './Volunteer'
 
 export default function Committee() {
@@ -49,6 +50,8 @@ function Overview() {
         unpaid: await c('players', (q) => q.eq('season', REG_SEASON).eq('fees_paid', false)),
         tasks: await c('tasks', (q) => q.neq('status', 'done')),
         vols: await c('volunteer_roles', (q) => q.eq('status', 'pending')),
+        uniReq: await c('players', (q) => q.eq('season', REG_SEASON).neq('status', 'withdrawn').eq('needs_uniform', true)),
+        bootReq: await c('players', (q) => q.eq('season', REG_SEASON).neq('status', 'withdrawn').eq('needs_boots', true).in('boots_status', ['requested', 'waitlist'])),
         kitOut: await c('kit', (q) => q.in('status', ['Loaned Out', 'Outstanding'])),
         users: await c('profiles'),
       })
@@ -66,6 +69,8 @@ function Overview() {
         <Stat n={s.unpaid} l={`${REG_SEASON} payments outstanding`} to="players" warn={s.unpaid > 0} />
         <Stat n={s.roster} l={`${PREV_SEASON} players (last season)`} to="players" />
         <Stat n={s.tasks} l="open actions" to="tasks" />
+        <Stat n={s.uniReq} l={`${REG_SEASON} children needing a uniform`} to="kit" />
+        <Stat n={s.bootReq} l="boot requests not yet sorted" to="kit" warn={s.bootReq > 0} />
         <Stat n={s.kitOut} l="jerseys out / outstanding" to="kit" />
         <Stat n={s.users} l="site accounts" to="people" />
       </div>
@@ -116,6 +121,10 @@ function Players() {
           { key: 'fv_registered', label: 'FV reg', type: 'bool' }, { key: 'fees_paid', label: 'Paid', type: 'bool' },
           { key: 'medical_notes', label: 'Medical', type: 'textarea', width: 140 },
           { key: 'photo_consent', label: 'Photos', type: 'bool' },
+          { key: 'needs_uniform', label: 'Uniform', type: 'bool' }, { key: 'uniform_size', label: 'U size', width: 60 },
+          { key: 'needs_boots', label: 'Boots', type: 'bool' }, { key: 'boot_size', label: 'Boot size', width: 60 },
+          { key: 'boots_status', label: 'Boots status', type: 'select', options: [['none', '—'], ['requested', 'Requested'], ['allocated', 'Allocated'], ['waitlist', 'Waitlist'], ['returned', 'Returned']], width: 105 },
+          { key: 'bond_paid', label: 'Bond paid', type: 'bool' }, { key: 'bond_refunded', label: 'Bond back', type: 'bool' },
           { key: 'committee_notes', label: 'Committee notes', type: 'textarea', width: 140 },
         ]}
         rowActions={(r, reload) => <>
@@ -226,11 +235,10 @@ function KitRequests() {
   async function set(id, patch) { const { error } = await supabase.from('players').update(patch).eq('id', id); setErr(error?.message || ''); load() }
   const boots = rows.filter((r) => r.needs_boots)
   const out = boots.filter((r) => r.boots_status === 'allocated').length
-  const avail = parseInt(s.boots_available, 10)
   return (
     <section className="card">
       <h3>{REG_SEASON} uniform and boots requests</h3>
-      <p className="small muted">Asked for on the registration form. Boots: {boots.length} requested · {out} allocated{Number.isFinite(avail) ? ` · ${Math.max(avail - out, 0)} of ${avail} pairs left` : ' · set "Loan boots available" in Fees & settings'}. Bond: {s.boots_bond || 'TBA'} (boots){s.uniform_bond ? `, ${s.uniform_bond} (uniform)` : ''}. {isExec ? 'Requests are in order of registration – first in, first served.' : 'Only the executive can allocate boots or record bonds.'}</p>
+      <p className="small muted">Asked for on the registration form. Boots: {boots.length} requested · {out} allocated (supply varies year to year). Bonds: boots {s.boots_bond || 'TBA'}, uniform {s.uniform_bond || 'TBA'}. {isExec ? 'Requests are in order of registration – first in, first served.' : 'Only the executive can allocate boots or record bonds.'}</p>
       {err && <p className="err">{err}</p>}
       {rows.length === 0 ? <p className="muted">No requests yet.</p> : (
         <div className="table-wrap"><table>
@@ -441,6 +449,7 @@ function Approvals() {
       {players.length > 0 && <div className="table-wrap"><table><thead><tr><th>Player</th><th>Born</th><th>Season</th><th>Parent</th><th>Medical</th><th>FV reg</th><th>Paid</th><th /></tr></thead>
         <tbody>{players.map((p) => { const g = people[p.player_guardians?.[0]?.profile_id]; return (
           <tr key={p.id}><td><b>{p.first_name} {p.last_name}</b>{p.committee_notes && <><br /><span className="small muted">{p.committee_notes}</span></>}
+            <KitTags p={p} />
             {dupes[p.id] && <div className="release">⚠ Possible duplicate: same name and birthday already registered ({dupes[p.id].map((d) => `${d.season} ${d.status}`).join(', ')}). Check before approving.</div>}</td><td>{p.dob ? fmtDate(p.dob) : ''}</td><td>{p.season}</td>
             <td>{g ? <>{g.full_name || g.email}<br /><span className="small muted">{g.phone}</span></> : <span className="muted">not linked</span>}</td>
             <td className={p.medical_notes ? 'alert' : 'muted'}>{p.medical_notes || '—'}</td><td>{p.fv_registered ? '✓' : '—'}</td><td>{p.fees_paid ? '✓' : '—'}</td>
@@ -554,10 +563,10 @@ function Directory() {
   if (!isExec) return <div className="card"><p>Visible to the executive committee only.</p></div>
   const shown = rows.filter((r) => (!team || r.team_id === team || (team === 'none' && !r.team_id)) && (!status || r.status === status)
     && (!q || `${r.first_name} ${r.last_name} ${r.guardians.map((g) => g.full_name + g.email).join(' ')}`.toLowerCase().includes(q.toLowerCase())))
-  const counts = { total: shown.length, fv: shown.filter((r) => r.fv_registered).length, paid: shown.filter((r) => r.fees_paid).length, med: shown.filter((r) => r.medical_notes).length }
+  const counts = { total: shown.length, fv: shown.filter((r) => r.fv_registered).length, paid: shown.filter((r) => r.fees_paid).length, med: shown.filter((r) => r.medical_notes).length, uni: shown.filter((r) => r.needs_uniform).length, boots: shown.filter((r) => r.needs_boots).length }
   function copy() {
-    const head = ['First', 'Last', 'DOB', 'Age group', 'Team', 'Status', 'FV registered', 'Paid', 'Medical', 'Photo OK', 'Emergency contact', 'Guardian', 'Guardian phone', 'Guardian email']
-    const lines = shown.map((r) => [r.first_name, r.last_name, r.dob, ageGroupFor(r.dob, r.season), r.teams?.name || '', r.status, r.fv_registered ? 'Y' : 'N', r.fees_paid ? 'Y' : 'N', r.medical_notes || '', r.photo_consent ? 'Y' : 'N', r.emergency_contact || '',
+    const head = ['First', 'Last', 'DOB', 'Age group', 'Team', 'Status', 'FV registered', 'Paid', 'Medical', 'Photo OK', 'Uniform / boots', 'Emergency contact', 'Guardian', 'Guardian phone', 'Guardian email']
+    const lines = shown.map((r) => [r.first_name, r.last_name, r.dob, ageGroupFor(r.dob, r.season), r.teams?.name || '', r.status, r.fv_registered ? 'Y' : 'N', r.fees_paid ? 'Y' : 'N', r.medical_notes || '', r.photo_consent ? 'Y' : 'N', kitText(r), r.emergency_contact || '',
       r.guardians.map((g) => g.full_name).join(' / '), r.guardians.map((g) => g.phone || '').join(' / '), r.guardians.map((g) => g.email).join(' / ')].join('\t'))
     navigator.clipboard.writeText([head.join('\t'), ...lines].join('\n')).then(() => setCopied('Copied – paste into a spreadsheet.'), () => setCopied('Copy blocked by the browser.'))
   }
@@ -573,12 +582,13 @@ function Directory() {
       </div>
       {adding && <AddFamily teams={teams.filter((t) => t.season === REG_SEASON)} onClose={(m) => { setAdding(false); if (m) setCopied(m); setReload((x) => x + 1) }} />}
       {custodyFor && <CustodyModal player={custodyFor} onClose={() => { setCustodyFor(null); setReload((x) => x + 1) }} />}
-      <p className="small muted">{counts.total} players · {counts.fv} FV registered · {counts.paid} paid · {counts.med} with medical notes. Edit details under <NavLink to="/committee/players">Edit players</NavLink>.</p>
+      <p className="small muted">{counts.total} players · {counts.fv} FV registered · {counts.paid} paid · {counts.med} with medical notes · {counts.uni} need a uniform · {counts.boots} asked for boots. Edit details under <NavLink to="/committee/players">Edit players</NavLink>.</p>
       <div className="table-wrap"><table className="dir">
         <thead><tr><th>Player</th><th>Team</th><th>Status</th><th>FV</th><th>Paid</th><th>Medical</th><th>Photos</th><th>Parent / guardian</th><th>Emergency</th></tr></thead>
         <tbody>{shown.map((r) => <tr key={r.id}>
           <td><b>{r.first_name} {r.last_name}</b><br /><span className="small muted">{r.dob ? fmtDate(r.dob, { day: 'numeric', month: 'short', year: 'numeric' }) : ''} · {ageGroupFor(r.dob, r.season)}</span>
             {r.release_check && <div className="release">⚠ Release check</div>}
+            <KitTags p={r} />
             <div><button className="link small" onClick={() => setCustodyFor(r)}>{r.custody?.custody_note || r.release_check ? 'Custody note' : '+ custody note'}</button></div></td>
           <td>{r.teams?.name || <span className="muted">TBA</span>}</td>
           <td><span className={'pill ' + ({ approved: 'good', pending: 'wait', withdrawn: 'bad' }[r.status])}>{r.status === 'pending' ? 'awaiting' : r.status}</span></td>
