@@ -34,12 +34,13 @@ export default function Privacy() {
       <p><b>How we use it:</b></p>
       <ul>
         <li>An executive committee member checks that your card is current using the Service Victoria WWC status check.</li>
-        <li>They connect you to the club in WWC Connect, which has been required in Victoria since October 2026. This means the club is told if your check status changes.</li>
+        <li>They connect you to the club in WWC Connect, which has been required in Victoria since 19 October 2026. To do this the club gives the Social Services Regulator (through Service Victoria) your name, WWCC card number, address, email and phone number. The Regulator then tells the club if your check status changes.</li>
+        <li>If you change your name, address, email or phone on this site, the executive updates WWC Connect within 21 days, as the law requires. When you stop volunteering, they disconnect you within 21 days.</li>
         <li>We record the date each step was done. Your coach, committee or volunteer role is only switched on once both are complete.</li>
         <li>We use the expiry date to remind you (and the executive) to renew before it runs out.</li>
         <li>If a check is suspended, revoked or expires, the role is switched off until it's sorted.</li>
       </ul>
-      <p><b>Who sees it:</b> only you and the executive committee. Coaches, other committee members and parents cannot see your WWCC details. We don't share them with anyone except Service Victoria (through the checks above), or Football Victoria if it asks us to confirm a coach or official is checked.</p>
+      <p><b>Who sees it:</b> only you and the executive committee. Coaches, other committee members and parents cannot see your WWCC details. We don't share them with anyone except Service Victoria and the Social Services Regulator (through the steps above), or Football Victoria if it asks us to confirm a coach or official is checked.</p>
 
       <h2>Gala results</h2>
       <p>Scores and results are shown on the public website. Goal scorers and end-of-season awards include children's first names, so they're only shown to signed-in club families.</p>
@@ -53,7 +54,7 @@ export default function Privacy() {
       <h2>How long we keep it</h2>
       <ul>
         <li>Player registrations are kept for the current and previous season so returning families don't have to start again, then reviewed by the committee.</li>
-        <li>Working With Children Check records and card images are deleted when someone stops volunteering, and at the latest 12 months after their last approved role.</li>
+        <li>Working With Children Check records and card images are deleted from this site when someone stops volunteering, and at the latest 12 months after their last approved role. The record of your connection in WWC Connect is held by the Regulator, and the law requires clubs to be able to show it for at least 7 years after you stop.</li>
         <li>You can ask us to delete your account and your children's records at any time, unless we must keep something to meet a legal or insurance obligation.</li>
       </ul>
 

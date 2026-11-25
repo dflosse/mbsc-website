@@ -74,6 +74,7 @@ export default function App() {
             <NavLink to="/galas">Gala days</NavLink>
             <NavLink to="/teams">Teams</NavLink>
             <NavLink to="/football-victoria">Football Victoria</NavLink>
+            <NavLink to="/privacy">Privacy</NavLink>
             {user && <NavLink to="/family">My family</NavLink>}
             {user && <NavLink to="/board">Messages</NavLink>}
             {user && <NavLink to="/volunteer">Volunteer</NavLink>}

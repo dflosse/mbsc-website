@@ -17,7 +17,7 @@ export default function Committee() {
     <div className="wrap wide">
       <h1>Committee</h1>
       <div className="tabs">
-        {[['overview', 'Overview'], ['approvals', 'Approve applications'], ['directory', 'Registered players'], ['wwcc', 'WWCC register'], ['players', 'Edit players'], ['galas', 'Galas'], ['tasks', 'Action list'], ['kit', 'Uniforms'], ['teams', 'Teams'], ['people', 'People & access'], ['docs', 'Documents'], ['roles', 'Committee roles'], ['treasurer', 'Treasurer'], ['settings', 'Fees & settings'], ['audit', 'Change log']].filter(([p]) => isExec || !EXEC_ONLY.includes(p)).map(([p, l]) => <NavLink key={p} to={'/committee/' + p} className={EXEC_ONLY.includes(p) ? 'exec' : ''}>{l}</NavLink>)}
+        {[['overview', 'Overview'], ['approvals', 'Approve applications'], ['directory', 'Registered players'], ['wwcc', 'WWCC register'], ['players', 'Edit players'], ['galas', 'Galas'], ['tasks', 'Action list'], ['kit', 'Uniforms'], ['registers', 'Keys & assets'], ['contacts', 'Contacts & handover'], ['teams', 'Teams'], ['people', 'People & access'], ['docs', 'Documents'], ['roles', 'Committee roles'], ['treasurer', 'Treasurer'], ['settings', 'Fees & settings'], ['audit', 'Change log']].filter(([p]) => isExec || !EXEC_ONLY.includes(p)).map(([p, l]) => <NavLink key={p} to={'/committee/' + p} className={EXEC_ONLY.includes(p) ? 'exec' : ''}>{l}</NavLink>)}
       </div>
       {!isExec && <p className="muted small">Children's details, approvals and the WWCC register are visible to the executive committee only.</p>}
       <Routes>
@@ -30,6 +30,8 @@ export default function Committee() {
         <Route path="galas" element={<Galas />} />
         <Route path="tasks" element={<Tasks />} />
         <Route path="kit" element={<Kit />} />
+        <Route path="registers" element={<Registers />} />
+        <Route path="contacts" element={<Contacts />} />
         <Route path="teams" element={<Teams />} />
         <Route path="people" element={<People />} />
         <Route path="docs" element={<Docs />} />
@@ -430,7 +432,7 @@ function Approvals() {
       {!isExec && <div className="card callout"><p>You can see what's waiting, but only the <b>executive committee</b> (President, Vice President, Secretary, Treasurer) can sign off.</p></div>}
       {msg && <p className="ok">{msg}</p>}
       <h2>Coaches, committee & volunteers ({apps.length})</h2>
-      <p className="muted small">Before approving: 1) check the card with the <a href="https://service.vic.gov.au/workchecks" target="_blank" rel="noreferrer">WWC status checker (Service Victoria)</a>, 2) connect the person to the club in WWC Connect. Both are required by Victorian law from 19 Oct 2026, and the site won't let you approve until both are ticked.</p>
+      <p className="muted small">Before approving: 1) check the card with the <a href={WWC_STATUS_URL} target="_blank" rel="noreferrer">WWC status checker</a>, 2) connect the person to the club in <a href={WWC_CONNECT_URL} target="_blank" rel="noreferrer">WWC Connect</a>. Both are required by Victorian law from 19 Oct 2026, and the site won't let you approve until both are ticked.</p>
       {apps.length === 0 && <p className="muted">Nothing waiting.</p>}
       <div className="cards wide">
         {apps.map((a) => {
@@ -479,6 +481,16 @@ function Approvals() {
   )
 }
 
+const WWC_STATUS_URL = 'https://www.service.vic.gov.au/services/working-with-children-check-status-checker/home'
+const WWC_CONNECT_URL = 'https://service.vic.gov.au/find-services/work-and-volunteering/working-with-children-connect'
+const daysSince = (d) => d ? Math.floor((Date.now() - new Date(d).getTime()) / 864e5) : null
+
+function csvCell(v) { const t = String(v ?? ''); return /[",\n]/.test(t) ? '"' + t.replace(/"/g, '""') + '"' : t }
+function downloadCsv(name, head, rows) {
+  const blob = new Blob([[head, ...rows].map((r) => r.map(csvCell).join(',')).join('\n')], { type: 'text/csv' })
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; a.click()
+}
+
 function WWCCRegister() {
   const { isExec } = useAuth()
   const [rows, setRows] = useState([])
@@ -490,28 +502,116 @@ function WWCCRegister() {
     const { error } = await supabase.from('wwcc').delete().eq('profile_id', p.id)
     setNote(error ? error.message : 'Deleted.'); setReload((x) => x + 1)
   }
+  async function patch(pid, fields, msg) {
+    const { error } = await supabase.from('wwcc').update(fields).eq('profile_id', pid)
+    setNote(error ? error.message : msg); setReload((x) => x + 1)
+  }
+  async function act(p, what) {
+    const { data: me } = await supabase.auth.getSession()
+    const uid = me.session.user.id, now = new Date().toISOString()
+    if (what === 'check') return patch(p.id, { status_checked_at: now, status_checked_by: uid }, 'Status check recorded.')
+    if (what === 'connect') return patch(p.id, { wwc_connected_at: now, wwc_connected_by: uid, disconnected_at: null, disconnected_by: null, confirmed_at: now.slice(0, 10) }, 'Connection recorded.')
+    if (what === 'updated') return patch(p.id, { details_changed_at: null }, 'Marked as updated in WWC Connect.')
+    if (what === 'confirm') return patch(p.id, { confirmed_at: now.slice(0, 10) }, 'Yearly check recorded.')
+    if (what === 'disconnect') {
+      if (!window.confirm(`Record that ${p.full_name || p.email} has stopped volunteering and been disconnected in WWC Connect?`)) return
+      return patch(p.id, { disconnected_at: now, disconnected_by: uid }, 'Disconnection recorded. Remember to remove their access in People & access.')
+    }
+  }
   useEffect(() => {
+    if (!isExec) return
     (async () => {
       const { data: pr } = await supabase.from('profiles').select('*').in('role', ['volunteer', 'coach', 'committee', 'admin']).order('full_name')
       const ids = (pr || []).map((p) => p.id)
       const { data: w } = await supabase.from('wwcc').select('*')
       const wm = Object.fromEntries((w || []).map((x) => [x.profile_id, x]))
-      const { data: vr } = await supabase.from('volunteer_roles').select('profile_id, season, status').eq('status', 'approved').gte('season', PREV_SEASON)
-      const active = new Set((vr || []).map((x) => x.profile_id))
+      const { data: vr } = await supabase.from('volunteer_roles').select('profile_id, season, status, kind, created_at').eq('status', 'approved').gte('season', PREV_SEASON)
+      const roleOf = {}; for (const v of vr || []) roleOf[v.profile_id] = v
       const extra = (w || []).filter((x) => !ids.includes(x.profile_id)).map((x) => x.profile_id)
       const { data: pr2 } = extra.length ? await supabase.from('profiles').select('*').in('id', extra) : { data: [] }
-      setRows([...(pr || []), ...(pr2 || [])].map((p) => ({ p, w: wm[p.id], active: active.has(p.id) || ['committee', 'admin'].includes(p.role) })))
+      setRows([...(pr || []), ...(pr2 || [])].map((p) => ({ p, w: wm[p.id], vr: roleOf[p.id], active: !!roleOf[p.id] || ['committee', 'admin'].includes(p.role) })))
     })()
-  }, [reload])
+  }, [reload, isExec])
   if (!isExec) return <div className="card"><p>The WWCC register is visible to the executive committee only.</p></div>
   const sorted = [...rows].sort((a, b) => (a.w?.expiry || '0') > (b.w?.expiry || '0') ? 1 : -1)
+  const todo = []
+  for (const { p, w, active } of rows) {
+    const n = p.full_name || p.email
+    if (!w) continue
+    if (active && !w.status_checked_at) todo.push(`${n}: check their card in the status checker`)
+    if (active && w.status_checked_at && !w.wwc_connected_at) todo.push(`${n}: connect in WWC Connect (within 21 days of starting)`)
+    if (w.details_changed_at && w.wwc_connected_at && !w.disconnected_at) todo.push(`${n}: contact details changed – update WWC Connect within 21 days (changed ${fmtDate(w.details_changed_at.slice(0, 10))})`)
+    if (!active && w.wwc_connected_at && !w.disconnected_at) todo.push(`${n}: no longer active – disconnect in WWC Connect within 21 days`)
+    if (active && w.wwc_connected_at && !w.disconnected_at && daysSince(w.confirmed_at || w.wwc_connected_at) > 365) todo.push(`${n}: yearly check – confirm they're still volunteering`)
+  }
+  function exportCsv() {
+    const live = rows.filter((r) => r.w && r.active && !r.w.disconnected_at)
+    downloadCsv('wwc-connect-' + new Date().toISOString().slice(0, 10) + '.csv',
+      ['Family name', 'Given names', 'WWC card number', 'Card type', 'Expiry', 'Email', 'Phone', 'Address', 'Engagement type', 'Club role', 'Start date'],
+      live.map(({ p, w, vr }) => { const parts = (p.full_name || '').trim().split(/\s+/); const last = parts.length > 1 ? parts.pop() : ''; return [last, parts.join(' '), w.card_number, w.card_type, w.expiry, p.email, p.phone, p.address, 'Volunteer', vr?.kind || p.role, (vr?.created_at || p.created_at || '').slice(0, 10)] }))
+  }
   return (
     <>
-      <p className="muted small">Everyone with coach, volunteer or committee access, plus anyone else with a card on file. Sorted by expiry, so problems are at the top; under 60 days to expiry is flagged. <b>Retention rule:</b> delete a person's WWCC record once they stop volunteering, and no later than 12 months after their last approved role – people with no approved role this season or last are marked "Not active".</p>
+      <div className="card callout">
+        <h3 style={{ marginTop: 0 }}>Victorian law from 19 October 2026</h3>
+        <ol className="small">
+          <li><b>Check</b> every card in the <a href={WWC_STATUS_URL} target="_blank" rel="noreferrer">WWC status checker</a> (family name + card number) before they start. Seeing the card isn't enough.</li>
+          <li><b>Connect</b> them to the club in <a href={WWC_CONNECT_URL} target="_blank" rel="noreferrer">WWC Connect</a> within 21 days of starting. The Regulator then tells us if their clearance changes.</li>
+          <li><b>Update</b> WWC Connect within 21 days if their name, address, email or phone changes – this page flags it automatically.</li>
+          <li><b>Disconnect</b> within 21 days when they stop (with an end date). Check yearly that ongoing volunteers are continuing. Keep records 7 years.</li>
+        </ol>
+        <div className="row"><a className="btn small" href={WWC_CONNECT_URL} target="_blank" rel="noreferrer">Open WWC Connect</a><a className="btn small ghost" href={WWC_STATUS_URL} target="_blank" rel="noreferrer">Open status checker</a><button className="btn small ghost" onClick={exportCsv}>Download list for WWC Connect (CSV)</button></div>
+      </div>
+      {todo.length > 0 && <div className="card"><h3 style={{ marginTop: 0 }}>To do ({todo.length})</h3><ul className="small">{todo.map((t) => <li key={t}>{t}</li>)}</ul></div>}
       {note && <p className="ok">{note}</p>}
-      <div className="table-wrap"><table><thead><tr><th>Name</th><th>Access</th><th>Card</th><th>Expiry</th><th>Status</th><th>Active?</th><th /></tr></thead>
-        <tbody>{sorted.map(({ p, w, active }) => { const [cls, label] = wwccState(w); return <tr key={p.id}><td>{p.full_name || p.email}</td><td>{p.role}{p.is_executive ? ' · exec' : ''}</td><td>{w?.card_number || '—'}</td><td>{w ? fmtDate(w.expiry) : '—'}</td><td><span className={'pill ' + cls}>{label}</span></td>
+      <h2>People with a site account</h2>
+      <p className="muted small">Sorted by expiry, so problems are at the top. <b>Retention:</b> delete a WWCC record once someone stops volunteering, no later than 12 months after their last role (WWC Connect keeps the 7-year history).</p>
+      <div className="table-wrap"><table><thead><tr><th>Name</th><th>Access</th><th>Card</th><th>Expiry</th><th>Status</th><th>Checked</th><th>WWC Connect</th><th>Active?</th><th /></tr></thead>
+        <tbody>{sorted.map(({ p, w, active }) => { const [cls, label] = wwccState(w); return <tr key={p.id}><td>{p.full_name || p.email}<br /><span className="small muted">{p.phone || 'no phone'} · {p.address ? 'address ✓' : 'no address'}</span></td><td>{p.role}{p.is_executive ? ' · exec' : ''}</td><td>{w?.card_number || '—'}<br /><span className="small muted">{w?.card_type}</span></td><td>{w ? fmtDate(w.expiry) : '—'}</td><td><span className={'pill ' + cls}>{label}</span></td>
+          <td className="small">{w ? (w.status_checked_at ? fmtDate(w.status_checked_at.slice(0, 10)) : <button className="btn small ghost" onClick={() => act(p, 'check')}>Mark checked</button>) : '—'}</td>
+          <td className="small">{!w ? '—' : w.disconnected_at ? <>Disconnected {fmtDate(w.disconnected_at.slice(0, 10))}</> : w.wwc_connected_at ? <>Connected {fmtDate(w.wwc_connected_at.slice(0, 10))}
+            {w.details_changed_at && <><br /><span className="pill wait">Details changed</span> <button className="link" onClick={() => act(p, 'updated')}>Updated ✓</button></>}
+            {daysSince(w.confirmed_at || w.wwc_connected_at) > 330 && <><br /><button className="link" onClick={() => act(p, 'confirm')}>Yearly check done</button></>}
+            <br /><button className="link danger" onClick={() => act(p, 'disconnect')}>Disconnected…</button></> : <button className="btn small ghost" onClick={() => act(p, 'connect')}>Mark connected</button>}</td>
           <td>{active ? 'Yes' : <span className="pill wait">Not active</span>}</td><td>{w && <button className="link danger" onClick={() => purge(p, w)}>Delete record</button>}</td></tr> })}</tbody></table></div>
+      <h2>People without a site account</h2>
+      <p className="muted small">Brought across from the old Operations Doc. Once a person signs up on the site and uploads their card, delete their row here. Dates are the day you did each step.</p>
+      <EditTable table="wwcc_offline" order={[['season', false], ['last_name']]} search={['last_name', 'first_name', 'club_role', 'notes']} defaults={{ season: REG_SEASON }}
+        cols={[{ key: 'season', label: 'Season', type: 'number', width: 70 }, { key: 'last_name', label: 'Family name', width: 110 }, { key: 'first_name', label: 'Given name', width: 100 },
+          { key: 'club_role', label: 'Role', width: 90 }, { key: 'card_number', label: 'Card no.', width: 110 }, { key: 'card_type', label: 'Type', type: 'select', options: [['Volunteer', 'Volunteer'], ['Employee', 'Employee'], ['VIT', 'VIT teacher']], width: 100 },
+          { key: 'expiry', label: 'Expiry', type: 'date' }, { key: 'email', label: 'Email', width: 140 }, { key: 'phone', label: 'Phone', width: 100 }, { key: 'address', label: 'Address', width: 160 },
+          { key: 'status_checked_at', label: 'Checked', type: 'date' }, { key: 'wwc_connected_at', label: 'Connected', type: 'date' }, { key: 'confirmed_at', label: 'Yearly check', type: 'date' }, { key: 'disconnected_at', label: 'Disconnected', type: 'date' },
+          { key: 'notes', label: 'Notes', type: 'textarea', width: 180 }]} />
+    </>
+  )
+}
+
+function Registers() {
+  return (
+    <>
+      <h2>Key register</h2>
+      <p className="muted small">Who holds which key. When a key comes back, tick "Returned" rather than deleting the row, so the history stays.</p>
+      <EditTable table="keys" order={[['sort'], ['key_no']]} search={['key_no', 'holder', 'location', 'notes']} defaults={{ key_no: 'New' }}
+        cols={[{ key: 'key_no', label: 'Key', width: 60 }, { key: 'location', label: 'Opens', width: 220 }, { key: 'holder', label: 'Held by', width: 160 }, { key: 'issued', label: 'Issued', width: 70 }, { key: 'returned', label: 'Returned', type: 'bool' }, { key: 'notes', label: 'Notes', type: 'textarea', width: 240 }, { key: 'sort', label: 'Order', type: 'number', width: 50 }]} />
+      <h2>Asset register</h2>
+      <p className="muted small">Club equipment, what it cost and its condition. Jerseys by number are on the Uniforms tab.</p>
+      <EditTable table="assets" order={[['sort'], ['category']]} search={['category', 'brand', 'notes', 'location']} defaults={{ category: 'New item' }}
+        cols={[{ key: 'category', label: 'Item', width: 140 }, { key: 'brand', label: 'Brand / supplier', width: 120 }, { key: 'quantity', label: 'Qty', type: 'textarea', width: 140 }, { key: 'sizes', label: 'Sizes', type: 'textarea', width: 180 }, { key: 'value', label: 'Cost', type: 'textarea', width: 150 }, { key: 'year', label: 'Year', width: 70 }, { key: 'condition', label: 'Condition', type: 'textarea', width: 150 }, { key: 'location', label: 'Stored', width: 110 }, { key: 'notes', label: 'Notes', type: 'textarea', width: 160 }, { key: 'sort', label: 'Order', type: 'number', width: 50 }]} />
+    </>
+  )
+}
+
+function Contacts() {
+  return (
+    <>
+      <h2>Key contacts</h2>
+      <p className="muted small">Bookings, the Shire, Football Victoria and suppliers. Account passwords never go here – keep them in a password manager.</p>
+      <EditTable table="contacts" order={[['sort'], ['topic']]} search={['topic', 'name', 'organisation', 'notes']} defaults={{ topic: 'New contact' }}
+        cols={[{ key: 'topic', label: 'For', width: 140 }, { key: 'name', label: 'Name', width: 120 }, { key: 'organisation', label: 'Organisation', width: 170 }, { key: 'phone', label: 'Phone', width: 110 }, { key: 'email', label: 'Email', width: 190 }, { key: 'notes', label: 'Notes', type: 'textarea', width: 240 }, { key: 'sort', label: 'Order', type: 'number', width: 50 }]} />
+      <h2>Handover notes</h2>
+      <p className="muted small">How the club works – the things a new President, Secretary or committee member needs to know.</p>
+      <EditTable table="club_notes" order={[['sort'], ['category']]} search={['category', 'title', 'body']} defaults={{ title: 'New note' }}
+        cols={[{ key: 'category', label: 'Area', width: 100 }, { key: 'title', label: 'Topic', width: 170 }, { key: 'body', label: 'Notes', type: 'textarea', width: 520 }, { key: 'sort', label: 'Order', type: 'number', width: 50 }]} />
     </>
   )
 }
