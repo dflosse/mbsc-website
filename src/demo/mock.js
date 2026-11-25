@@ -183,7 +183,7 @@ export const mockSupabase = {
     mfa: {
       getAuthenticatorAssuranceLevel: async () => ({ data: me() ? { currentLevel: 'aal2', nextLevel: 'aal2' } : { currentLevel: 'aal1', nextLevel: 'aal1' } }),
       listFactors: async () => ({ data: { totp: me() ? [{ id: 'f1', status: 'verified', friendly_name: 'Authenticator (demo)' }] : [], all: [] } }),
-      enroll: async () => ({ data: { id: 'f2', totp: { qr_code: '', secret: 'DEMO-ONLY' } } }),
+      enroll: async () => ({ data: { id: 'f2', totp: { qr_code: '', secret: 'DEMO-ONLY', uri: 'otpauth://totp/Mount%20Beauty%20FC:demo?secret=DEMO&issuer=Mount%20Beauty%20FC' } } }),
       challengeAndVerify: async () => ({ error: null }), unenroll: async () => ({ error: null }),
     },
     getSession: async () => ({ data: { session: session() } }),

@@ -12,6 +12,21 @@ async function ensureSession() {
   return !!data?.session
 }
 
+const device = () => {
+  const ua = navigator.userAgent || ''
+  if (/iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1)) return 'iphone'
+  if (/Android/.test(ua)) return 'android'
+  if (/Macintosh|Mac OS X/.test(ua)) return 'mac'
+  return 'pc'
+}
+const DEVICE_NAME = { iphone: 'iPhone', android: 'Android', mac: 'Mac', pc: 'Computer' }
+const HOW = {
+  iphone: { title: 'On iPhone', steps: ['Tap "Add to this iPhone" below. Your iPhone opens Passwords (built in – nothing to install) and asks where to save the code. Save it to your Mount Beauty FC login, or as a new entry.', 'Come back here and type the 6-digit code it shows. When you sign in later on this iPhone, Safari offers the code above the keyboard – just tap it.', 'Prefer an app? Google Authenticator or Microsoft Authenticator (free) work too – the same button opens them.'] },
+  android: { title: 'On Android', steps: ['Install Google Authenticator from the Play Store (free) if you don’t have it – or use Microsoft Authenticator.', 'Tap "Add to this phone" below – the app opens and adds Mount Beauty FC. (If nothing happens, open the app, tap +, choose "Enter a setup key" and paste the key.)', 'Come back here and type the 6-digit code it shows.'] },
+  mac: { title: 'On a Mac', steps: ['Easiest: open the camera or authenticator app on your phone and scan the QR code below.', 'Or use the Mac’s Passwords app: open your Mount Beauty FC entry → Edit → Set Up Verification Code → Enter Setup Key, and paste the key below. Safari will then fill the code in for you.', 'Type the 6-digit code to finish.'] },
+  pc: { title: 'On a Windows PC', steps: ['Get your phone. iPhone: open the Camera and point it at the QR code below – it offers to add the code to Passwords. Android: open Google Authenticator, tap +, then "Scan a QR code".', 'Type the 6-digit code your phone shows into the box below.', 'From then on, each time you sign in on a new computer you’ll just check your phone for the code.'] },
+}
+
 export default function Security() {
   const { refresh, elevated, mfaEnrolled, needsMfa } = useAuth()
   const nav = useNavigate()
@@ -20,6 +35,8 @@ export default function Security() {
   const [enroll, setEnroll] = useState(null)
   const [code, setCode] = useState('')
   const [msg, setMsg] = useState(null)
+  const [dev, setDev] = useState(device())
+  const [copied, setCopied] = useState(false)
 
   async function load() {
     const { data } = await supabase.auth.mfa.listFactors()
@@ -33,7 +50,7 @@ export default function Security() {
     // clear any half-finished setup first
     const { data: all } = await supabase.auth.mfa.listFactors()
     for (const f of (all?.all || []).filter((x) => x.status !== 'verified')) await supabase.auth.mfa.unenroll({ factorId: f.id })
-    const { data, error } = await supabase.auth.mfa.enroll({ factorType: 'totp', friendlyName: 'Authenticator ' + new Date().toISOString().slice(0, 10) })
+    const { data, error } = await supabase.auth.mfa.enroll({ factorType: 'totp', issuer: 'Mount Beauty FC', friendlyName: DEVICE_NAME[device()] + ' ' + new Date().toISOString().slice(0, 10) })
     if (error) return setMsg({ ok: false, text: error.message })
     setEnroll(data)
   }
@@ -56,13 +73,22 @@ export default function Security() {
   return (
     <div className="wrap narrow">
       <h1>Two-factor sign-in</h1>
-      <p className="lead">Executive, committee, coach and volunteer accounts can see children's details, so they need a second step at sign-in: a 6-digit code from an authenticator app on your phone.</p>
+      <p className="lead">Anyone who can see children's details – executive, committee, coaches and volunteers – signs in with a password <b>and</b> a 6-digit code from their phone. It takes about two minutes to set up.</p>
+      <div className="card callout">
+        <b>How it works</b>
+        <ul className="small" style={{ margin: '6px 0 0', paddingLeft: 18 }}>
+          <li>Your phone makes a new 6-digit code every 30 seconds. It works offline – no texts, no mobile reception needed.</li>
+          <li>You only enter a code when you sign in on a new device or after signing out. Stay signed in on your own phone and you won't be asked again.</li>
+          <li>iPhones and Macs have this built in (Passwords). On Android or a Windows PC, use the free Google Authenticator or Microsoft Authenticator app on your phone.</li>
+          <li>New phone? Add it here before you wipe the old one. Lost your phone? Ask the President or Secretary to reset it for you.</li>
+        </ul>
+      </div>
       {msg && <p className={'card ' + (msg.ok ? 'ok' : 'err')}>{msg.text}</p>}
 
       {needsMfa && mfaEnrolled && verified && (
         <div className="card form">
           <h3>Enter your code</h3>
-          <p>Open your authenticator app and type the current code for Mount Beauty FC.</p>
+          <p>Open Passwords (iPhone/Mac) or your authenticator app and type the current code for <b>Mount Beauty FC</b>.</p>
           <label>6-digit code<input inputMode="numeric" autoComplete="one-time-code" value={code} onChange={(e) => setCode(e.target.value)} maxLength={7} autoFocus /></label>
           <button className="btn" onClick={() => verify(verified.id)}>Continue</button>
         </div>
@@ -70,24 +96,27 @@ export default function Security() {
 
       {factors && factors.length === 0 && !enroll && (
         <div className="card">
-          <h3>Set it up (2 minutes)</h3>
-          <ol className="steps">
-            <li>Install a free authenticator app – Google Authenticator, Microsoft Authenticator, or your phone's built-in password manager (iPhone Passwords / Google Password Manager).</li>
-            <li>Tap the button below, then scan the QR code with the app.</li>
-            <li>Type the 6-digit code the app shows.</li>
-          </ol>
-          <button className="btn" onClick={start}>Set up two-factor sign-in</button>
+          <h3>Set it up</h3>
+          <p>Choose what you're using right now:</p>
+          <div className="tabs" style={{ margin: '0 0 10px' }}>{Object.entries(DEVICE_NAME).map(([k, l]) => <button key={k} className={dev === k ? 'on' : ''} onClick={() => setDev(k)}>{k === 'pc' ? 'Windows PC' : l}</button>)}</div>
+          <ol className="steps">{HOW[dev].steps.map((t, i) => <li key={i}>{t}</li>)}</ol>
+          <button className="btn" onClick={start}>Start set-up</button>
           {!elevated && <p className="small muted">Optional for parents, but recommended.</p>}
         </div>
       )}
 
       {enroll && (
         <div className="card form">
-          <h3>Scan this with your authenticator app</h3>
-          <img src={enroll.totp.qr_code} alt="QR code for your authenticator app" className="qr" />
-          <p className="small muted">Can't scan? Enter this key in the app instead: <code>{enroll.totp.secret}</code></p>
-          <label>6-digit code from the app<input inputMode="numeric" autoComplete="one-time-code" value={code} onChange={(e) => setCode(e.target.value)} maxLength={7} /></label>
-          <button className="btn" onClick={() => verify(enroll.id)}>Turn on</button>
+          <h3>{HOW[dev].title}</h3>
+          {['iphone', 'android'].includes(dev) && <a className="btn" href={enroll.totp.uri}>Add to this {dev === 'iphone' ? 'iPhone' : 'phone'}</a>}
+          {['iphone', 'android'].includes(dev) && <p className="small muted" style={{ margin: 0 }}>Setting up on a different device? Scan this QR code with it instead:</p>}
+          <img src={enroll.totp.qr_code} alt="QR code to add Mount Beauty FC to your authenticator" className="qr" />
+          <div className="row">
+            <span className="small muted">Setup key:</span><code className="setupkey">{enroll.totp.secret}</code>
+            <button type="button" className="btn small ghost" onClick={async () => { try { await navigator.clipboard.writeText(enroll.totp.secret); setCopied(true) } catch { setCopied(false) } }}>{copied ? 'Copied' : 'Copy key'}</button>
+          </div>
+          <label>Now type the 6-digit code it shows<input inputMode="numeric" autoComplete="one-time-code" value={code} onChange={(e) => setCode(e.target.value)} maxLength={7} placeholder="123456" /></label>
+          <div className="row"><button className="btn" onClick={() => verify(enroll.id)}>Turn on</button><button type="button" className="btn ghost" onClick={() => setEnroll(null)}>Cancel</button></div>
         </div>
       )}
 
@@ -95,7 +124,8 @@ export default function Security() {
         <div className="card">
           <p><span className="pill good">On</span> Two-factor sign-in is active on this account.</p>
           {factors.map((f) => <p key={f.id} className="small">{f.friendly_name || 'Authenticator'} <button className="link danger" onClick={() => remove(f)}>remove</button></p>)}
-          <p className="small muted">New phone? Set up the new one first, then remove the old one. Locked out? Ask an executive member – an admin can reset it in Supabase.</p>
+          {!enroll && <button className="btn small ghost" onClick={start}>Add another device (e.g. a new phone)</button>}
+          <p className="small muted">New phone? Add it first, then remove the old one. Lost your phone? Ask the President or Secretary to reset it.</p>
         </div>
       )}
     </div>

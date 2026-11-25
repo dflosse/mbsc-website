@@ -365,3 +365,5 @@ dl.mini dd { margin: 0; }
 @media (max-width: 760px) { .fvpair { grid-template-columns: 1fr; gap: 12px; } }
 .committee-only .grid2 { align-items: start; }
 .fvpair + .fvpair { margin-top: 18px; }
+
+.setupkey { word-break: break-all; background: var(--ground); padding: 4px 8px; border-radius: 6px; font-size: .85rem; }
