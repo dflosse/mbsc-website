@@ -1,21 +1,25 @@
 import { useEffect, useState, useCallback, useMemo } from 'react'
 import { NavLink, Routes, Route, Navigate } from 'react-router-dom'
-import { supabase, REG_SEASON, PREV_SEASON, fmtDate } from '../supabase'
+import { supabase, REG_SEASON, PREV_SEASON, fmtDate, ageGroupFor } from '../supabase'
 import { useAuth } from '../auth'
 import EditTable from './EditTable'
 import { wwccState } from './Volunteer'
 
 export default function Committee() {
+  const { isExec } = useAuth()
+  const EXEC_ONLY = ['approvals', 'directory', 'wwcc', 'players']
   return (
     <div className="wrap wide">
       <h1>Committee</h1>
       <div className="tabs">
-        {[['overview', 'Overview'], ['approvals', 'Approvals'], ['wwcc', 'WWCC register'], ['players', 'Players'], ['galas', 'Galas'], ['tasks', 'Action list'], ['kit', 'Uniforms'], ['teams', 'Teams'], ['people', 'People & access'], ['docs', 'Documents'], ['roles', 'Committee roles'], ['settings', 'Fees & settings']].map(([p, l]) => <NavLink key={p} to={'/committee/' + p}>{l}</NavLink>)}
+        {[['overview', 'Overview'], ['approvals', 'Approve applications'], ['directory', 'Registered players'], ['wwcc', 'WWCC register'], ['players', 'Edit players'], ['galas', 'Galas'], ['tasks', 'Action list'], ['kit', 'Uniforms'], ['teams', 'Teams'], ['people', 'People & access'], ['docs', 'Documents'], ['roles', 'Committee roles'], ['settings', 'Fees & settings']].filter(([p]) => isExec || !EXEC_ONLY.includes(p)).map(([p, l]) => <NavLink key={p} to={'/committee/' + p} className={EXEC_ONLY.includes(p) ? 'exec' : ''}>{l}</NavLink>)}
       </div>
+      {!isExec && <p className="muted small">Children's details, approvals and the WWCC register are visible to the executive committee only.</p>}
       <Routes>
         <Route index element={<Navigate to="overview" replace />} />
         <Route path="overview" element={<Overview />} />
         <Route path="approvals" element={<Approvals />} />
+        <Route path="directory" element={<Directory />} />
         <Route path="wwcc" element={<WWCCRegister />} />
         <Route path="players" element={<Players />} />
         <Route path="galas" element={<Galas />} />
@@ -323,11 +327,8 @@ function Approvals() {
     const { error } = await supabase.from('players').update({ status: ok ? 'approved' : 'withdrawn' }).eq('id', p.id)
     setMsg(error ? error.message : `${p.first_name} ${p.last_name} ${ok ? 'approved' : 'declined'}.`); load()
   }
-  async function decideVol(a, ok) {
-    const note = ok ? null : prompt('Reason (shown to the applicant)?') || null
-    const { error } = await supabase.rpc('decide_volunteer', { p_id: a.id, p_approve: ok, p_note: note })
-    setMsg(error ? error.message : `${people[a.profile_id]?.full_name || 'Applicant'} ${ok ? 'approved' : 'declined'}.`); load()
-  }
+  const [deciding, setDeciding] = useState(null)
+  function decideVol(a, ok) { setDeciding({ a, ok }) }
   async function mark(pid, field) {
     const { data: me } = await supabase.auth.getSession()
     const patch = field === 'status' ? { status_checked_at: new Date().toISOString(), status_checked_by: me.session.user.id } : { wwc_connected_at: new Date().toISOString(), wwc_connected_by: me.session.user.id }
@@ -344,7 +345,7 @@ function Approvals() {
     <>
       {!isExec && <div className="card callout"><p>You can see what's waiting, but only the <b>executive committee</b> (President, Vice President, Secretary, Treasurer) can sign off.</p></div>}
       {msg && <p className="ok">{msg}</p>}
-      <h2>Volunteers, coaches & committee ({apps.length})</h2>
+      <h2>Coaches, committee & volunteers ({apps.length})</h2>
       <p className="muted small">Before approving: 1) check the card with the <a href="https://service.vic.gov.au/workchecks" target="_blank" rel="noreferrer">WWC status checker (Service Victoria)</a>, 2) connect the person to the club in WWC Connect. Both are required by Victorian law from 19 Oct 2026, and the site won't let you approve until both are ticked.</p>
       {apps.length === 0 && <p className="muted">Nothing waiting.</p>}
       <div className="cards wide">
@@ -381,6 +382,7 @@ function Approvals() {
             <td>{g ? <>{g.full_name || g.email}<br /><span className="small muted">{g.phone}</span></> : <span className="muted">not linked</span>}</td>
             <td className={p.medical_notes ? 'alert' : 'muted'}>{p.medical_notes || '—'}</td><td>{p.fv_registered ? '✓' : '—'}</td><td>{p.fees_paid ? '✓' : '—'}</td>
             <td className="nowrap">{isExec && <><button className="btn small" onClick={() => decidePlayer(p, true)}>Approve</button> <button className="link danger" onClick={() => decidePlayer(p, false)}>Decline</button></>}</td></tr>) })}</tbody></table></div>}
+      {deciding && <DecideModal a={deciding.a} ok={deciding.ok} person={people[deciding.a.profile_id] || {}} onClose={(m) => { setDeciding(null); if (m) setMsg(m); load() }} />}
       {open && <div className="modal" onClick={() => setOpen(null)}><div className="card" onClick={(e) => e.stopPropagation()}><h3>WWCC card</h3>{/\.pdf/i.test(open.split('?')[0]) ? <a href={open} target="_blank" rel="noreferrer">Open PDF</a> : <img src={open} alt="WWCC card" style={{ maxWidth: '100%' }} />}<p className="small muted">This link expires in 2 minutes.</p><button className="btn small ghost" onClick={() => setOpen(null)}>Close</button></div></div>}
     </>
   )
@@ -405,6 +407,98 @@ function WWCCRegister() {
       <p className="muted small">Everyone with coach, volunteer or committee access. Sorted by expiry, so problems are at the top. Under 60 days to expiry is flagged.</p>
       <div className="table-wrap"><table><thead><tr><th>Name</th><th>Access</th><th>Card</th><th>Expiry</th><th>Status</th></tr></thead>
         <tbody>{sorted.map(({ p, w }) => { const [cls, label] = wwccState(w); return <tr key={p.id}><td>{p.full_name || p.email}</td><td>{p.role}{p.is_executive ? ' · exec' : ''}</td><td>{w?.card_number || '—'}</td><td>{w ? fmtDate(w.expiry) : '—'}</td><td><span className={'pill ' + cls}>{label}</span></td></tr> })}</tbody></table></div>
+    </>
+  )
+}
+
+const ACCESS = {
+  coach: 'Coach access: their team page, squad list with medical notes and photo permission, parents\' names and phone numbers, gala availability, coach messages and resources.',
+  executive: 'Executive access: everything – approvals, all registered children and guardians, WWCC register, finances and settings.',
+  committee: 'Committee access: committee portal (action list, galas, uniforms, documents, committee messages). Not children\'s personal details.',
+  volunteer: 'Volunteer access: volunteer messages and rosters. No children\'s personal details.',
+}
+function DecideModal({ a, ok, person, onClose }) {
+  const [teams, setTeams] = useState([])
+  const [roles, setRoles] = useState([])
+  const [team, setTeam] = useState(a.team_id || '')
+  const [role, setRole] = useState('')
+  const [note, setNote] = useState('')
+  const [err, setErr] = useState('')
+  useEffect(() => {
+    supabase.from('teams').select('id,name').eq('season', REG_SEASON).order('sort_order').then(({ data }) => setTeams(data || []))
+    supabase.from('committee_roles').select('*').eq('season', REG_SEASON).order('sort_order').then(({ data }) => setRoles(data || []))
+  }, [])
+  const roleOpts = roles.filter((r) => a.kind === 'executive' ? r.grp === 'Executive' : r.grp !== 'Executive')
+  async function go() {
+    const { error } = await supabase.rpc('decide_volunteer', { p_id: a.id, p_approve: ok, p_note: note || null, p_team: team || null, p_committee_role: role || null })
+    if (error) return setErr(error.message)
+    onClose(`${person.full_name || person.email} ${ok ? 'approved – access is now active' : 'declined'}.`)
+  }
+  const label = { coach: 'Coach', executive: 'Executive committee', committee: 'Committee', volunteer: 'Volunteer' }[a.kind]
+  return (
+    <div className="modal" onClick={() => onClose()}><div className="card form" onClick={(e) => e.stopPropagation()}>
+      <h3>{ok ? 'Approve' : 'Decline'}: {person.full_name || person.email} – {label}</h3>
+      {ok && a.kind === 'coach' && <label>Coaching which team?<select value={team} onChange={(e) => setTeam(e.target.value)}><option value="">Decide later</option>{teams.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}</select>{teams.length === 0 && <span className="small muted">No {REG_SEASON} teams yet – add them under Teams, then assign under People & access.</span>}</label>}
+      {ok && ['committee', 'executive'].includes(a.kind) && <label>Which role?<select value={role} onChange={(e) => setRole(e.target.value)}><option value="">Not yet decided</option>{roleOpts.map((r) => <option key={r.id} value={r.id}>{r.role}{r.person ? ` (currently ${r.person})` : ' – vacant'}</option>)}</select><span className="small muted">Their name is added to the public committee list.</span></label>}
+      <label>{ok ? 'Note to the applicant (optional)' : 'Reason (shown to the applicant)'}<input value={note} onChange={(e) => setNote(e.target.value)} /></label>
+      {ok && <p className="small callout card">{ACCESS[a.kind]}</p>}
+      {err && <p className="err">{err}</p>}
+      <div className="row"><button className="btn" onClick={go}>{ok ? 'Approve and activate' : 'Decline'}</button><button className="btn ghost small" onClick={() => onClose()}>Cancel</button></div>
+    </div></div>
+  )
+}
+
+function Directory() {
+  const { isExec } = useAuth()
+  const teams = useTeams()
+  const [season, setSeason] = useState(REG_SEASON)
+  const [rows, setRows] = useState([])
+  const [q, setQ] = useState('')
+  const [team, setTeam] = useState('')
+  const [status, setStatus] = useState('')
+  const [copied, setCopied] = useState('')
+  useEffect(() => {
+    (async () => {
+      const { data: ps } = await supabase.from('players').select('*, teams(name)').eq('season', season).order('last_name')
+      const ids = (ps || []).map((p) => p.id)
+      const { data: gs } = ids.length ? await supabase.from('player_guardians').select('player_id, profile_id').in('player_id', ids) : { data: [] }
+      const pids = [...new Set((gs || []).map((g) => g.profile_id))]
+      const { data: pr } = pids.length ? await supabase.from('profiles').select('id, full_name, email, phone, address').in('id', pids) : { data: [] }
+      const pm = Object.fromEntries((pr || []).map((x) => [x.id, x]))
+      setRows((ps || []).map((p) => ({ ...p, guardians: (gs || []).filter((g) => g.player_id === p.id).map((g) => pm[g.profile_id]).filter(Boolean) })))
+    })()
+  }, [season])
+  if (!isExec) return <div className="card"><p>Visible to the executive committee only.</p></div>
+  const shown = rows.filter((r) => (!team || r.team_id === team || (team === 'none' && !r.team_id)) && (!status || r.status === status)
+    && (!q || `${r.first_name} ${r.last_name} ${r.guardians.map((g) => g.full_name + g.email).join(' ')}`.toLowerCase().includes(q.toLowerCase())))
+  const counts = { total: shown.length, fv: shown.filter((r) => r.fv_registered).length, paid: shown.filter((r) => r.fees_paid).length, med: shown.filter((r) => r.medical_notes).length }
+  function copy() {
+    const head = ['First', 'Last', 'DOB', 'Age group', 'Team', 'Status', 'FV registered', 'Paid', 'Medical', 'Photo OK', 'Emergency contact', 'Guardian', 'Guardian phone', 'Guardian email']
+    const lines = shown.map((r) => [r.first_name, r.last_name, r.dob, ageGroupFor(r.dob, r.season), r.teams?.name || '', r.status, r.fv_registered ? 'Y' : 'N', r.fees_paid ? 'Y' : 'N', r.medical_notes || '', r.photo_consent ? 'Y' : 'N', r.emergency_contact || '',
+      r.guardians.map((g) => g.full_name).join(' / '), r.guardians.map((g) => g.phone || '').join(' / '), r.guardians.map((g) => g.email).join(' / ')].join('\t'))
+    navigator.clipboard.writeText([head.join('\t'), ...lines].join('\n')).then(() => setCopied('Copied – paste into a spreadsheet.'), () => setCopied('Copy blocked by the browser.'))
+  }
+  return (
+    <>
+      <div className="row">
+        <span>Season:</span>{[PREV_SEASON, REG_SEASON].map((s) => <button key={s} className={'btn small ' + (s === season ? '' : 'ghost')} onClick={() => setSeason(s)}>{s}</button>)}
+        <select className="search" value={team} onChange={(e) => setTeam(e.target.value)}><option value="">All teams</option><option value="none">No team yet</option>{teams.filter((t) => t.season === season).map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}</select>
+        <select className="search" value={status} onChange={(e) => setStatus(e.target.value)}><option value="">Any status</option><option value="pending">Awaiting sign-off</option><option value="approved">Approved</option><option value="withdrawn">Withdrawn</option></select>
+        <input className="search" placeholder="Search child or parent…" value={q} onChange={(e) => setQ(e.target.value)} />
+        <button className="btn small ghost" onClick={copy}>Copy for spreadsheet</button>{copied && <span className="small ok">{copied}</span>}
+      </div>
+      <p className="small muted">{counts.total} players · {counts.fv} FV registered · {counts.paid} paid · {counts.med} with medical notes. Edit details under <NavLink to="/committee/players">Edit players</NavLink>.</p>
+      <div className="table-wrap"><table className="dir">
+        <thead><tr><th>Player</th><th>Team</th><th>Status</th><th>FV</th><th>Paid</th><th>Medical</th><th>Photos</th><th>Parent / guardian</th><th>Emergency</th></tr></thead>
+        <tbody>{shown.map((r) => <tr key={r.id}>
+          <td><b>{r.first_name} {r.last_name}</b><br /><span className="small muted">{r.dob ? fmtDate(r.dob, { day: 'numeric', month: 'short', year: 'numeric' }) : ''} · {ageGroupFor(r.dob, r.season)}</span></td>
+          <td>{r.teams?.name || <span className="muted">TBA</span>}</td>
+          <td><span className={'pill ' + ({ approved: 'good', pending: 'wait', withdrawn: 'bad' }[r.status])}>{r.status === 'pending' ? 'awaiting' : r.status}</span></td>
+          <td>{r.fv_registered ? '✓' : <span className="err">✗</span>}</td><td>{r.fees_paid ? '✓' : <span className="err">✗</span>}</td>
+          <td className={r.medical_notes ? 'alert' : 'muted'}>{r.medical_notes || '—'}</td><td>{r.photo_consent ? 'Yes' : 'No'}</td>
+          <td>{r.guardians.length ? r.guardians.map((g) => <div key={g.email} className="small"><b>{g.full_name || g.email}</b><br />{g.phone || ''}{g.phone ? ' · ' : ''}{g.email}</div>) : <span className="muted small">not linked</span>}</td>
+          <td className="small">{r.emergency_contact || '—'}</td>
+        </tr>)}</tbody></table></div>
     </>
   )
 }

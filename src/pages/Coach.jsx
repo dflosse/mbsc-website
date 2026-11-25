@@ -22,9 +22,13 @@ export default function Coach() {
 
   useEffect(() => {
     if (!teamId) return
-    supabase.from('players').select('*').eq('team_id', teamId).neq('status', 'withdrawn').order('last_name').then(async ({ data }) => {
-      setPlayers(data || [])
+    supabase.from('players').select('*').eq('team_id', teamId).eq('status', 'approved').order('last_name').then(async ({ data }) => {
       const ids = (data || []).map((p) => p.id)
+      const { data: gs } = ids.length ? await supabase.from('player_guardians').select('player_id, profile_id').in('player_id', ids) : { data: [] }
+      const pids = [...new Set((gs || []).map((g) => g.profile_id))]
+      const { data: pr } = pids.length ? await supabase.from('profiles').select('id, full_name, phone, email').in('id', pids) : { data: [] }
+      const pm = Object.fromEntries((pr || []).map((x) => [x.id, x]))
+      setPlayers((data || []).map((p) => ({ ...p, guardians: (gs || []).filter((g) => g.player_id === p.id).map((g) => pm[g.profile_id]).filter(Boolean) })))
       if (!ids.length) return setEntries({})
       const { data: e } = await supabase.from('gala_entries').select('*').in('player_id', ids)
       setEntries(Object.fromEntries((e || []).map((x) => [x.gala_id + ':' + x.player_id, x.response])))
@@ -47,9 +51,10 @@ export default function Coach() {
           )}
           <section><h2>Squad</h2>
             <div className="table-wrap"><table>
-              <thead><tr><th>Player</th><th>Born</th><th>Medical / notes</th><th>Photos OK</th>{galas.map((g) => <th key={g.id}>{fmtDate(g.gala_date, { day: 'numeric', month: 'short' })}</th>)}</tr></thead>
+              <thead><tr><th>Player</th><th>Born</th><th>Parent</th><th>Medical / notes</th><th>Photos OK</th>{galas.map((g) => <th key={g.id}>{fmtDate(g.gala_date, { day: 'numeric', month: 'short' })}</th>)}</tr></thead>
               <tbody>{players.map((p) => <tr key={p.id}>
                 <td><b>{p.first_name} {p.last_name}</b></td><td>{p.dob ? fmtDate(p.dob, { year: 'numeric' }) : ''}</td>
+                <td className="small">{p.guardians?.length ? p.guardians.map((g) => <div key={g.id}>{g.full_name || g.email}{g.phone ? <> · <a href={'tel:' + g.phone.replace(/\s/g, '')}>{g.phone}</a></> : ''}</div>) : <span className="muted">—</span>}</td>
                 <td className={p.medical_notes ? 'alert' : 'muted'}>{p.medical_notes || '—'}</td><td>{p.photo_consent ? 'Yes' : 'No'}</td>
                 {galas.map((g) => { const v = entries[g.id + ':' + p.id]; return <td key={g.id} className={'rs ' + (v || '')}>{v === 'yes' ? '✓' : v === 'no' ? '✗' : v === 'maybe' ? '?' : ''}</td> })}
               </tr>)}</tbody>

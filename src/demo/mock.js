@@ -27,21 +27,21 @@ const myTeams = () => db.team_coaches.filter((t) => t.profile_id === me()).map((
 const kidTeams = () => db.players.filter((p) => myKids().includes(p.id)).map((p) => p.team_id)
 const canSee = (a, t) => ({ public: true, members: !!me(), team: staff() || myTeams().includes(t) || kidTeams().includes(t), coaches: staff() || myTeams().length > 0 || role() === 'coach', committee: staff() }[a])
 const visible = {
-  players: (r) => staff() || myKids().includes(r.id) || myTeams().includes(r.team_id),
-  player_guardians: (r) => staff() || r.profile_id === me(),
-  gala_entries: (r) => staff() || myKids().includes(r.player_id) || myTeams().includes(db.players.find((p) => p.id === r.player_id)?.team_id),
+  players: (r) => exec() || myKids().includes(r.id) || myTeams().includes(r.team_id),
+  player_guardians: (r) => exec() || r.profile_id === me() || myTeams().includes(db.players.find((p) => p.id === r.player_id)?.team_id),
+  gala_entries: (r) => exec() || myKids().includes(r.player_id) || myTeams().includes(db.players.find((p) => p.id === r.player_id)?.team_id),
   posts: (r) => canSee(r.audience, r.team_id),
   replies: (r) => { const p = db.posts.find((x) => x.id === r.post_id); return p && canSee(p.audience, p.team_id) },
   documents: (r) => canSee(r.audience, null),
   tasks: () => staff(), kit: () => staff(),
-  profiles: (r) => staff() || r.id === me(),
+  profiles: (r) => exec() || role() === 'admin' || r.id === me() || db.player_guardians.some((g) => g.profile_id === r.id && myTeams().includes(db.players.find((p) => p.id === g.player_id)?.team_id)),
   team_coaches: () => !!me(),
   wwcc: (r) => r.profile_id === me() || exec(),
-  volunteer_roles: (r) => r.profile_id === me() || staff(),
+  volunteer_roles: (r) => r.profile_id === me() || exec(),
 }
 const writable = {
-  players: (r) => staff() || myKids().includes(r.id),
-  gala_entries: (r) => staff() || myKids().includes(r.player_id),
+  players: (r) => exec() || myKids().includes(r.id),
+  gala_entries: (r) => exec() || myKids().includes(r.player_id),
   posts: (r) => staff() || r.author_id === me() || (r.audience === 'members' && me()) || (r.audience === 'team' && (myTeams().includes(r.team_id) || kidTeams().includes(r.team_id))) || (r.audience === 'coaches' && (myTeams().length || role() === 'coach')),
   replies: () => !!me(),
   profiles: (r) => r.id === me() || role() === 'admin',
@@ -127,11 +127,14 @@ export const mockSupabase = {
         if (!w.status_checked_at) return { error: { message: 'WWCC status has not been checked yet' } }
         if (!w.wwc_connected_at) return { error: { message: 'Not yet connected to the club in WWC Connect' } }
       }
-      Object.assign(r, { status: a.p_approve ? 'approved' : 'declined', decision_note: a.p_note })
+      const team = a.p_team || r.team_id
+      Object.assign(r, { status: a.p_approve ? 'approved' : 'declined', decision_note: a.p_note, team_id: team })
       if (a.p_approve) {
         const p = db.profiles.find((x) => x.id === r.profile_id)
-        if (!['admin', 'committee'].includes(p.role)) p.role = r.kind === 'committee' ? 'committee' : r.kind === 'coach' ? 'coach' : 'volunteer'
-        if (r.kind === 'coach' && r.team_id) db.team_coaches.push({ team_id: r.team_id, profile_id: r.profile_id })
+        if (!['admin', 'committee'].includes(p.role)) p.role = ['committee', 'executive'].includes(r.kind) ? 'committee' : r.kind === 'coach' ? 'coach' : 'volunteer'
+        if (r.kind === 'executive') p.is_executive = true
+        if (r.kind === 'coach' && team) db.team_coaches.push({ team_id: team, profile_id: r.profile_id })
+        if (a.p_committee_role) { const cr = db.committee_roles.find((x) => x.id === a.p_committee_role); if (cr) cr.person = cr.person ? cr.person + ', ' + p.full_name : p.full_name }
       }
       return { error: null }
     }

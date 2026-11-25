@@ -203,3 +203,8 @@ dt { font-weight: 600; font-size: .9rem; } dd { margin: 0; }
 .roles-pick legend { font-weight: 600; font-size: .9rem; padding: 0 4px; }
 .roles-pick .check { margin-bottom: 8px; }
 .nudge { background: #fff1cf; border-bottom: 1px solid #f3d58a; padding: 8px 0; font-size: .92rem; }
+.tabs a.exec::after { content: ' ●'; color: var(--ember); font-size: .7em; vertical-align: middle; }
+table.dir td { font-size: .86rem; }
+.modal .form label { margin-bottom: 10px; }
+.brand small { white-space: nowrap; }
+@media (min-width: 861px) { nav a, nav .link { font-size: .86rem; padding: 7px 7px; } .topbar { gap: 10px; } }
