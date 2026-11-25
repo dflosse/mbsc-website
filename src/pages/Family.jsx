@@ -38,7 +38,7 @@ export default function Family() {
       p_medical: f.medical, p_emergency: f.emergency, p_photo: f.photo, p_season: REG_SEASON,
     })
     if (error) return setMsg({ ok: false, text: error.message })
-    setMsg({ ok: true, text: `${f.first} is registered for ${REG_SEASON}. The committee will confirm their team.` })
+    setMsg({ ok: true, text: `${f.first} is registered with MBFC for ${REG_SEASON}. Next step: register with Football Victoria through PlayFootball (we'll email the link). The committee will confirm their team.` })
     setF(blank); setAdding(false); load()
   }
 
@@ -57,6 +57,13 @@ export default function Family() {
       <section>
         <div className="row between"><h2>My children</h2><button className="btn small" onClick={() => setAdding(!adding)}>{adding ? 'Cancel' : `+ Register a child for ${REG_SEASON}`}</button></div>
         {adding && (
+          <div className="twosteps">
+            <div><span className="stepno">1</span><div><b>Register with MBFC</b> (this form)<p className="small">Tells the club your child is playing, so we can plan squads and coaches, and gives your child's coach their medical needs, emergency contact and photo permission.</p></div></div>
+            <div><span className="stepno">2</span><div><b>Register with Football Victoria</b> (PlayFootball)<p className="small">Officially registers your child as a player, covers them with FV insurance, and is where the season fee is paid. We'll email you the link.</p></div></div>
+            <p className="small muted full">Both are needed before your child can play.</p>
+          </div>
+        )}
+        {adding && (
           <form className="card form" onSubmit={register}>
             <div className="grid2 tight">
               <label>First name<input value={f.first} onChange={(e) => setF({ ...f, first: e.target.value })} required /></label>
@@ -69,8 +76,7 @@ export default function Family() {
             <label>Emergency contact (name and phone, if not you)<input value={f.emergency} onChange={(e) => setF({ ...f, emergency: e.target.value })} /></label>
             <label className="check"><input type="checkbox" checked={f.photo} onChange={(e) => setF({ ...f, photo: e.target.checked })} /> Photos of my child may be used on club social media and website</label>
             <FeesCard s={settings} compact />
-            <p className="muted small">Registering here tells the club your child is coming. Your place is confirmed once Football Victoria registration and payment are done.</p>
-            <button className="btn">Register</button>
+            <button className="btn">Register with MBFC</button>
           </form>
         )}
         {current.length === 0 && !adding && <div className="card"><p>No children linked to your account yet. Register a child above. If your child played in {REG_SEASON - 1}, the committee can link their existing record to you – just email the club.</p></div>}
@@ -81,8 +87,8 @@ export default function Family() {
               <p className="muted">{k.season} season · {k.teams?.name || ageGroupFor(k.dob, k.season) + ' (team TBC)'}</p>
               {k.teams?.coach_names && <p>Coach: {k.teams.coach_names}</p>}
               <p className="row">
-                <span className={'pill ' + (k.status === 'approved' ? 'good' : 'wait')}>{k.status === 'approved' ? 'Confirmed' : 'Awaiting committee'}</span>
-                <span className={'pill ' + (k.fv_registered ? 'good' : 'wait')}>{k.fv_registered ? 'FV registered' : 'FV registration due'}</span>
+                <span className={'pill ' + (k.status === 'approved' ? 'good' : 'wait')}>{k.status === 'approved' ? 'MBFC registered' : 'MBFC – awaiting committee'}</span>
+                <span className={'pill ' + (k.fv_registered ? 'good' : 'wait')}>{k.fv_registered ? 'FV registered' : 'FV registration needed'}</span>
                 <span className={'pill ' + (k.fees_paid ? 'good' : 'wait')}>{k.fees_paid ? 'Paid' : 'Payment due'}</span>
               </p>
             </div>

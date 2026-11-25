@@ -185,3 +185,9 @@ dt { font-weight: 600; font-size: .9rem; } dd { margin: 0; }
 .footgrid { display: grid; grid-template-columns: 1.5fr 1fr 1fr; gap: 20px; }
 @media (max-width: 760px) { .footgrid { grid-template-columns: 1fr; } }
 .foot a { color: var(--ink); }
+.twosteps { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+.twosteps > div { display: flex; gap: 12px; background: #fff; border: 1px solid var(--line); border-radius: var(--r); padding: 14px 16px; }
+.twosteps p { margin: 4px 0 0; color: var(--ink-2); }
+.twosteps .full { grid-column: 1 / -1; margin: 0; }
+.stepno { flex: none; width: 30px; height: 30px; border-radius: 50%; background: var(--pine); color: #fff; display: grid; place-items: center; font-weight: 700; }
+@media (max-width: 600px) { .twosteps { grid-template-columns: 1fr; } }
