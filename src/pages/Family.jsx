@@ -106,7 +106,7 @@ export default function Family() {
               <h3>{k.first_name} {k.last_name}</h3>
               <p className="muted">{k.season} season · {k.teams?.name || ageGroupFor(k.dob, k.season) + ' (team TBC)'}</p>
               {k.teams?.coach_names && <p>Coach: {k.teams.coach_names}</p>}
-              {k.needs_boots && <p className="small">Loan boots interest (size {k.boot_size || '?'}): <b>{{ requested: 'on the list – we'll be in touch only if a pair is available', allocated: 'a pair is set aside for you', waitlist: 'on the waitlist – none free yet', returned: 'returned, thanks!' }[k.boots_status] || 'requested'}</b>{k.boots_status === 'allocated' && (k.bond_paid ? ' · bond paid' : ' · bond to pay on pick-up')}{k.bond_refunded ? ' · bond refunded' : ''}</p>}
+              {k.needs_boots && <p className="small">Loan boots interest (size {k.boot_size || '?'}): <b>{{ requested: "on the list – we'll be in touch only if a pair is available", allocated: 'a pair is set aside for you', waitlist: 'on the waitlist – none free yet', returned: 'returned, thanks!' }[k.boots_status] || 'requested'}</b>{k.boots_status === 'allocated' && (k.bond_paid ? ' · bond paid' : ' · bond to pay on pick-up')}{k.bond_refunded ? ' · bond refunded' : ''}</p>}
               {k.needs_uniform && !kit[k.id] && <p className="small">Uniform requested{k.uniform_size ? ` (${k.uniform_size})` : ''} – the committee will hand it out before the first game.</p>}
               {kit[k.id] && <p className="small">Club jersey: <b>#{kit[k.id].jersey_label}</b> (size {kit[k.id].size}) – please return at season's end</p>}
               <p className="row">
