@@ -67,7 +67,7 @@ export default function Login() {
         {mode === 'signup' && <label>Mobile<input value={phone} onChange={(e) => setPhone(e.target.value)} inputMode="tel" /></label>}
         {mode === 'signup' && (
           <fieldset className="roles-pick">
-            <legend>I am a… <span className="muted small">(tick all that apply – one account covers everything)</span></legend>
+            <legend>What are you applying for? <span className="muted small">(tick all that apply – one account covers everything)</span></legend>
             {ROLE_OPTS.map(([k, l, d]) => <label key={k} className="check"><input type="checkbox" checked={roles.includes(k)} onChange={() => toggle(k)} /><span><b>{l}</b><br /><span className="small muted">{d}</span></span></label>)}
           </fieldset>
         )}

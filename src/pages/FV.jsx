@@ -36,25 +36,25 @@ export default function FV() {
     <div className="wrap">
       <h1>Football Victoria</h1>
       <p className="lead">Mount Beauty Football Club (MBFC) is a member club of Football Victoria (FV), the governing body for soccer in Victoria. FV registration gives every player insurance cover and lets them play in FV-sanctioned competitions like our Alpine Valleys gala days.</p>
-      <div className="grid2">
+      <h2>For families</h2>
+      <div className="fvpair">
+        <div className="card">
+          <h3>Registering with FV</h3>
+          <p>Each season every player is registered through FV's <b>PlayFootball</b> system, which is also where the fee is paid. The club emails the link when registrations open. Register your child on this site too so coaches and the committee have their details.</p>
+          <p style={{ marginBottom: 0 }}><Link to="/about#fees">See fees and how to pay</Link></p>
+        </div>
+        <div className="card">
+          <h3>Child safety</h3>
+          <p>As an FV member club we follow Victoria's Child Safe Standards. Every coach, committee member and volunteer working with children, and our PlayFootball administrators, need a current Working With Children Check.</p>
+          <p className="small" style={{ marginBottom: 0 }}>Concerns can be raised with any executive committee member, or with FV directly. If a child is in immediate danger, call 000.</p>
+        </div>
+      </div>
+      <div className="fvpair">
         <section>
-          <h2>For families</h2>
-          <div className="card">
-            <h3>Registering with FV</h3>
-            <p>Each season every player is registered through FV's <b>PlayFootball</b> system, which is also where the fee is paid. The club emails the link when registrations open. Register your child on this site too so coaches and the committee have their details.</p>
-            <p><Link to="/about#fees">See fees and how to pay</Link></p>
-          </div>
           <h3>Links</h3>
           <List items={pub} />
-          {(isCoach || isStaff) && coach.length > 0 && <><h3>For coaches</h3><List items={coach} /></>}
         </section>
-        <aside>
-          <div className="card soft">
-            <h3>Child safety</h3>
-            <p>As an FV member club we follow Victoria's Child Safe Standards. Volunteers working with children, and our PlayFootball administrators, need a current Working With Children Check.</p>
-            <p className="small">Concerns can be raised with any committee member, or with FV directly.</p>
-          </div>
-        </aside>
+        {(isCoach || isStaff) && coach.length > 0 && <section><h3>For coaches</h3><List items={coach} /></section>}
       </div>
 
       {isStaff && (

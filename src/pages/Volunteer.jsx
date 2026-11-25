@@ -99,7 +99,7 @@ export default function Volunteer() {
         </section>
 
         <section>
-          <h2>2. What would you like to help with?</h2>
+          <h2>2. What are you applying for?</h2>
           <form className="card form" onSubmit={apply}>
             <label>Role<select value={req.kind} onChange={(e) => setReq({ ...req, kind: e.target.value })}>{KINDS.map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select></label>
             {req.kind === 'coach' && <label>Team (if you know)<select value={req.team_id} onChange={(e) => setReq({ ...req, team_id: e.target.value })}><option value="">Not sure yet</option>{teams.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}</select></label>}

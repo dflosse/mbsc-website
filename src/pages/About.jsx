@@ -87,7 +87,6 @@ export default function About() {
         </div>
 
         <h2>Committee {roles[0]?.season}</h2>
-        {vacant > 0 && <div className="card callout"><p><b>We need you.</b> {vacant} roles are open. The club only runs because parents put their hand up – most roles are a few hours a term. <Link to="/volunteer">Apply to volunteer →</Link></p></div>}
         <div className="cards">
           {Object.entries(groups).map(([g, rs]) => (
             <div key={g} className="card">
