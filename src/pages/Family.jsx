@@ -4,7 +4,8 @@ import { useAuth } from '../auth'
 import useSettings from '../useSettings'
 import { FeesCard } from './About'
 
-const blank = { first: '', last: '', dob: '', gender: '', medical: '', emergency: '', photo: false }
+const bondText = (v) => { v = (v || '').trim(); if (!v) return ''; return /^\d/.test(v) ? '$' + v.replace(/^\$/, '') : v }
+const blank = { first: '', last: '', dob: '', gender: '', medical: '', emergency: '', photo: false, uniform: false, uSize: '', boots: false, bSize: '' }
 
 export default function Family() {
   const { profile } = useAuth()
@@ -43,6 +44,7 @@ export default function Family() {
     const { error } = await supabase.rpc('register_player', {
       p_first: f.first.trim(), p_last: f.last.trim(), p_dob: f.dob, p_gender: f.gender,
       p_medical: f.medical, p_emergency: f.emergency, p_photo: f.photo, p_season: REG_SEASON,
+      p_needs_uniform: f.uniform, p_uniform_size: f.uniform ? f.uSize : null, p_needs_boots: f.boots, p_boot_size: f.boots ? f.bSize : null,
     })
     if (error) return setMsg({ ok: false, text: error.message })
     setMsg({ ok: true, text: `${f.first} is registered with MBFC for ${REG_SEASON}. Next step: register with Football Victoria through PlayFootball (we'll email the link). The committee will confirm their team.` })
@@ -82,6 +84,17 @@ export default function Family() {
             <label>Medical conditions, allergies or anything the coach should know<textarea value={f.medical} onChange={(e) => setF({ ...f, medical: e.target.value })} rows={2} /></label>
             <label>Emergency contact (name and phone, if not you)<input value={f.emergency} onChange={(e) => setF({ ...f, emergency: e.target.value })} /></label>
             <label className="check"><input type="checkbox" checked={f.photo} onChange={(e) => setF({ ...f, photo: e.target.checked })} /> Photos of my child may be used on club social media and website</label>
+            <fieldset className="kitq">
+              <legend>Uniform and boots</legend>
+              <label className="check"><input type="checkbox" checked={f.uniform} onChange={(e) => setF({ ...f, uniform: e.target.checked })} /> My child needs a club uniform this season</label>
+              {f.uniform && <label className="sub">Approximate size (child's age or size, if you know it)<input value={f.uSize} onChange={(e) => setF({ ...f, uSize: e.target.value })} placeholder="e.g. size 10" /></label>}
+              {f.uniform && bondText(settings.uniform_bond) && <p className="small muted sub">Uniforms are loaned for the season. A refundable bond of {bondText(settings.uniform_bond)} applies, returned when the uniform comes back.</p>}
+              <label className="check"><input type="checkbox" checked={f.boots} onChange={(e) => setF({ ...f, boots: e.target.checked })} /> My child would like to borrow football boots</label>
+              {f.boots && <>
+                <label className="sub">Shoe size<input value={f.bSize} onChange={(e) => setF({ ...f, bSize: e.target.value })} placeholder="e.g. kids 13 or adult 2" required /></label>
+                <p className="small muted sub">We only have a limited number of boots, so they go to those who need them first and we can't guarantee a pair. A refundable bond of {bondText(settings.boots_bond) || 'TBA'} applies – it's returned in full when the boots come back at the end of the season. The committee will let you know if a pair is available.</p>
+              </>}
+            </fieldset>
             <FeesCard s={settings} compact />
             <button className="btn">Register with MBFC</button>
           </form>
@@ -93,6 +106,8 @@ export default function Family() {
               <h3>{k.first_name} {k.last_name}</h3>
               <p className="muted">{k.season} season · {k.teams?.name || ageGroupFor(k.dob, k.season) + ' (team TBC)'}</p>
               {k.teams?.coach_names && <p>Coach: {k.teams.coach_names}</p>}
+              {k.needs_boots && <p className="small">Loan boots (size {k.boot_size || '?'}): <b>{{ requested: 'requested – the committee will be in touch', allocated: 'a pair is set aside for you', waitlist: 'on the waitlist – none free yet', returned: 'returned, thanks!' }[k.boots_status] || 'requested'}</b>{k.boots_status === 'allocated' && (k.bond_paid ? ' · bond paid' : ' · bond to pay on pick-up')}{k.bond_refunded ? ' · bond refunded' : ''}</p>}
+              {k.needs_uniform && !kit[k.id] && <p className="small">Uniform requested{k.uniform_size ? ` (${k.uniform_size})` : ''} – the committee will hand it out before the first game.</p>}
               {kit[k.id] && <p className="small">Club jersey: <b>#{kit[k.id].jersey_label}</b> (size {kit[k.id].size}) – please return at season's end</p>}
               <p className="row">
                 <span className={'pill ' + (k.status === 'approved' ? 'good' : 'wait')}>{k.status === 'approved' ? 'MBFC registered' : 'MBFC – awaiting committee'}</span>

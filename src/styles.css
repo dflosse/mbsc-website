@@ -215,3 +215,10 @@ table.dir td { font-size: .86rem; }
 .roster { margin-top: 10px; border-top: 1px dashed var(--line); padding-top: 8px; }
 .roster ul { list-style: none; padding: 0; margin: 6px 0 0; }
 .roster li { display: flex; justify-content: space-between; gap: 10px; padding: 6px 0; border-bottom: 1px solid #efece4; font-size: .92rem; }
+
+/* Committee portal button in the header */
+nav a.nav-staff { background: #c62828; color: #fff; font-weight: 600; padding-left: 12px; padding-right: 12px; }
+nav a.nav-staff:hover, nav a.nav-staff.active { background: #a51f1f; color: #fff; }
+.kitq { border: 1px solid #e3e7ee; border-radius: 10px; padding: 10px 12px; display: grid; gap: 6px; background: #fafbfc; }
+.kitq legend { font-weight: 600; padding: 0 4px; }
+.kitq .sub { margin-left: 26px; }

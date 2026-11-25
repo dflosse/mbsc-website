@@ -111,6 +111,9 @@ export const settings = [
   { id: 's2', key: 'payment', label: 'How to pay', value: "Registration and payment are completed online through Football Victoria's PlayFootball system. The club will email the 2027 registration link once it opens." },
   { id: 's3', key: 'agm', label: 'AGM date', value: 'TBA' },
   { id: 's4', key: 'come_n_try', label: 'Come n Try day', value: 'TBA' },
+  { id: 's5', key: 'boots_bond', label: 'Boots bond (refundable)', value: 'TBA' },
+  { id: 's6', key: 'uniform_bond', label: 'Uniform bond (refundable, blank = none)', value: '' },
+  { id: 's7', key: 'boots_available', label: 'Loan boots available (number of pairs)', value: '' },
 ]
 
 const K = (t, o, n, c, s = 'todo', due = null) => ({ id: 'tk' + t.length + o.length, season: 2027, title: t, owner: o, notes: n, category: c, status: s, due })

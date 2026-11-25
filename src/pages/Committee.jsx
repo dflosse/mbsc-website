@@ -3,6 +3,7 @@ import { NavLink, Routes, Route, Navigate } from 'react-router-dom'
 import { supabase, REG_SEASON, PREV_SEASON, fmtDate, ageGroupFor } from '../supabase'
 import { useAuth } from '../auth'
 import EditTable from './EditTable'
+import useSettings from '../useSettings'
 import { wwccState } from './Volunteer'
 
 export default function Committee() {
@@ -211,6 +212,44 @@ function Tasks() {
   )
 }
 
+function KitRequests() {
+  const { isExec } = useAuth()
+  const s = useSettings()
+  const [rows, setRows] = useState([])
+  const [err, setErr] = useState('')
+  const load = useCallback(async () => {
+    const { data } = await supabase.from('players').select('id, first_name, last_name, dob, uniform_size, boot_size, needs_uniform, needs_boots, boots_status, bond_paid, bond_refunded, created_at')
+      .eq('season', REG_SEASON).neq('status', 'withdrawn').or('needs_uniform.eq.true,needs_boots.eq.true').order('created_at')
+    setRows(data || [])
+  }, [])
+  useEffect(() => { load() }, [load])
+  async function set(id, patch) { const { error } = await supabase.from('players').update(patch).eq('id', id); setErr(error?.message || ''); load() }
+  const boots = rows.filter((r) => r.needs_boots)
+  const out = boots.filter((r) => r.boots_status === 'allocated').length
+  const avail = parseInt(s.boots_available, 10)
+  return (
+    <section className="card">
+      <h3>{REG_SEASON} uniform and boots requests</h3>
+      <p className="small muted">Asked for on the registration form. Boots: {boots.length} requested · {out} allocated{Number.isFinite(avail) ? ` · ${Math.max(avail - out, 0)} of ${avail} pairs left` : ' · set "Loan boots available" in Fees & settings'}. Bond: {s.boots_bond || 'TBA'} (boots){s.uniform_bond ? `, ${s.uniform_bond} (uniform)` : ''}. {isExec ? 'Requests are in order of registration – first in, first served.' : 'Only the executive can allocate boots or record bonds.'}</p>
+      {err && <p className="err">{err}</p>}
+      {rows.length === 0 ? <p className="muted">No requests yet.</p> : (
+        <div className="table-wrap"><table>
+          <thead><tr><th>Child</th><th>Uniform</th><th>Boots</th><th>Boots status</th><th>Bond paid</th><th>Bond refunded</th></tr></thead>
+          <tbody>{rows.map((r) => <tr key={r.id}>
+            <td>{r.first_name} {r.last_name} <span className="muted small">{ageGroupFor(r.dob, REG_SEASON)}</span></td>
+            <td>{r.needs_uniform ? (r.uniform_size || 'yes') : ''}</td>
+            <td>{r.needs_boots ? (r.boot_size || 'size ?') : ''}</td>
+            <td>{r.needs_boots && (isExec ? <select value={r.boots_status} onChange={(e) => set(r.id, { boots_status: e.target.value })}>
+              {[['requested', 'Requested'], ['allocated', 'Allocated'], ['waitlist', 'Waitlist'], ['returned', 'Returned']].map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select> : r.boots_status)}</td>
+            <td>{isExec ? <input type="checkbox" checked={r.bond_paid} onChange={(e) => set(r.id, { bond_paid: e.target.checked })} /> : (r.bond_paid ? 'Yes' : '')}</td>
+            <td>{isExec ? <input type="checkbox" checked={r.bond_refunded} onChange={(e) => set(r.id, { bond_refunded: e.target.checked })} /> : (r.bond_refunded ? 'Yes' : '')}</td>
+          </tr>)}</tbody>
+        </table></div>
+      )}
+    </section>
+  )
+}
+
 function Kit() {
   const order = useMemo(() => [['sort_order']], [])
   const { isExec } = useAuth()
@@ -219,6 +258,7 @@ function Kit() {
   const popts = players.map((p) => [p.id, `${p.first_name} ${p.last_name} (${p.season})`])
   return (
     <>
+      <KitRequests />
       <p className="muted small">{isExec ? 'Link a jersey to a child so their family sees it under My family. ' : ''}Jersey numbers repeat across print runs: plain numbers are the first run (1–55), R = repeated run, N = newer size-14 run.</p>
       <EditTable table="kit" order={order} search={['holder_name', 'jersey_label', 'notes', 'status']} defaults={{ jersey_label: 'New', status: 'Shed Tub', sort_order: 999 }}
         cols={[

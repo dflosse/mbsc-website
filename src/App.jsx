@@ -75,7 +75,7 @@ export default function App() {
             {user && <NavLink to="/board">Messages</NavLink>}
             {user && <NavLink to="/volunteer">Volunteer</NavLink>}
             {user && showCoach && <NavLink to="/coach">Coaches</NavLink>}
-            {user && showCommittee && <NavLink to="/committee">Committee</NavLink>}
+            {user && showCommittee && <NavLink to="/committee" className="nav-staff">Committee</NavLink>}
             {user ? (
               <>
                 <NavLink to="/account">Account</NavLink>

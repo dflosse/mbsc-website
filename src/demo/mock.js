@@ -79,6 +79,7 @@ class Query {
   is(k, v) { this.filters.push((r) => (r[k] ?? null) === v); return this }
   ilike(k, v) { this.filters.push((r) => String(r[k] || '').toLowerCase() === String(v).toLowerCase()); return this }
   order(k, o = {}) { this.orders.push([k, o.ascending !== false]); return this }
+  or(expr) { const parts = expr.split(',').map((x) => x.split('.')); this.filters.push((r) => parts.some(([k, , v]) => String(r[k]) === v)); return this }
   limit(n) { this.lim = n; return this }
   maybeSingle() { this.single = true; return this }
   insert(row) { this.op = 'insert'; this.payload = row; return this }
@@ -163,7 +164,7 @@ export const mockSupabase = {
     }
     if (fn !== 'register_player' || !me()) return { error: { message: 'Not signed in' } }
     const id = uid()
-    db.players.push({ id, season: a.p_season, first_name: a.p_first, last_name: a.p_last, dob: a.p_dob, gender: a.p_gender, medical_notes: a.p_medical, emergency_contact: a.p_emergency, photo_consent: a.p_photo, status: 'pending', fv_registered: false, fees_paid: false, team_id: null, created_at: new Date().toISOString() })
+    db.players.push({ id, season: a.p_season, first_name: a.p_first, last_name: a.p_last, dob: a.p_dob, gender: a.p_gender, medical_notes: a.p_medical, emergency_contact: a.p_emergency, photo_consent: a.p_photo, needs_uniform: !!a.p_needs_uniform, uniform_size: a.p_uniform_size, needs_boots: !!a.p_needs_boots, boot_size: a.p_boot_size, boots_status: a.p_needs_boots ? 'requested' : 'none', bond_paid: false, bond_refunded: false, status: 'pending', fv_registered: false, fees_paid: false, team_id: null, created_at: new Date().toISOString() })
     db.player_guardians.push({ player_id: id, profile_id: me() })
     return { data: id, error: null }
   },
