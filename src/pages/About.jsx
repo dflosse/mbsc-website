@@ -45,14 +45,14 @@ export default function About() {
       <section className="band green">
         <div className="wrap">
           <h1>About the club</h1>
-          <p className="lead">{'Mt Beauty FC has run junior soccer in the Kiewa Valley since 2003. We\'re a small, volunteer-run club: parents coach, parents run the canteen, and kids from 4 to 13 learn the game in a fun, safe and friendly way.'}</p>
+          <p className="lead">{'Mount Beauty Football Club has run junior soccer in the Kiewa Valley since 2003. We\'re a small, volunteer-run club: parents coach, parents run the canteen, and kids from 4 to 13 learn the game in a fun, safe and friendly way.'}</p>
         </div>
       </section>
       <div className="wrap">
         <div className="facts">
           <div><b>Who</b><span>Boys and girls aged 4–13 (born 2014–2022 for 2027)</span></div>
           <div><b>When</b><span>School Term 2 (April–June) · training Wednesdays 4–5pm</span></div>
-          <div><b>Where</b><span>Les Peart Oval, Pool Road, Mt Beauty</span></div>
+          <div><b>Where</b><span>Les Peart Oval, Pool Road, Mount Beauty</span></div>
           <div><b>Games</b><span>Alpine Valleys gala days with Bright, Myrtleford and Yackandandah</span></div>
         </div>
 
@@ -82,7 +82,7 @@ export default function About() {
         </div>
 
         <h2>Committee {roles[0]?.season}</h2>
-        {vacant > 0 && <div className="card callout"><p><b>We need you.</b> {vacant} roles are open. The club only runs because parents put their hand up – most roles are a few hours a term. Email us or speak to any committee member.</p></div>}
+        {vacant > 0 && <div className="card callout"><p><b>We need you.</b> {vacant} roles are open. The club only runs because parents put their hand up – most roles are a few hours a term. <Link to="/volunteer">Apply to volunteer →</Link></p></div>}
         <div className="cards">
           {Object.entries(groups).map(([g, rs]) => (
             <div key={g} className="card">

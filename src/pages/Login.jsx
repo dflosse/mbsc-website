@@ -1,15 +1,26 @@
 import { useState } from 'react'
 import { Navigate, useLocation } from 'react-router-dom'
-import { supabase } from '../supabase'
+import { supabase, REG_SEASON } from '../supabase'
 import { useAuth } from '../auth'
+
+const ROLE_OPTS = [
+  ['parent', 'Parent / guardian', 'Register your children and manage gala days. Starts straight away.'],
+  ['coach', 'Coach', 'Needs a WWCC and executive sign-off.'],
+  ['executive', 'Executive committee', 'President, Vice President, Secretary or Treasurer. Needs a WWCC and executive sign-off.'],
+  ['committee', 'Committee member', 'Needs a WWCC and executive sign-off.'],
+  ['volunteer', 'Volunteer', 'Gala days, canteen, BBQ, set-up. Needs a WWCC and executive sign-off.'],
+]
 
 export default function Login() {
   const { user } = useAuth()
   const loc = useLocation()
-  const [mode, setMode] = useState('link')
+  const [mode, setMode] = useState('signin')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [name, setName] = useState('')
+  const [phone, setPhone] = useState('')
+  const [roles, setRoles] = useState(['parent'])
+  const toggle = (r) => setRoles((rs) => rs.includes(r) ? rs.filter((x) => x !== r) : [...rs, r])
   const [msg, setMsg] = useState(null)
   const [busy, setBusy] = useState(false)
   if (user) return <Navigate to={loc.state?.from || '/family'} replace />
@@ -24,8 +35,10 @@ export default function Login() {
     } else if (mode === 'signin') {
       ;({ error } = await supabase.auth.signInWithPassword({ email, password }))
     } else {
-      ;({ error } = await supabase.auth.signUp({ email, password, options: { emailRedirectTo: redirect, data: { full_name: name } } }))
-      if (!error) setMsg({ ok: true, text: 'Account created. Check your email to confirm, then sign in.' })
+      if (!roles.length) { setBusy(false); return setMsg({ ok: false, text: 'Tick at least one option.' }) }
+      ;({ error } = await supabase.auth.signUp({ email, password, options: { emailRedirectTo: redirect, data: { full_name: name, phone, roles, season: REG_SEASON } } }))
+      const helper = roles.some((r) => r !== 'parent')
+      if (!error) setMsg({ ok: true, text: 'Account created. Check your email to confirm, then sign in.' + (helper ? ' Then go to Volunteer to upload your Working With Children Check so the executive can sign you off.' : '') })
     }
     if (error) setMsg({ ok: false, text: error.message })
     setBusy(false)
@@ -34,20 +47,27 @@ export default function Login() {
   return (
     <div className="wrap narrow">
       <h1>Sign in or register</h1>
-      <p className="lead">One account per parent or carer. Once you're in you can add your children, register them for the season and tell us who's coming to each gala.</p>
+      <p className="lead">Everyone has their own login – parents, coaches, committee members and volunteers. Your email address is your username.</p>
       <div className="tabs">
-        <button className={mode === 'link' ? 'on' : ''} onClick={() => setMode('link')}>Email me a link</button>
-        <button className={mode === 'signin' ? 'on' : ''} onClick={() => setMode('signin')}>Password</button>
-        <button className={mode === 'signup' ? 'on' : ''} onClick={() => setMode('signup')}>New account</button>
+        <button className={mode === 'signin' ? 'on' : ''} onClick={() => setMode('signin')}>Sign in</button>
+        <button className={mode === 'signup' ? 'on' : ''} onClick={() => setMode('signup')}>Create account</button>
+        <button className={mode === 'link' ? 'on' : ''} onClick={() => setMode('link')}>Forgot password? Email me a link</button>
       </div>
       <form className="card form" onSubmit={submit}>
-        {mode !== 'signin' && <label>Your name<input value={name} onChange={(e) => setName(e.target.value)} placeholder="Parent / carer name" required={mode === 'signup'} /></label>}
-        <label>Email<input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required autoComplete="email" /></label>
+        {mode !== 'signin' && <label>Your full name<input value={name} onChange={(e) => setName(e.target.value)} required={mode === 'signup'} /></label>}
+        {mode === 'signup' && <label>Mobile<input value={phone} onChange={(e) => setPhone(e.target.value)} inputMode="tel" /></label>}
+        {mode === 'signup' && (
+          <fieldset className="roles-pick">
+            <legend>I am a… <span className="muted small">(tick all that apply – one account covers everything)</span></legend>
+            {ROLE_OPTS.map(([k, l, d]) => <label key={k} className="check"><input type="checkbox" checked={roles.includes(k)} onChange={() => toggle(k)} /><span><b>{l}</b><br /><span className="small muted">{d}</span></span></label>)}
+          </fieldset>
+        )}
+        <label>Email (your username)<input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required autoComplete="email" /></label>
         {mode !== 'link' && <label>Password<input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={8} autoComplete={mode === 'signup' ? 'new-password' : 'current-password'} /></label>}
         <button className="btn" disabled={busy}>{busy ? 'Please wait…' : mode === 'link' ? 'Send sign-in link' : mode === 'signin' ? 'Sign in' : 'Create account'}</button>
         {msg && <p className={msg.ok ? 'ok' : 'err'}>{msg.text}</p>}
       </form>
-      <p className="muted small">We only use your details to run the club. Children's details are visible only to you, your child's coach and the committee.</p>
+      <p className="muted small">Coaching or volunteering? Create an account, then go to <b>Volunteer</b> to apply and upload your Working With Children Check. We only use your details to run the club. Children's details are visible only to you, your child's coach and the committee.</p>
     </div>
   )
 }

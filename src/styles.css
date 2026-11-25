@@ -46,7 +46,7 @@ p { margin: 0 0 .7em; }
 .crest { width: 40px; height: 44px; object-fit: contain; }
 .crest.lg { width: 64px; height: 70px; background: var(--pine); border-radius: 12px; padding: 6px; margin-right: 12px; }
 nav { display: flex; gap: 4px; align-items: center; flex-wrap: wrap; }
-nav a, nav .link { color: #dfe4ee; text-decoration: none; padding: 8px 10px; border-radius: 8px; font-size: .92rem; }
+nav a, nav .link { color: #dfe4ee; text-decoration: none; padding: 8px 8px; border-radius: 8px; font-size: .92rem; }
 nav a:hover, nav a.active { background: rgba(255,255,255,.1); color: #fff; }
 nav .btn { color: #1f1a05; }
 nav .btn:hover, nav .btn.active { background: #ffb81f; color: #1f1a05; }
@@ -191,3 +191,15 @@ dt { font-weight: 600; font-size: .9rem; } dd { margin: 0; }
 .twosteps .full { grid-column: 1 / -1; margin: 0; }
 .stepno { flex: none; width: 30px; height: 30px; border-radius: 50%; background: var(--pine); color: #fff; display: grid; place-items: center; font-weight: 700; }
 @media (max-width: 600px) { .twosteps { grid-template-columns: 1fr; } }
+.cards.wide { grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); }
+.wwccbox { background: #f7f8f4; border-radius: 10px; padding: 10px 12px; margin: 8px 0; }
+.wwccbox p { margin-bottom: 4px; }
+.ticks { list-style: none; padding: 0; margin: 6px 0 0; font-size: .9rem; }
+.ticks li { padding: 4px 0; display: flex; gap: 8px; align-items: center; justify-content: space-between; }
+.ticks li::before { content: '○'; color: var(--muted); }
+.ticks li.done::before { content: '✓'; color: var(--good); font-weight: 700; }
+.ticks li.done { color: var(--good); }
+.roles-pick { border: 1px solid var(--line); border-radius: 10px; padding: 10px 14px; margin: 0 0 14px; }
+.roles-pick legend { font-weight: 600; font-size: .9rem; padding: 0 4px; }
+.roles-pick .check { margin-bottom: 8px; }
+.nudge { background: #fff1cf; border-bottom: 1px solid #f3d58a; padding: 8px 0; font-size: .92rem; }

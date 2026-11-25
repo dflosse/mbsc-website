@@ -3,17 +3,20 @@ import { NavLink, Routes, Route, Navigate } from 'react-router-dom'
 import { supabase, REG_SEASON, PREV_SEASON, fmtDate } from '../supabase'
 import { useAuth } from '../auth'
 import EditTable from './EditTable'
+import { wwccState } from './Volunteer'
 
 export default function Committee() {
   return (
     <div className="wrap wide">
       <h1>Committee</h1>
       <div className="tabs">
-        {[['overview', 'Overview'], ['players', 'Players'], ['galas', 'Galas'], ['tasks', 'Action list'], ['kit', 'Uniforms'], ['teams', 'Teams'], ['people', 'People & access'], ['docs', 'Documents'], ['roles', 'Committee roles'], ['settings', 'Fees & settings']].map(([p, l]) => <NavLink key={p} to={'/committee/' + p}>{l}</NavLink>)}
+        {[['overview', 'Overview'], ['approvals', 'Approvals'], ['wwcc', 'WWCC register'], ['players', 'Players'], ['galas', 'Galas'], ['tasks', 'Action list'], ['kit', 'Uniforms'], ['teams', 'Teams'], ['people', 'People & access'], ['docs', 'Documents'], ['roles', 'Committee roles'], ['settings', 'Fees & settings']].map(([p, l]) => <NavLink key={p} to={'/committee/' + p}>{l}</NavLink>)}
       </div>
       <Routes>
         <Route index element={<Navigate to="overview" replace />} />
         <Route path="overview" element={<Overview />} />
+        <Route path="approvals" element={<Approvals />} />
+        <Route path="wwcc" element={<WWCCRegister />} />
         <Route path="players" element={<Players />} />
         <Route path="galas" element={<Galas />} />
         <Route path="tasks" element={<Tasks />} />
@@ -39,6 +42,7 @@ function Overview() {
         roster: await c('players', (q) => q.eq('season', PREV_SEASON).neq('status', 'withdrawn')),
         unpaid: await c('players', (q) => q.eq('season', REG_SEASON).eq('fees_paid', false)),
         tasks: await c('tasks', (q) => q.neq('status', 'done')),
+        vols: await c('volunteer_roles', (q) => q.eq('status', 'pending')),
         kitOut: await c('kit', (q) => q.in('status', ['Loaned Out', 'Outstanding'])),
         users: await c('profiles'),
       })
@@ -50,7 +54,8 @@ function Overview() {
   return (
     <>
       <div className="stats">
-        <Stat n={s.pending} l="registrations awaiting approval" to="players" warn={s.pending > 0} />
+        <Stat n={s.pending} l="player registrations awaiting sign-off" to="approvals" warn={s.pending > 0} />
+        <Stat n={s.vols} l="volunteer / coach applications awaiting sign-off" to="approvals" warn={s.vols > 0} />
         <Stat n={s.reg} l={`${REG_SEASON} registrations`} to="players" />
         <Stat n={s.unpaid} l={`${REG_SEASON} payments outstanding`} to="players" warn={s.unpaid > 0} />
         <Stat n={s.roster} l={`${PREV_SEASON} players (last season)`} to="players" />
@@ -93,7 +98,7 @@ function Players() {
       <div className="row"><span>Season:</span>{[PREV_SEASON, REG_SEASON].map((s) => <button key={s} className={'btn small ' + (s === season ? '' : 'ghost')} onClick={() => setSeason(s)}>{s}</button>)}
         {season === REG_SEASON && teamOpts.length === 0 && <span className="muted small">No {REG_SEASON} teams yet – add them under Teams to assign players.</span>}</div>
       {note && <p className="ok">{note}</p>}
-      <p className="muted small">{season === PREV_SEASON ? `Last season's players are kept here. Use ➜${REG_SEASON} to carry a returning player over. ` : ''}Edits save as you go. "Approved" + FV registered + paid = fully registered. Use 🔗 to link a parent's account to a player.</p>
+      <p className="muted small">Registrations are signed off by the executive on the <NavLink to="/committee/approvals">Approvals</NavLink> tab. {season === PREV_SEASON ? `Last season's players are kept here. Use ➜${REG_SEASON} to carry a returning player over. ` : ''}Edits save as you go. "Approved" + FV registered + paid = fully registered. Use 🔗 to link a parent's account to a player.</p>
       <EditTable key={season} table="players" filter={filter} order={order} search={['first_name', 'last_name']}
         defaults={{ season, first_name: 'New', last_name: 'Player', status: 'pending' }}
         cols={[
@@ -239,19 +244,21 @@ function People() {
     setTc(t || [])
   }, [])
   useEffect(() => { load() }, [load])
+  async function setExec(id, v) { const { error } = await supabase.from('profiles').update({ is_executive: v }).eq('id', id); setErr(error?.message || ''); load() }
   async function setRole(id, role) { const { error } = await supabase.from('profiles').update({ role }).eq('id', id); setErr(error?.message || ''); load() }
   async function addCoach(profile_id, team_id) { if (!team_id) return; const { error } = await supabase.from('team_coaches').insert({ profile_id, team_id }); setErr(error?.message || ''); load() }
   async function rmCoach(profile_id, team_id) { await supabase.from('team_coaches').delete().eq('profile_id', profile_id).eq('team_id', team_id); load() }
   const tname = (id) => teams.find((t) => t.id === id)?.name + ' ' + (teams.find((t) => t.id === id)?.season || '')
   return (
     <>
-      <p className="muted small">Everyone who signs up starts as a parent. {isAdmin ? 'As an admin you can make people coaches, committee members or admins.' : 'Only admins can change access levels.'} Committee members see all player details.</p>
+      <p className="muted small">Tick <b>Executive</b> for the President, Vice President, Secretary and Treasurer – only they can sign off registrations and volunteers. Coaches and volunteers get their access automatically when an executive approves their application. Everyone who signs up starts as a parent. {isAdmin ? 'As an admin you can make people coaches, committee members or admins.' : 'Only admins can change access levels.'} Committee members see all player details.</p>
       {err && <p className="err">{err}</p>}
       <div className="table-wrap"><table>
-        <thead><tr><th>Name</th><th>Email</th><th>Phone</th><th>Access</th><th>Coaches</th></tr></thead>
+        <thead><tr><th>Name</th><th>Email</th><th>Phone</th><th>Access</th><th>Executive</th><th>Coaches</th></tr></thead>
         <tbody>{people.map((p) => <tr key={p.id}>
           <td>{p.full_name}</td><td>{p.email}</td><td>{p.phone}</td>
-          <td>{isAdmin && p.id !== user.id ? <select value={p.role} onChange={(e) => setRole(p.id, e.target.value)}>{['parent', 'coach', 'committee', 'admin'].map((r) => <option key={r}>{r}</option>)}</select> : p.role}</td>
+          <td>{isAdmin && p.id !== user.id ? <select value={p.role} onChange={(e) => setRole(p.id, e.target.value)}>{['parent', 'volunteer', 'coach', 'committee', 'admin'].map((r) => <option key={r}>{r}</option>)}</select> : p.role}</td>
+          <td>{isAdmin ? <input type="checkbox" checked={!!p.is_executive} onChange={(e) => setExec(p.id, e.target.checked)} title="President, VP, Secretary, Treasurer – can sign off registrations and volunteers" /> : (p.is_executive ? 'Yes' : '')}</td>
           <td>{tc.filter((t) => t.profile_id === p.id).map((t) => <span key={t.team_id} className="pill">{tname(t.team_id)} <button className="link danger" onClick={() => rmCoach(p.id, t.team_id)}>×</button></span>)}
             <select value="" onChange={(e) => addCoach(p.id, e.target.value)}><option value="">+ team</option>{teams.map((t) => <option key={t.id} value={t.id}>{t.name} {t.season}</option>)}</select></td>
         </tr>)}</tbody>
@@ -285,6 +292,119 @@ function Settings() {
       <p className="muted small">These show on the public site (About us, home page and the registration form). Football Victoria requires the club to publish all fees and charges.</p>
       <EditTable table="settings" order={order} defaults={{ key: 'new_' + Date.now(), label: 'New setting' }}
         cols={[{ key: 'label', label: 'Setting', width: 160 }, { key: 'value', label: 'Text shown on the site', type: 'textarea', width: 520 }]} />
+    </>
+  )
+}
+
+function Approvals() {
+  const { isExec } = useAuth()
+  const [players, setPlayers] = useState([])
+  const [apps, setApps] = useState([])
+  const [wwcc, setWwcc] = useState({})
+  const [people, setPeople] = useState({})
+  const [msg, setMsg] = useState('')
+  const [open, setOpen] = useState(null)
+  const load = useCallback(async () => {
+    const { data: p } = await supabase.from('players').select('*, teams(name), player_guardians(profile_id)').eq('status', 'pending').order('created_at')
+    setPlayers(p || [])
+    const { data: a } = await supabase.from('volunteer_roles').select('*, teams(name)').eq('status', 'pending').order('created_at')
+    setApps(a || [])
+    const ids = [...new Set([...(a || []).map((x) => x.profile_id), ...(p || []).flatMap((x) => (x.player_guardians || []).map((g) => g.profile_id))])]
+    if (ids.length) {
+      const { data: pr } = await supabase.from('profiles').select('*').in('id', ids)
+      setPeople(Object.fromEntries((pr || []).map((x) => [x.id, x])))
+      const { data: w } = await supabase.from('wwcc').select('*').in('profile_id', ids)
+      setWwcc(Object.fromEntries((w || []).map((x) => [x.profile_id, x])))
+    }
+  }, [])
+  useEffect(() => { load() }, [load])
+
+  async function decidePlayer(p, ok) {
+    const { error } = await supabase.from('players').update({ status: ok ? 'approved' : 'withdrawn' }).eq('id', p.id)
+    setMsg(error ? error.message : `${p.first_name} ${p.last_name} ${ok ? 'approved' : 'declined'}.`); load()
+  }
+  async function decideVol(a, ok) {
+    const note = ok ? null : prompt('Reason (shown to the applicant)?') || null
+    const { error } = await supabase.rpc('decide_volunteer', { p_id: a.id, p_approve: ok, p_note: note })
+    setMsg(error ? error.message : `${people[a.profile_id]?.full_name || 'Applicant'} ${ok ? 'approved' : 'declined'}.`); load()
+  }
+  async function mark(pid, field) {
+    const { data: me } = await supabase.auth.getSession()
+    const patch = field === 'status' ? { status_checked_at: new Date().toISOString(), status_checked_by: me.session.user.id } : { wwc_connected_at: new Date().toISOString(), wwc_connected_by: me.session.user.id }
+    const { error } = await supabase.from('wwcc').update(patch).eq('profile_id', pid)
+    setMsg(error ? error.message : 'Recorded.'); load()
+  }
+  async function viewCard(path) {
+    const { data, error } = await supabase.storage.from('wwcc').createSignedUrl(path, 120)
+    if (error) return setMsg(error.message)
+    setOpen(data.signedUrl)
+  }
+  const kindLabel = { coach: 'Coach', executive: 'Executive', committee: 'Committee', volunteer: 'Volunteer' }
+  return (
+    <>
+      {!isExec && <div className="card callout"><p>You can see what's waiting, but only the <b>executive committee</b> (President, Vice President, Secretary, Treasurer) can sign off.</p></div>}
+      {msg && <p className="ok">{msg}</p>}
+      <h2>Volunteers, coaches & committee ({apps.length})</h2>
+      <p className="muted small">Before approving: 1) check the card with the <a href="https://service.vic.gov.au/workchecks" target="_blank" rel="noreferrer">WWC status checker (Service Victoria)</a>, 2) connect the person to the club in WWC Connect. Both are required by Victorian law from 19 Oct 2026, and the site won't let you approve until both are ticked.</p>
+      {apps.length === 0 && <p className="muted">Nothing waiting.</p>}
+      <div className="cards wide">
+        {apps.map((a) => {
+          const p = people[a.profile_id] || {}
+          const w = wwcc[a.profile_id]
+          const [cls, label] = wwccState(w)
+          return (
+            <div key={a.id} className="card">
+              <div className="row between"><b>{p.full_name || p.email}</b><span className="tag">{kindLabel[a.kind]}{a.teams?.name ? ' – ' + a.teams.name : ''}</span></div>
+              {a.detail && <p className="small">"{a.detail}"</p>}
+              <p className="small">{p.email} · {p.phone || 'no phone'}<br />{p.address || 'no address'}</p>
+              <div className="wwccbox">
+                <p><span className={'pill ' + cls}>{label}</span></p>
+                {w ? <>
+                  <p className="small">Card <b>{w.card_number}</b> ({w.card_type}) · expires {fmtDate(w.expiry)}</p>
+                  {w.file_path && <button className="link" onClick={() => viewCard(w.file_path)}>View card image</button>}
+                  <ul className="ticks">
+                    <li className={w.status_checked_at ? 'done' : ''}>Status checked {w.status_checked_at ? fmtDate(w.status_checked_at.slice(0, 10)) : isExec && <button className="btn small ghost" onClick={() => mark(a.profile_id, 'status')}>Mark checked</button>}</li>
+                    <li className={w.wwc_connected_at ? 'done' : ''}>Connected in WWC Connect {w.wwc_connected_at ? fmtDate(w.wwc_connected_at.slice(0, 10)) : isExec && <button className="btn small ghost" onClick={() => mark(a.profile_id, 'connect')}>Mark connected</button>}</li>
+                  </ul>
+                </> : <p className="small err">They haven't uploaded a WWCC yet.</p>}
+              </div>
+              {isExec && <div className="row"><button className="btn small" onClick={() => decideVol(a, true)}>Approve</button><button className="btn small ghost" onClick={() => decideVol(a, false)}>Decline</button></div>}
+            </div>
+          )
+        })}
+      </div>
+      <h2>Player registrations ({players.length})</h2>
+      {players.length === 0 && <p className="muted">Nothing waiting.</p>}
+      {players.length > 0 && <div className="table-wrap"><table><thead><tr><th>Player</th><th>Born</th><th>Season</th><th>Parent</th><th>Medical</th><th>FV reg</th><th>Paid</th><th /></tr></thead>
+        <tbody>{players.map((p) => { const g = people[p.player_guardians?.[0]?.profile_id]; return (
+          <tr key={p.id}><td><b>{p.first_name} {p.last_name}</b>{p.committee_notes && <><br /><span className="small muted">{p.committee_notes}</span></>}</td><td>{p.dob ? fmtDate(p.dob) : ''}</td><td>{p.season}</td>
+            <td>{g ? <>{g.full_name || g.email}<br /><span className="small muted">{g.phone}</span></> : <span className="muted">not linked</span>}</td>
+            <td className={p.medical_notes ? 'alert' : 'muted'}>{p.medical_notes || '—'}</td><td>{p.fv_registered ? '✓' : '—'}</td><td>{p.fees_paid ? '✓' : '—'}</td>
+            <td className="nowrap">{isExec && <><button className="btn small" onClick={() => decidePlayer(p, true)}>Approve</button> <button className="link danger" onClick={() => decidePlayer(p, false)}>Decline</button></>}</td></tr>) })}</tbody></table></div>}
+      {open && <div className="modal" onClick={() => setOpen(null)}><div className="card" onClick={(e) => e.stopPropagation()}><h3>WWCC card</h3>{/\.pdf/i.test(open.split('?')[0]) ? <a href={open} target="_blank" rel="noreferrer">Open PDF</a> : <img src={open} alt="WWCC card" style={{ maxWidth: '100%' }} />}<p className="small muted">This link expires in 2 minutes.</p><button className="btn small ghost" onClick={() => setOpen(null)}>Close</button></div></div>}
+    </>
+  )
+}
+
+function WWCCRegister() {
+  const { isExec } = useAuth()
+  const [rows, setRows] = useState([])
+  useEffect(() => {
+    (async () => {
+      const { data: pr } = await supabase.from('profiles').select('*').in('role', ['volunteer', 'coach', 'committee', 'admin']).order('full_name')
+      const ids = (pr || []).map((p) => p.id)
+      const { data: w } = ids.length ? await supabase.from('wwcc').select('*').in('profile_id', ids) : { data: [] }
+      const wm = Object.fromEntries((w || []).map((x) => [x.profile_id, x]))
+      setRows((pr || []).map((p) => ({ p, w: wm[p.id] })))
+    })()
+  }, [])
+  if (!isExec) return <div className="card"><p>The WWCC register is visible to the executive committee only.</p></div>
+  const sorted = [...rows].sort((a, b) => (a.w?.expiry || '0') > (b.w?.expiry || '0') ? 1 : -1)
+  return (
+    <>
+      <p className="muted small">Everyone with coach, volunteer or committee access. Sorted by expiry, so problems are at the top. Under 60 days to expiry is flagged.</p>
+      <div className="table-wrap"><table><thead><tr><th>Name</th><th>Access</th><th>Card</th><th>Expiry</th><th>Status</th></tr></thead>
+        <tbody>{sorted.map(({ p, w }) => { const [cls, label] = wwccState(w); return <tr key={p.id}><td>{p.full_name || p.email}</td><td>{p.role}{p.is_executive ? ' · exec' : ''}</td><td>{w?.card_number || '—'}</td><td>{w ? fmtDate(w.expiry) : '—'}</td><td><span className={'pill ' + cls}>{label}</span></td></tr> })}</tbody></table></div>
     </>
   )
 }

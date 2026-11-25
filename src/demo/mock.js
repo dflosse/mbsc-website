@@ -21,6 +21,7 @@ export function setDemoRole(r) { current = r; const s = session(); listeners.for
 const me = () => DEMO_ROLES[current].user
 const role = () => db.profiles.find((p) => p.id === me())?.role
 const staff = () => ['committee', 'admin'].includes(role())
+const exec = () => !!db.profiles.find((p) => p.id === me())?.is_executive
 const myKids = () => db.player_guardians.filter((g) => g.profile_id === me()).map((g) => g.player_id)
 const myTeams = () => db.team_coaches.filter((t) => t.profile_id === me()).map((t) => t.team_id)
 const kidTeams = () => db.players.filter((p) => myKids().includes(p.id)).map((p) => p.team_id)
@@ -35,6 +36,8 @@ const visible = {
   tasks: () => staff(), kit: () => staff(),
   profiles: (r) => staff() || r.id === me(),
   team_coaches: () => !!me(),
+  wwcc: (r) => r.profile_id === me() || exec(),
+  volunteer_roles: (r) => r.profile_id === me() || staff(),
 }
 const writable = {
   players: (r) => staff() || myKids().includes(r.id),
@@ -42,6 +45,8 @@ const writable = {
   posts: (r) => staff() || r.author_id === me() || (r.audience === 'members' && me()) || (r.audience === 'team' && (myTeams().includes(r.team_id) || kidTeams().includes(r.team_id))) || (r.audience === 'coaches' && (myTeams().length || role() === 'coach')),
   replies: () => !!me(),
   profiles: (r) => r.id === me() || role() === 'admin',
+  wwcc: (r) => r.profile_id === me() || exec(),
+  volunteer_roles: (r) => r.profile_id === me() || exec(),
 }
 const canRead = (t, r) => (visible[t] ? visible[t](r) : true)
 const canWrite = (t, r) => (writable[t] ? writable[t](r) : staff())
@@ -50,6 +55,7 @@ function embed(t, r, sel) {
   const out = { ...r }
   if (sel.includes('teams(') && 'team_id' in r) out.teams = db.teams.find((x) => x.id === r.team_id) || null
   if (sel.includes('profiles(') && r.profile_id) out.profiles = db.profiles.find((x) => x.id === r.profile_id) || null
+  if (sel.includes('player_guardians(') && t === 'players') out.player_guardians = db.player_guardians.filter((g) => g.player_id === r.id)
   if (sel.includes('players(') && r.player_id) { const p = db.players.find((x) => x.id === r.player_id); out.players = p ? { ...p, teams: db.teams.find((x) => x.id === p.team_id) || null } : null }
   return out
 }
@@ -88,8 +94,11 @@ class Query {
     }
     if (this.op === 'update') {
       const rs = this.rows().filter((r) => canWrite(t, r))
-      if (t === 'players' && !staff() && ['team_id', 'status', 'fees_paid', 'fv_registered'].some((k) => k in this.payload)) return { data: null, error: { message: 'Only committee can change team, status or payment fields' } }
-      if (t === 'profiles' && 'role' in this.payload && role() !== 'admin') return { data: null, error: { message: 'Only admins can change roles' } }
+      if (t === 'players' && 'status' in this.payload && !exec()) return { data: null, error: { message: 'Only the executive committee can approve or withdraw a registration' } }
+      if (t === 'players' && !staff() && ['team_id', 'fees_paid', 'fv_registered'].some((k) => k in this.payload)) return { data: null, error: { message: 'Only committee can change team or payment fields' } }
+      if (t === 'wwcc' && !exec() && ['status_checked_at', 'wwc_connected_at'].some((k) => k in this.payload)) return { data: null, error: { message: 'Only the executive committee can verify a WWCC' } }
+      if (t === 'wwcc' && !exec()) this.payload = { ...this.payload, status_checked_at: null, wwc_connected_at: null }
+      if (t === 'profiles' && ('role' in this.payload || 'is_executive' in this.payload) && role() !== 'admin') return { data: null, error: { message: 'Only admins can change roles' } }
       rs.forEach((r) => Object.assign(r, this.payload)); return { data: rs, error: null }
     }
     if (this.op === 'delete') {
@@ -109,13 +118,35 @@ class Query {
 export const mockSupabase = {
   from: (t) => new Query(t),
   rpc: async (fn, a) => {
+    if (fn === 'decide_volunteer') {
+      if (!exec()) return { error: { message: 'Only the executive committee can sign off volunteers' } }
+      const r = db.volunteer_roles.find((x) => x.id === a.p_id)
+      const w = db.wwcc.find((x) => x.profile_id === r.profile_id)
+      if (a.p_approve) {
+        if (!w) return { error: { message: 'No WWCC on file' } }
+        if (!w.status_checked_at) return { error: { message: 'WWCC status has not been checked yet' } }
+        if (!w.wwc_connected_at) return { error: { message: 'Not yet connected to the club in WWC Connect' } }
+      }
+      Object.assign(r, { status: a.p_approve ? 'approved' : 'declined', decision_note: a.p_note })
+      if (a.p_approve) {
+        const p = db.profiles.find((x) => x.id === r.profile_id)
+        if (!['admin', 'committee'].includes(p.role)) p.role = r.kind === 'committee' ? 'committee' : r.kind === 'coach' ? 'coach' : 'volunteer'
+        if (r.kind === 'coach' && r.team_id) db.team_coaches.push({ team_id: r.team_id, profile_id: r.profile_id })
+      }
+      return { error: null }
+    }
     if (fn !== 'register_player' || !me()) return { error: { message: 'Not signed in' } }
     const id = uid()
     db.players.push({ id, season: a.p_season, first_name: a.p_first, last_name: a.p_last, dob: a.p_dob, gender: a.p_gender, medical_notes: a.p_medical, emergency_contact: a.p_emergency, photo_consent: a.p_photo, status: 'pending', fv_registered: false, fees_paid: false, team_id: null, created_at: new Date().toISOString() })
     db.player_guardians.push({ player_id: id, profile_id: me() })
     return { data: id, error: null }
   },
+  storage: { from: () => ({
+    upload: async (path) => ({ data: { path }, error: null }),
+    createSignedUrl: async (path) => ({ data: { signedUrl: path.startsWith('data:') ? path : seedCard() }, error: null }),
+  }) },
   auth: {
+    updateUser: async () => ({ error: null }),
     getSession: async () => ({ data: { session: session() } }),
     onAuthStateChange: (fn) => { listeners.add(fn); return { data: { subscription: { unsubscribe: () => listeners.delete(fn) } } } },
     signOut: async () => setDemoRole('visitor'),
@@ -124,3 +155,5 @@ export const mockSupabase = {
     signUp: async () => { setTimeout(() => setDemoRole('parent'), 1500); return { error: null } },
   },
 }
+
+const seedCard = () => db.wwcc[0].file_path

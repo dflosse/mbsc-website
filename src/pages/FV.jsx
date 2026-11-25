@@ -35,7 +35,7 @@ export default function FV() {
   return (
     <div className="wrap">
       <h1>Football Victoria</h1>
-      <p className="lead">Mt Beauty FC is a member club of Football Victoria (FV), the governing body for soccer in Victoria. FV registration gives every player insurance cover and lets them play in FV-sanctioned competitions like our Alpine Valleys gala days.</p>
+      <p className="lead">Mount Beauty Football Club (MBFC) is a member club of Football Victoria (FV), the governing body for soccer in Victoria. FV registration gives every player insurance cover and lets them play in FV-sanctioned competitions like our Alpine Valleys gala days.</p>
       <div className="grid2">
         <section>
           <h2>For families</h2>

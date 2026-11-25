@@ -39,6 +39,8 @@ export function AuthProvider({ children }) {
     refresh: () => loadProfile(session),
     isStaff: role === 'committee' || role === 'admin',
     isAdmin: role === 'admin',
+    isExec: !!profile?.is_executive,
+    isVolunteer: ['volunteer', 'coach', 'committee', 'admin'].includes(role),
     isCoach: role === 'coach' || coachTeams.length > 0,
     coachTeams,
     signOut: () => supabase.auth.signOut(),

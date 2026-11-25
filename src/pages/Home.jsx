@@ -22,14 +22,14 @@ export default function Home() {
         <div className="wrap herogrid">
           <div>
             <p className="eyebrow">Junior soccer · Kiewa Valley · since 2003</p>
-            <h1>Mt Beauty FC</h1>
+            <h1>Mount Beauty Football Club</h1>
             <p className="lead">Fun, friendly MiniRoos soccer for kids aged 4–13. Training at Les Peart Oval, games in the Alpine Valleys gala series.</p>
             <div className="row">
               {user ? <Link className="btn" to="/family">Go to my family</Link> : <Link className="btn" to="/login">Register for {REG_SEASON}</Link>}
               <Link className="btn ghost" to="/about">About the club</Link>
             </div>
           </div>
-          <img src={crest} alt="Mt Beauty FC crest" className="herocrest" />
+          <img src={crest} alt="Mount Beauty Football Club crest" className="herocrest" />
         </div>
       </section>
 

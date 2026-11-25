@@ -38,24 +38,24 @@ players.push(
 export const profiles = [
   { id: 'u-parent', email: 'sam.parker@example.com', full_name: 'Sam Parker', phone: '0400 000 111', role: 'parent', created_at: '2026-12-02T09:00:00Z' },
   { id: 'u-coach', email: 'coach@example.com', full_name: 'Sample coach (U9 Red)', phone: '', role: 'coach', created_at: '2026-12-01T09:00:00Z' },
-  { id: 'u-committee', email: 'secretary@example.com', full_name: 'Club Secretary', phone: '', role: 'committee', created_at: '2026-11-30T09:00:00Z' },
-  { id: 'u-admin', email: 'danielflorisson@gmail.com', full_name: 'Dan Florisson', phone: '', role: 'admin', created_at: '2026-11-25T09:00:00Z' },
-  { id: 'u-p2', email: 'jo.kiewa@example.com', full_name: 'Jo Kiewa', phone: '', role: 'parent', created_at: '2026-12-03T09:00:00Z' },
-  { id: 'u-p3', email: 'alex.bogong@example.com', full_name: 'Alex Bogong', phone: '', role: 'parent', created_at: '2026-12-04T09:00:00Z' },
+  { id: 'u-committee', email: 'secretary@example.com', full_name: 'Club Secretary', phone: '', role: 'committee', is_executive: true, created_at: '2026-11-30T09:00:00Z' },
+  { id: 'u-admin', email: 'danielflorisson@gmail.com', full_name: 'Dan Florisson', phone: '', role: 'admin', is_executive: true, created_at: '2026-11-25T09:00:00Z' },
+  { id: 'u-p2', email: 'jo.kiewa@example.com', full_name: 'Jo Kiewa', phone: '0400 444 555', address: '3 Example Rd, Mount Beauty VIC', role: 'parent', created_at: '2026-12-03T09:00:00Z' },
+  { id: 'u-p3', email: 'alex.bogong@example.com', full_name: 'Alex Bogong', phone: '0400 222 333', address: '12 Sample St, Tawonga VIC', role: 'parent', created_at: '2026-12-04T09:00:00Z' },
 ]
 export const player_guardians = [{ player_id: 'kid1', profile_id: 'u-parent' }, { player_id: 'kid2', profile_id: 'u-parent' }]
 export const team_coaches = [{ team_id: 't9r', profile_id: 'u-coach' }]
 
 const G = (id, date, host, venue, address, extra = {}) => ({ id, season: 2027, gala_date: date, host_club: host + ' – sample date', venue, address, start_time: '9:00am', created_at: '', ...extra })
 export const galas = [
-  G('g1', '2027-05-16', 'Mt Beauty SC (home)', 'Les Peart Oval', 'Pool Road, Mt Beauty', { signup_closes: '2027-05-11', info: 'Home gala – we need parent helpers for the BBQ, canteen and pack-up. Arrive 8:30am for warm-up. Bring water, shin pads and a fruit snack.' }),
+  G('g1', '2027-05-16', 'Mount Beauty FC (home)', 'Les Peart Oval', 'Pool Road, Mount Beauty', { signup_closes: '2027-05-11', info: 'Home gala – we need parent helpers for the BBQ, canteen and pack-up. Arrive 8:30am for warm-up. Bring water, shin pads and a fruit snack.' }),
   G('g2', '2027-05-22', 'Myrtleford SC', 'Myrtleford Showgrounds', 'Myrtleford', { signup_closes: '2027-05-18' }),
-  G('g3', '2027-05-30', 'Mt Beauty SC (home)', 'Les Peart Oval', 'Pool Road, Mt Beauty', { signup_closes: '2027-05-25' }),
+  G('g3', '2027-05-30', 'Mount Beauty FC (home)', 'Les Peart Oval', 'Pool Road, Mount Beauty', { signup_closes: '2027-05-25' }),
   G('g4', '2027-06-13', 'Yackandandah FC', 'Yackandandah Recreation Reserve', 'Yackandandah', { signup_closes: '2027-06-08' }),
   G('g5', '2027-06-26', 'Bright SC', 'Bright Pioneer Park', 'Bright', { signup_closes: '2027-06-22' }),
-  { id: 'g0a', season: 2026, gala_date: '2026-05-17', host_club: 'Mt Beauty SC', venue: 'Les Peart Oval' },
+  { id: 'g0a', season: 2026, gala_date: '2026-05-17', host_club: 'Mount Beauty FC', venue: 'Les Peart Oval' },
   { id: 'g0b', season: 2026, gala_date: '2026-05-23', host_club: 'Myrtleford SC', venue: 'Myrtleford' },
-  { id: 'g0c', season: 2026, gala_date: '2026-05-31', host_club: 'Mt Beauty SC', venue: 'Les Peart Oval' },
+  { id: 'g0c', season: 2026, gala_date: '2026-05-31', host_club: 'Mount Beauty FC', venue: 'Les Peart Oval' },
   { id: 'g0d', season: 2026, gala_date: '2026-06-14', host_club: 'Yackandandah FC', venue: 'Yackandandah' },
   { id: 'g0e', season: 2026, gala_date: '2026-06-27', host_club: 'Bright SC', venue: 'Bright' },
 ]
@@ -128,3 +128,16 @@ export const kit = Array.from({ length: 40 }, (_, i) => {
   const out = i % 3 !== 0
   return { id: 'k' + i, jersey_label: String(i + 1), jersey_number: i + 1, size: ['6', '8', '10', '12', '14'][Math.floor(i / 8)], kit_bag: out ? String(10 + i) : '', holder_name: out ? `${p.first_name} ${p.last_name}` : '', status: out ? 'Loaned Out' : 'Shed Tub', shin_guard: out ? 'S' : '', boots_on_loan: i % 5 === 0, registration_paid: out && i % 4 !== 1, notes: '', sort_order: i }
 })
+
+// Sample WWCC records and volunteer applications (made up)
+const CARD = 'data:image/svg+xml;utf8,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="420" height="260"><rect width="420" height="260" rx="16" fill="#e8f0fc"/><text x="24" y="50" font-family="Arial" font-size="20" font-weight="700" fill="#1a4a8a">Working with Children Check</text><text x="24" y="90" font-family="Arial" font-size="16">SAMPLE CARD – DEMO ONLY</text><text x="24" y="130" font-family="Arial" font-size="16">Card no. 01234567A-01</text><text x="24" y="160" font-family="Arial" font-size="16">Volunteer · expires 2029</text></svg>')
+export const wwcc = [
+  { profile_id: 'u-coach', card_number: '07654321A-01', expiry: '2029-03-01', card_type: 'Volunteer', file_path: CARD, status_checked_at: '2026-12-01T00:00:00Z', wwc_connected_at: '2026-12-01T00:00:00Z' },
+  { profile_id: 'u-p2', card_number: '01234567A-01', expiry: '2029-06-30', card_type: 'Volunteer', file_path: CARD, status_checked_at: null, wwc_connected_at: null },
+  { profile_id: 'u-admin', card_number: '05555555A-02', expiry: '2027-01-10', card_type: 'Employee', file_path: CARD, status_checked_at: '2026-11-25T00:00:00Z', wwc_connected_at: '2026-11-25T00:00:00Z' },
+]
+export const volunteer_roles = [
+  { id: 'vr1', profile_id: 'u-p2', season: 2027, kind: 'coach', team_id: 't7', detail: 'Happy to assist with Under 7s on Wednesdays', status: 'pending', created_at: '2026-12-05T00:00:00Z' },
+  { id: 'vr2', profile_id: 'u-p3', season: 2027, kind: 'volunteer', team_id: null, detail: 'Gala day BBQ', status: 'pending', created_at: '2026-12-06T00:00:00Z' },
+  { id: 'vr3', profile_id: 'u-coach', season: 2027, kind: 'coach', team_id: 't9r', detail: '', status: 'approved', created_at: '2026-11-30T00:00:00Z' },
+]
