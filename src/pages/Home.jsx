@@ -4,7 +4,7 @@ import { supabase, fmtDate, REG_SEASON } from '../supabase'
 import { useAuth } from '../auth'
 import useSettings from '../useSettings'
 import { FeesCard } from './About'
-import Valley from '../components/Valley'
+import Contours from '../components/Contours'
 
 export default function Home() {
   const { user } = useAuth()
@@ -18,56 +18,73 @@ export default function Home() {
   }, [])
   return (
     <>
-      <section className="hero">
-        <Valley />
-        <div className="wrap herotext">
-          <h1>Junior football in the Kiewa Valley</h1>
-          <p className="lead">MiniRoos for girls and boys aged 4–13. Training at Les Peart Oval, games across the Alpine Valleys gala series. Run by parents since 2003.</p>
-          <div className="row">
-            {user ? <Link className="btn" to="/family">Go to my family</Link> : <Link className="btn" to="/login">Register for {REG_SEASON}</Link>}
-            <Link className="btn ghost" to="/about">About the club</Link>
+      <section className="trailhead">
+        <Contours />
+        <div className="inner">
+          <span className="marker"><svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M6 0 L12 12 H0 Z" fill="currentColor" /></svg>Les Peart Oval, Mount Beauty</span>
+          <h1>Junior football at the foot of Mt Bogong</h1>
+        </div>
+      </section>
+
+      <div className="wrap">
+        <div className="intro">
+          <p>Girls and boys aged 4 to 13. One training a week, gala days around the Alpine Valleys, run by local families since 2003.</p>
+          <div>
+            {user ? <Link className="cta" to="/family">Go to my family <Arrow /></Link> : <Link className="cta" to="/login">Register for {REG_SEASON} <Arrow /></Link>}
+            <Link className="cta alt" to="/about">About the club <Arrow /></Link>
           </div>
         </div>
-      </section>
 
-      <section className="facts-band">
-        <div className="wrap facts">
-          <Link to="/about"><b>Who plays</b><span>Girls and boys aged 4–13, all abilities</span></Link>
-          <Link to="/about"><b>Training</b><span>Wednesdays 4–5pm at Les Peart Oval</span></Link>
-          <Link to="/galas"><b>Games</b><span>Alpine Valleys gala days, {REG_SEASON} dates to come</span></Link>
-          <Link to="/about#fees"><b>Fees</b><span>{s.fees ? s.fees.split('.')[0] : 'To be confirmed'}</span></Link>
-        </div>
-      </section>
+        <div className="home-cols">
+          <section>
+            <h2>Gala days</h2>
+            {galas.length === 0 ? (
+              <div className="card"><p style={{ margin: 0 }}>The {REG_SEASON} dates go up here once the Alpine Valleys clubs confirm the fixture. <Link to="/galas">How gala days work</Link></p></div>
+            ) : (
+              <div className="signboard">
+                {galas.map((g) => (
+                  <div key={g.id} className="gala">
+                    <div><h3>{g.host_club}</h3><div className="sub">{g.venue}{g.start_time ? `, ${g.start_time}` : ''}</div></div>
+                    <div className="when">{fmtDate(g.gala_date, { day: 'numeric', month: 'short' })}</div>
+                  </div>
+                ))}
+              </div>
+            )}
 
-      <div className="wrap split">
-        <section>
-          <h2>Club news</h2>
-          {news.length === 0 && <p className="muted">Nothing posted yet.</p>}
-          {news.map((p) => (
-            <article key={p.id} className="story">
-              <p className="muted small">{fmtDate(p.created_at.slice(0, 10))}{p.pinned ? ' – pinned' : ''}</p>
-              <h3>{p.title}</h3>
-              <p className="pre">{p.body}</p>
-            </article>
-          ))}
-          <article className="story">
-            <h3>New to the club?</h3>
-            <p>Start with <Link to="/about">About the club</Link> for how a season works, age groups, fees and who's on the committee. Registering takes two steps, one with us and one with Football Victoria. <Link to="/football-victoria">Here's how.</Link></p>
-          </article>
-        </section>
-        <aside>
-          <h2>Gala days</h2>
-          {galas.length === 0 ? (
-            <p>The {REG_SEASON} dates will appear here once the Alpine Valleys clubs confirm the fixture. <Link to="/galas">How gala days work</Link></p>
-          ) : galas.map((g) => (
-            <div key={g.id} className="gala">
-              <div className="date"><b>{fmtDate(g.gala_date, { day: 'numeric' })}</b><span>{fmtDate(g.gala_date, { month: 'short' })}</span></div>
-              <div><h3>{g.host_club}</h3><p className="muted">{g.venue}{g.start_time ? `, ${g.start_time}` : ''}</p></div>
+            <h2>The season at a glance</h2>
+            <div className="glance">
+              <Link to="/about"><Icon d="M14 3a11 11 0 1 0 0 22 11 11 0 0 0 0-22zM14 8v6l4 3" /><div><b>Wednesdays, 4 to 5pm</b><span>Training at Les Peart Oval, School Term 2</span></div></Link>
+              <Link to="/teams"><Icon d="M3 23 L11 9 L16 17 L19 12 L25 23 Z" /><div><b>Ages 4 to 13</b><span>Squads by age, girls and boys</span></div></Link>
+              <Link to="/about#fees"><Icon d="M4 7h20v14H4zM4 12h20" /><div><b>{!s.fees || /^tba/i.test(s.fees) ? 'Fee to be confirmed' : s.fees.split(/[.(]/)[0].trim()}</b><span>Paid through Football Victoria's PlayFootball</span></div></Link>
             </div>
-          ))}
-          <FeesCard s={s} compact />
-        </aside>
+          </section>
+
+          <section>
+            <h2>Club news</h2>
+            {news.length === 0 && <p className="muted">Nothing posted yet.</p>}
+            {news.map((p) => (
+              <article key={p.id} className="story">
+                <p className="muted small" style={{ margin: '0 0 4px' }}>{fmtDate(p.created_at.slice(0, 10))}{p.pinned ? ', pinned' : ''}</p>
+                <h3>{p.title}</h3>
+                <p className="pre">{p.body}</p>
+              </article>
+            ))}
+            <article className="story">
+              <h3>New to the club?</h3>
+              <p>Start with <Link to="/about">About the club</Link> for how a season works, age groups, fees and who's on the committee. Registering takes two steps, one with us and one with Football Victoria. <Link to="/football-victoria">Here's how.</Link></p>
+            </article>
+            <FeesCard s={s} compact />
+          </section>
+        </div>
       </div>
     </>
   )
+}
+
+function Arrow() {
+  return <svg width="22" height="22" viewBox="0 0 22 22" aria-hidden="true"><path d="M5 11h12M12 5l6 6-6 6" fill="none" stroke="currentColor" strokeWidth="2.6" /></svg>
+}
+
+function Icon({ d }) {
+  return <svg width="28" height="28" viewBox="0 0 28 28" aria-hidden="true"><path d={d} fill="none" stroke="#1e3b2f" strokeWidth="2.2" strokeLinejoin="round" /></svg>
 }

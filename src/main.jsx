@@ -4,7 +4,7 @@ import { BrowserRouter, HashRouter } from 'react-router-dom'
 import App from './App'
 import { AuthProvider } from './auth'
 import { DEMO } from './supabase'
-import '@fontsource-variable/archivo/wdth.css'
+import '@fontsource-variable/overpass'
 import './styles.css'
 
 const Router = DEMO ? HashRouter : BrowserRouter

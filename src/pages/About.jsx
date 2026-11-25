@@ -1,3 +1,4 @@
+import Contours from '../components/Contours'
 import { useEffect, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { supabase } from '../supabase'
@@ -45,6 +46,7 @@ export default function About() {
   return (
     <>
       <section className="band green">
+        <Contours />
         <div className="wrap">
           <h1>About the club</h1>
           <p className="lead">{'Mount Beauty Football Club has run junior soccer in the Kiewa Valley since 2003. We\'re a small, volunteer-run club: parents coach, parents run the canteen, and kids from 4 to 13 learn the game in a fun, safe and friendly way.'}</p>

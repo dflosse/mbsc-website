@@ -66,7 +66,7 @@ export default function App() {
             <img src={crestInk} alt="" className="crest" />
             <span><strong>Mount Beauty</strong><small>Football Club</small></span>
           </Link>
-          <button className="burger" aria-label="Menu" onClick={() => setOpen(!open)}>☰</button>
+          <button className="burger" aria-label={open ? 'Close menu' : 'Open menu'} aria-expanded={open} onClick={() => setOpen(!open)}><svg width="18" height="14" viewBox="0 0 18 14" aria-hidden="true">{open ? <path d="M2 1l14 12M16 1L2 13" stroke="currentColor" strokeWidth="2.2" /> : <path d="M0 1h18M0 7h18M0 13h18" stroke="currentColor" strokeWidth="2.2" />}</svg></button>
           <nav className={open ? 'open' : ''} onClick={close}>
             <NavLink to="/about">About us</NavLink>
             <NavLink to="/galas">Gala days</NavLink>
