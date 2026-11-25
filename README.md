@@ -1,16 +1,10 @@
-# React + Vite
+# Mount Beauty Football Club (MBFC) – club website
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+React + Vite front end, Supabase back end (project `mbsc-club`, Sydney), hosted on Netlify.
 
-Currently, two official plugins are available:
+- `npm run build` – production site (talks to Supabase)
+- `npx vite build -c vite.demo.config.js` – single-file demo with sample data and a role switcher
+- Season settings: `src/supabase.js` (`REG_SEASON`)
+- Access rules are enforced in the database (row-level security). The publishable key in the code is safe to be public.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
-
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+The earlier 2026 prototype is kept on the `archive-2026` branch.

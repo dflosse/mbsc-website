@@ -1,195 +1,79 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { supabase } from '../lib/supabase'
-import WeatherWidget from '../components/WeatherWidget'
-
-const AGE_COLORS = {
-  U8:  'bg-sky-100 text-sky-800',
-  U10: 'bg-purple-100 text-purple-800',
-  U12: 'bg-amber-100 text-amber-800',
-  U14: 'bg-rose-100 text-rose-800',
-  U16: 'bg-teal-100 text-teal-800',
-}
-
-function FixtureCard({ fixture }) {
-  const d = new Date(fixture.date)
-  const dateStr = d.toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short' })
-  return (
-    <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100 flex gap-4 items-center">
-      <div className="text-center min-w-[52px]">
-        <p className="text-green-club font-bold text-lg leading-none">
-          {d.toLocaleDateString('en-AU', { day: 'numeric' })}
-        </p>
-        <p className="text-gray-400 text-xs uppercase">
-          {d.toLocaleDateString('en-AU', { month: 'short' })}
-        </p>
-      </div>
-      <div className="flex-1 min-w-0">
-        <p className="font-semibold text-gray-800 truncate">{fixture.home_team} vs {fixture.away_team}</p>
-        <p className="text-sm text-gray-500">{fixture.venue} · Rd {fixture.round} · {fixture.time ?? ''}</p>
-      </div>
-      <span className={`text-xs font-semibold px-2 py-1 rounded-full ${AGE_COLORS[fixture.age_group] ?? 'bg-gray-100 text-gray-700'}`}>
-        {fixture.age_group}
-      </span>
-    </div>
-  )
-}
-
-function ResultCard({ result, fixture }) {
-  if (!fixture) return null
-  const home = result.home_score ?? '–'
-  const away = result.away_score ?? '–'
-  return (
-    <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
-      <div className="flex items-center justify-between mb-2">
-        <span className="text-sm font-semibold text-gray-700">{fixture.home_team}</span>
-        <span className="text-xl font-black text-green-club">{home} – {away}</span>
-        <span className="text-sm font-semibold text-gray-700">{fixture.away_team}</span>
-      </div>
-      {result.scorers?.length > 0 && (
-        <p className="text-xs text-gray-500">⚽ {result.scorers.join(', ')}</p>
-      )}
-      {result.special_moment && (
-        <p className="text-xs text-gold-dark mt-1">⭐ {result.special_moment}</p>
-      )}
-      <span className={`mt-2 inline-block text-xs font-semibold px-2 py-0.5 rounded-full ${AGE_COLORS[fixture.age_group] ?? 'bg-gray-100 text-gray-700'}`}>
-        {fixture.age_group}
-      </span>
-    </div>
-  )
-}
+import { supabase, fmtDate, REG_SEASON } from '../supabase'
+import { useAuth } from '../auth'
+import useSettings from '../useSettings'
+import { FeesCard } from './About'
+import crest from '../assets/crest.png'
 
 export default function Home() {
-  const [fixtures, setFixtures] = useState([])
-  const [results, setResults] = useState([])
-  const [fixturesMap, setFixturesMap] = useState({})
-  const [loading, setLoading] = useState(true)
-
+  const { user } = useAuth()
+  const s = useSettings()
+  const [galas, setGalas] = useState([])
+  const [news, setNews] = useState([])
   useEffect(() => {
     const today = new Date().toISOString().slice(0, 10)
-    Promise.all([
-      supabase
-        .from('fixtures')
-        .select('*')
-        .gte('date', today)
-        .order('date', { ascending: true })
-        .limit(5),
-      supabase
-        .from('results')
-        .select('*, fixtures(*)')
-        .order('created_at', { ascending: false })
-        .limit(4),
-    ]).then(([{ data: fx }, { data: rs }]) => {
-      setFixtures(fx ?? [])
-      const map = {}
-      rs?.forEach(r => { if (r.fixtures) map[r.fixture_id] = r.fixtures })
-      setResults(rs ?? [])
-      setFixturesMap(map)
-    }).finally(() => setLoading(false))
+    supabase.from('galas').select('*').gte('gala_date', today).order('gala_date').limit(3).then(({ data }) => setGalas(data || []))
+    supabase.from('posts').select('*').eq('audience', 'public').order('pinned', { ascending: false }).order('created_at', { ascending: false }).limit(4).then(({ data }) => setNews(data || []))
   }, [])
-
   return (
-    <div>
-      {/* Hero */}
-      <section className="bg-gradient-to-br from-green-club via-green-mid to-green-club text-white py-16 px-4">
-        <div className="max-w-4xl mx-auto text-center">
-          <div className="inline-flex items-center gap-2 bg-gold text-green-club text-xs font-bold px-3 py-1 rounded-full mb-4 uppercase tracking-widest">
-            2025 Season
+    <>
+      <section className="hero">
+        <div className="wrap herogrid">
+          <div>
+            <p className="eyebrow">Junior soccer · Kiewa Valley · since 2003</p>
+            <h1>Mt Beauty FC</h1>
+            <p className="lead">Fun, friendly MiniRoos soccer for kids aged 4–13. Training at Les Peart Oval, games in the Alpine Valleys gala series.</p>
+            <div className="row">
+              {user ? <Link className="btn" to="/family">Go to my family</Link> : <Link className="btn" to="/login">Register for {REG_SEASON}</Link>}
+              <Link className="btn ghost" to="/about">About the club</Link>
+            </div>
           </div>
-          <h1 className="text-4xl md:text-6xl font-black mb-4 leading-tight">
-            Mt Beauty Soccer Club
-          </h1>
-          <p className="text-green-light text-lg md:text-xl mb-8">
-            Junior football in the heart of the Alpine Valleys
-          </p>
-          <div className="flex flex-wrap justify-center gap-3">
-            <Link to="/fixtures" className="bg-gold text-green-club font-bold px-6 py-3 rounded-full hover:bg-gold-dark transition-colors">
-              View Fixtures
-            </Link>
-            <Link to="/teams" className="border-2 border-white text-white font-bold px-6 py-3 rounded-full hover:bg-white hover:text-green-club transition-colors">
-              Our Teams
-            </Link>
+          <img src={crest} alt="Mt Beauty FC crest" className="herocrest" />
+        </div>
+      </section>
+
+      <section className="band">
+        <div className="wrap">
+          <div className="facts">
+            <Link to="/about"><b>Who</b><span>Boys and girls aged 4–13</span></Link>
+            <Link to="/about"><b>Training</b><span>Wednesdays 4–5pm, Les Peart Oval</span></Link>
+            <Link to="/galas"><b>Games</b><span>Alpine Valleys gala days – {REG_SEASON} dates TBA</span></Link>
+            <Link to="/about#fees"><b>Fees</b><span>{s.fees ? s.fees.split('.')[0] : 'TBA'}</span></Link>
           </div>
         </div>
       </section>
 
-      <div className="max-w-6xl mx-auto px-4 py-10 grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Left: weather + upcoming */}
-        <div className="lg:col-span-2 space-y-6">
-          <WeatherWidget />
-
-          <section>
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="text-xl font-bold text-gray-800">Upcoming Fixtures</h2>
-              <Link to="/fixtures" className="text-sm text-green-mid font-semibold hover:underline">
-                Full draw →
-              </Link>
+      <div className="wrap grid2">
+        <section>
+          <h2>Club news</h2>
+          {news.length === 0 && <p className="muted">No news yet.</p>}
+          {news.map((p) => (
+            <article key={p.id} className="card">
+              {p.pinned && <span className="tag">Pinned</span>}
+              <h3>{p.title}</h3>
+              <p className="pre">{p.body}</p>
+              <p className="muted small">{fmtDate(p.created_at.slice(0, 10))}</p>
+            </article>
+          ))}
+          <div className="card soft">
+            <h3>New to the club?</h3>
+            <p>Read <Link to="/about">About the club</Link> for how a season works, age groups, fees and who's on the committee. Registration happens here and through Football Victoria – <Link to="/football-victoria">here's how</Link>.</p>
+          </div>
+        </section>
+        <section>
+          <h2>Gala days</h2>
+          {galas.length === 0 ? (
+            <div className="card"><p><b>{REG_SEASON} dates TBA.</b> They'll appear here once the Alpine Valleys clubs confirm the fixture.</p><Link to="/galas">About gala days →</Link></div>
+          ) : galas.map((g) => (
+            <div key={g.id} className="card gala">
+              <div className="date"><b>{fmtDate(g.gala_date, { day: 'numeric' })}</b><span>{fmtDate(g.gala_date, { month: 'short' })}</span></div>
+              <div><h3>{g.host_club}</h3><p className="muted">{g.venue}{g.start_time ? ` · ${g.start_time}` : ''}</p></div>
             </div>
-            {loading ? (
-              <div className="space-y-3">
-                {[1,2,3].map(n => <div key={n} className="animate-pulse bg-gray-100 h-16 rounded-xl" />)}
-              </div>
-            ) : fixtures.length === 0 ? (
-              <p className="text-gray-400 text-sm">No upcoming fixtures scheduled.</p>
-            ) : (
-              <div className="space-y-3">
-                {fixtures.map(f => <FixtureCard key={f.id} fixture={f} />)}
-              </div>
-            )}
-          </section>
-        </div>
-
-        {/* Right: results + quick links */}
-        <div className="space-y-6">
-          <section>
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="text-xl font-bold text-gray-800">Latest Results</h2>
-              <Link to="/results" className="text-sm text-green-mid font-semibold hover:underline">
-                All →
-              </Link>
-            </div>
-            {loading ? (
-              <div className="space-y-3">
-                {[1,2].map(n => <div key={n} className="animate-pulse bg-gray-100 h-24 rounded-xl" />)}
-              </div>
-            ) : results.length === 0 ? (
-              <p className="text-gray-400 text-sm">No results yet this season.</p>
-            ) : (
-              <div className="space-y-3">
-                {results.map(r => (
-                  <ResultCard key={r.id} result={r} fixture={r.fixtures} />
-                ))}
-              </div>
-            )}
-          </section>
-
-          <section className="bg-gold/10 border border-gold/30 rounded-xl p-5">
-            <h2 className="font-bold text-gray-800 mb-3">Club Info</h2>
-            <ul className="space-y-2 text-sm text-gray-600">
-              <li>📍 Mt Beauty Recreational Reserve</li>
-              <li>🏆 Alpine Valleys Junior League</li>
-              <li>👕 Green &amp; Gold</li>
-              <li>📅 Season: March – September</li>
-            </ul>
-          </section>
-
-          <section className="bg-green-club/5 border border-green-club/10 rounded-xl p-5">
-            <h2 className="font-bold text-gray-800 mb-3">Quick Links</h2>
-            <div className="grid grid-cols-2 gap-2 text-sm">
-              {[
-                ['/pitch',   '🗺️ Ground Map'],
-                ['/photos',  '📸 Photos'],
-                ['/board',   '💬 Message Board'],
-                ['/coach',   '🔐 Coach Portal'],
-              ].map(([to, label]) => (
-                <Link key={to} to={to} className="bg-white border border-gray-200 rounded-lg px-3 py-2 text-center font-medium text-gray-700 hover:border-green-club hover:text-green-club transition-colors">
-                  {label}
-                </Link>
-              ))}
-            </div>
-          </section>
-        </div>
+          ))}
+          <FeesCard s={s} compact />
+        </section>
       </div>
-    </div>
+    </>
   )
 }
