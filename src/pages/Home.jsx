@@ -21,14 +21,14 @@ export default function Home() {
       <section className="trailhead">
         <Contours />
         <div className="inner">
-          <span className="marker"><svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M6 0 L12 12 H0 Z" fill="currentColor" /></svg>Les Peart Oval, Mount Beauty</span>
-          <h1>Junior football at the foot of Mt Bogong</h1>
+          <span className="marker"><svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M6 0 L12 12 H0 Z" fill="currentColor" /></svg>Est. 2003</span>
+          <h1>Mount Beauty Football Club</h1>
         </div>
       </section>
 
       <div className="wrap">
         <div className="intro">
-          <p>Girls and boys aged 4 to 13. One training a week, gala days around the Alpine Valleys, run by local families since 2003.</p>
+          <p>Junior football for girls and boys aged 4 to 13. One training a week and gala days around the Alpine Valleys, run by local families.</p>
           <div>
             {user ? <Link className="cta" to="/family">Go to my family <Arrow /></Link> : <Link className="cta" to="/login">Register for {REG_SEASON} <Arrow /></Link>}
             <Link className="cta alt" to="/about">About the club <Arrow /></Link>
