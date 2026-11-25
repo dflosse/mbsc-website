@@ -184,6 +184,7 @@ export const mockSupabase = {
     getSession: async () => ({ data: { session: session() } }),
     onAuthStateChange: (fn) => { listeners.add(fn); return { data: { subscription: { unsubscribe: () => listeners.delete(fn) } } } },
     signOut: async () => setDemoRole('visitor'),
+    resetPasswordForEmail: async () => ({ error: null }),
     signInWithOtp: async () => { setTimeout(() => setDemoRole('parent'), 1500); return { error: null } },
     signInWithPassword: async () => { setDemoRole('parent'); return { error: null } },
     signUp: async () => { setTimeout(() => setDemoRole('parent'), 1500); return { error: null } },

@@ -10,6 +10,7 @@ export function AuthProvider({ children }) {
   const [coachTeams, setCoachTeams] = useState([])
   const [aal, setAal] = useState({ current: 'aal1', next: 'aal1' })
   const [loading, setLoading] = useState(true)
+  const [recovering, setRecovering] = useState(false)
 
   const loadProfile = useCallback(async (s) => {
     if (!s?.user) { setProfile(null); setCoachTeams([]); return }
@@ -28,7 +29,8 @@ export function AuthProvider({ children }) {
       await loadProfile(data.session)
       setLoading(false)
     })
-    const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => {
+    const { data: sub } = supabase.auth.onAuthStateChange((e, s) => {
+      if (e === 'PASSWORD_RECOVERY') setRecovering(true)
       setSession(s)
       setTimeout(() => loadProfile(s), 0)
     })
@@ -54,6 +56,9 @@ export function AuthProvider({ children }) {
     isVolunteer: mfaOk && ELEVATED.includes(role),
     isCoach: mfaOk && (role === 'coach' || coachTeams.length > 0),
     coachTeams,
+    aalCurrent: aal.current,
+    recovering,
+    endRecovery: () => setRecovering(false),
     signOut: () => supabase.auth.signOut(),
   }
   return <AuthCtx.Provider value={value}>{children}</AuthCtx.Provider>

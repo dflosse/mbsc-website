@@ -19,6 +19,7 @@ import Account from './pages/Account'
 import Volunteer from './pages/Volunteer'
 import Security from './pages/Security'
 import Privacy from './pages/Privacy'
+import ResetPassword from './pages/ResetPassword'
 import DemoBar from './demo/DemoBar'
 
 export const CLUB = 'Mount Beauty Football Club'
@@ -52,7 +53,8 @@ function WWCCNudge() {
 }
 
 export default function App() {
-  const { user, profile, coachTeams, isStaff, isCoach, signOut } = useAuth()
+  const { user, profile, coachTeams, isStaff, isCoach, signOut, recovering } = useAuth()
+  const where = useLocation()
   const showCoach = profile?.role === 'coach' || coachTeams.length > 0
   const showCommittee = ['committee', 'admin'].includes(profile?.role) || profile?.is_executive
   const [open, setOpen] = useState(false)
@@ -90,6 +92,7 @@ export default function App() {
       </header>
       <WWCCNudge />
       <main>
+        {recovering && where.pathname !== '/reset-password' && <Navigate to="/reset-password" replace />}
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/about" element={<About />} />
@@ -105,6 +108,7 @@ export default function App() {
           <Route path="/committee/*" element={<Guard elevated ok={isStaff || !!profile?.is_executive}><Committee /></Guard>} />
           <Route path="/security" element={<Guard><Security /></Guard>} />
           <Route path="/privacy" element={<Privacy />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="*" element={<div className="wrap"><h1>Page not found</h1><Link to="/">Back home</Link></div>} />
         </Routes>
       </main>

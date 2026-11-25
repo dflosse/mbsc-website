@@ -34,8 +34,8 @@ export default function Login() {
     e.preventDefault(); setBusy(true); setMsg(null)
     let error
     if (mode === 'link') {
-      ;({ error } = await supabase.auth.signInWithOtp({ email, options: { emailRedirectTo: redirect, data: { full_name: name } } }))
-      if (!error) setMsg({ ok: true, text: `Check ${email} for a sign-in link. It works once and expires after an hour.` })
+      ;({ error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin + '/reset-password' }))
+      if (!error) setMsg({ ok: true, text: `If ${email} has an account, we've emailed it a link to set a new password. The link works once and expires after an hour.` })
     } else if (mode === 'signin') {
       ;({ error } = await supabase.auth.signInWithPassword({ email, password }))
       if (!error) {
@@ -60,10 +60,10 @@ export default function Login() {
       <div className="tabs">
         <button className={mode === 'signin' ? 'on' : ''} onClick={() => setMode('signin')}>Sign in</button>
         <button className={mode === 'signup' ? 'on' : ''} onClick={() => setMode('signup')}>Create account</button>
-        <button className={mode === 'link' ? 'on' : ''} onClick={() => setMode('link')}>Forgot password? Email me a link</button>
+        <button className={mode === 'link' ? 'on' : ''} onClick={() => setMode('link')}>Forgot password?</button>
       </div>
       <form className="card form" onSubmit={submit}>
-        {mode !== 'signin' && <label>Your full name<input value={name} onChange={(e) => setName(e.target.value)} required={mode === 'signup'} /></label>}
+        {mode === 'signup' && <label>Your full name<input value={name} onChange={(e) => setName(e.target.value)} required={mode === 'signup'} /></label>}
         {mode === 'signup' && <label>Mobile<input value={phone} onChange={(e) => setPhone(e.target.value)} inputMode="tel" /></label>}
         {mode === 'signup' && (
           <fieldset className="roles-pick">
@@ -73,7 +73,7 @@ export default function Login() {
         )}
         <label>Email (your username)<input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required autoComplete="email" /></label>
         {mode !== 'link' && <label>Password<input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={mode === 'signup' ? 10 : 6} autoComplete={mode === 'signup' ? 'new-password' : 'current-password'} />{mode === 'signup' && <span className="small muted">{PW_RULE}</span>}</label>}
-        <button className="btn" disabled={busy}>{busy ? 'Please wait…' : mode === 'link' ? 'Send sign-in link' : mode === 'signin' ? 'Sign in' : 'Create account'}</button>
+        <button className="btn" disabled={busy}>{busy ? 'Please wait…' : mode === 'link' ? 'Email me a reset link' : mode === 'signin' ? 'Sign in' : 'Create account'}</button>
         {msg && <p className={msg.ok ? 'ok' : 'err'}>{msg.text}</p>}
       </form>
       <p className="muted small">Coaching or volunteering? Create an account, then go to <b>Volunteer</b> to apply and upload your Working With Children Check. We only use your details to run the club – see our <Link to="/privacy">privacy statement</Link>. Children's details are visible only to you, your child's coach and the committee.</p>
