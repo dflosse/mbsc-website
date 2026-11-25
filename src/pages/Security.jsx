@@ -4,6 +4,14 @@ import { supabase } from '../supabase'
 import { useAuth } from '../auth'
 
 // Two-factor sign-in (authenticator app). Required for executive, committee, coach and volunteer access.
+// Make sure we have a live session before calling the two-factor endpoints
+// (straight after an email-confirmation link the session can still be settling).
+async function ensureSession() {
+  let { data } = await supabase.auth.getSession()
+  if (!data.session) ({ data } = await supabase.auth.refreshSession())
+  return !!data?.session
+}
+
 export default function Security() {
   const { refresh, elevated, mfaEnrolled, needsMfa } = useAuth()
   const nav = useNavigate()
@@ -21,6 +29,7 @@ export default function Security() {
 
   async function start() {
     setMsg(null)
+    if (!(await ensureSession())) return setMsg({ ok: false, text: 'Your sign-in has lapsed. Please sign out, sign back in with your email and password, then try again.' })
     // clear any half-finished setup first
     const { data: all } = await supabase.auth.mfa.listFactors()
     for (const f of (all?.all || []).filter((x) => x.status !== 'verified')) await supabase.auth.mfa.unenroll({ factorId: f.id })
@@ -30,6 +39,7 @@ export default function Security() {
   }
   async function verify(factorId) {
     setMsg(null)
+    if (!(await ensureSession())) return setMsg({ ok: false, text: 'Your sign-in has lapsed. Please sign out, sign back in with your email and password, then try again.' })
     const { error } = await supabase.auth.mfa.challengeAndVerify({ factorId, code: code.replace(/\s/g, '') })
     if (error) return setMsg({ ok: false, text: 'That code didn\'t work – check the time on your phone and try the newest code.' })
     setCode(''); setEnroll(null); await load(); await refresh()
