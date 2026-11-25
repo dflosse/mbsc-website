@@ -72,7 +72,7 @@ function Overview() {
         <Stat n={s.roster} l={`${PREV_SEASON} players (last season)`} to="players" />
         <Stat n={s.tasks} l="open actions" to="tasks" />
         <Stat n={s.uniReq} l={`${REG_SEASON} children needing a uniform`} to="kit" />
-        <Stat n={s.bootReq} l="boot requests not yet sorted" to="kit" warn={s.bootReq > 0} />
+        <Stat n={s.bootReq} l="families interested in loan boots" to="kit" />
         <Stat n={s.kitOut} l="jerseys out / outstanding" to="kit" />
         <Stat n={s.users} l="site accounts" to="people" />
       </div>
@@ -125,7 +125,7 @@ function Players() {
           { key: 'photo_consent', label: 'Photos', type: 'bool' },
           { key: 'needs_uniform', label: 'Uniform', type: 'bool' }, { key: 'uniform_size', label: 'U size', width: 60 },
           { key: 'needs_boots', label: 'Boots', type: 'bool' }, { key: 'boot_size', label: 'Boot size', width: 60 },
-          { key: 'boots_status', label: 'Boots status', type: 'select', options: [['none', '—'], ['requested', 'Requested'], ['allocated', 'Allocated'], ['waitlist', 'Waitlist'], ['returned', 'Returned']], width: 105 },
+          { key: 'boots_status', label: 'Boots status', type: 'select', options: [['none', '—'], ['requested', 'Interested'], ['allocated', 'Allocated'], ['waitlist', 'Waitlist'], ['returned', 'Returned']], width: 105 },
           { key: 'bond_paid', label: 'Bond paid', type: 'bool' }, { key: 'bond_refunded', label: 'Bond back', type: 'bool' },
           { key: 'committee_notes', label: 'Committee notes', type: 'textarea', width: 140 },
         ]}
@@ -240,17 +240,17 @@ function KitRequests() {
   return (
     <section className="card">
       <h3>{REG_SEASON} uniform and boots requests</h3>
-      <p className="small muted">Asked for on the registration form. Boots: {boots.length} requested · {out} allocated (supply varies year to year). Bonds: boots {s.boots_bond || 'TBA'}, uniform {s.uniform_bond || 'TBA'}. {isExec ? 'Requests are in order of registration – first in, first served.' : 'Only the executive can allocate boots or record bonds.'}</p>
+      <p className="small muted">Asked for on the registration form. Loan boots: {boots.length} families interested, {out} allocated (very limited supply). Bonds: boots {s.boots_bond || 'TBA'}, uniform {s.uniform_bond || 'TBA'}. {isExec ? 'Listed in order of registration.' : 'Only the executive can allocate boots or record bonds.'}</p>
       {err && <p className="err">{err}</p>}
       {rows.length === 0 ? <p className="muted">No requests yet.</p> : (
         <div className="table-wrap"><table>
-          <thead><tr><th>Child</th><th>Uniform</th><th>Boots</th><th>Boots status</th><th>Bond paid</th><th>Bond refunded</th></tr></thead>
+          <thead><tr><th>Child</th><th>Uniform</th><th>Boots interest</th><th>Boots status</th><th>Bond paid</th><th>Bond refunded</th></tr></thead>
           <tbody>{rows.map((r) => <tr key={r.id}>
             <td>{r.first_name} {r.last_name} <span className="muted small">{ageGroupFor(r.dob, REG_SEASON)}</span></td>
             <td>{r.needs_uniform ? (r.uniform_size || 'yes') : ''}</td>
             <td>{r.needs_boots ? (r.boot_size || 'size ?') : ''}</td>
             <td>{r.needs_boots && (isExec ? <select value={r.boots_status} onChange={(e) => set(r.id, { boots_status: e.target.value })}>
-              {[['requested', 'Requested'], ['allocated', 'Allocated'], ['waitlist', 'Waitlist'], ['returned', 'Returned']].map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select> : r.boots_status)}</td>
+              {[['requested', 'Interested'], ['allocated', 'Allocated'], ['waitlist', 'Waitlist'], ['returned', 'Returned']].map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select> : r.boots_status)}</td>
             <td>{isExec ? <input type="checkbox" checked={r.bond_paid} onChange={(e) => set(r.id, { bond_paid: e.target.checked })} /> : (r.bond_paid ? 'Yes' : '')}</td>
             <td>{isExec ? <input type="checkbox" checked={r.bond_refunded} onChange={(e) => set(r.id, { bond_refunded: e.target.checked })} /> : (r.bond_refunded ? 'Yes' : '')}</td>
           </tr>)}</tbody>
@@ -584,7 +584,7 @@ function Directory() {
       </div>
       {adding && <AddFamily teams={teams.filter((t) => t.season === REG_SEASON)} onClose={(m) => { setAdding(false); if (m) setCopied(m); setReload((x) => x + 1) }} />}
       {custodyFor && <CustodyModal player={custodyFor} onClose={() => { setCustodyFor(null); setReload((x) => x + 1) }} />}
-      <p className="small muted">{counts.total} players · {counts.fv} FV registered · {counts.paid} paid · {counts.med} with medical notes · {counts.uni} need a uniform · {counts.boots} asked for boots. Edit details under <NavLink to="/committee/players">Edit players</NavLink>.</p>
+      <p className="small muted">{counts.total} players · {counts.fv} FV registered · {counts.paid} paid · {counts.med} with medical notes · {counts.uni} need a uniform · {counts.boots} interested in loan boots. Edit details under <NavLink to="/committee/players">Edit players</NavLink>.</p>
       <div className="table-wrap"><table className="dir">
         <thead><tr><th>Player</th><th>Team</th><th>Status</th><th>FV</th><th>Paid</th><th>Medical</th><th>Photos</th><th>Parent / guardian</th><th>Emergency</th></tr></thead>
         <tbody>{shown.map((r) => <tr key={r.id}>

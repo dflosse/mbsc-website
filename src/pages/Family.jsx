@@ -85,14 +85,14 @@ export default function Family() {
             <label>Emergency contact (name and phone, if not you)<input value={f.emergency} onChange={(e) => setF({ ...f, emergency: e.target.value })} /></label>
             <label className="check"><input type="checkbox" checked={f.photo} onChange={(e) => setF({ ...f, photo: e.target.checked })} /> Photos of my child may be used on club social media and website</label>
             <fieldset className="kitq">
-              <legend>Uniform and boots</legend>
+              <legend>Uniform, and loan boots if available</legend>
               <label className="check"><input type="checkbox" checked={f.uniform} onChange={(e) => setF({ ...f, uniform: e.target.checked })} /> My child needs a club uniform this season</label>
               {f.uniform && <label className="sub">Approximate size (child's age or size, if you know it)<input value={f.uSize} onChange={(e) => setF({ ...f, uSize: e.target.value })} placeholder="e.g. size 10" /></label>}
               {f.uniform && <p className="small muted sub">Uniforms are loaned for the season. A refundable bond{bondText(settings.uniform_bond) && bondText(settings.uniform_bond) !== 'TBA' ? ` of ${bondText(settings.uniform_bond)}` : ' (amount to be confirmed)'} applies – it's returned when the uniform comes back at the end of the season.</p>}
-              <label className="check"><input type="checkbox" checked={f.boots} onChange={(e) => setF({ ...f, boots: e.target.checked })} /> My child would like to borrow football boots</label>
+              <label className="check"><input type="checkbox" checked={f.boots} onChange={(e) => setF({ ...f, boots: e.target.checked })} /> Expression of interest: we'd like to be considered for loan boots, if any are available</label>
               {f.boots && <>
                 <label className="sub">Shoe size<input value={f.bSize} onChange={(e) => setF({ ...f, bSize: e.target.value })} placeholder="e.g. kids 13 or adult 2" required /></label>
-                <p className="small muted sub">Our supply of loan boots varies from year to year, so <b>a pair may not be available</b> in your child's size. If we have one, a refundable bond{bondText(settings.boots_bond) && bondText(settings.boots_bond) !== 'TBA' ? ` of ${bondText(settings.boots_bond)}` : ' (amount to be confirmed)'} applies – it's returned in full when the boots come back at the end of the season. The committee will let you know.</p>
+                <p className="small muted sub">We only have a handful of loan boots, so <b>most families won't get a pair</b> – please plan to bring your own. This just puts your child on the list. If a pair in their size turns up, a refundable bond{bondText(settings.boots_bond) && bondText(settings.boots_bond) !== 'TBA' ? ` of ${bondText(settings.boots_bond)}` : ' (amount to be confirmed)'} applies – it's returned in full when the boots come back at the end of the season. The committee will only contact you if a pair is available.</p>
               </>}
             </fieldset>
             <FeesCard s={settings} compact />
@@ -106,7 +106,7 @@ export default function Family() {
               <h3>{k.first_name} {k.last_name}</h3>
               <p className="muted">{k.season} season · {k.teams?.name || ageGroupFor(k.dob, k.season) + ' (team TBC)'}</p>
               {k.teams?.coach_names && <p>Coach: {k.teams.coach_names}</p>}
-              {k.needs_boots && <p className="small">Loan boots (size {k.boot_size || '?'}): <b>{{ requested: 'requested – the committee will be in touch', allocated: 'a pair is set aside for you', waitlist: 'on the waitlist – none free yet', returned: 'returned, thanks!' }[k.boots_status] || 'requested'}</b>{k.boots_status === 'allocated' && (k.bond_paid ? ' · bond paid' : ' · bond to pay on pick-up')}{k.bond_refunded ? ' · bond refunded' : ''}</p>}
+              {k.needs_boots && <p className="small">Loan boots interest (size {k.boot_size || '?'}): <b>{{ requested: 'on the list – we'll be in touch only if a pair is available', allocated: 'a pair is set aside for you', waitlist: 'on the waitlist – none free yet', returned: 'returned, thanks!' }[k.boots_status] || 'requested'}</b>{k.boots_status === 'allocated' && (k.bond_paid ? ' · bond paid' : ' · bond to pay on pick-up')}{k.bond_refunded ? ' · bond refunded' : ''}</p>}
               {k.needs_uniform && !kit[k.id] && <p className="small">Uniform requested{k.uniform_size ? ` (${k.uniform_size})` : ''} – the committee will hand it out before the first game.</p>}
               {kit[k.id] && <p className="small">Club jersey: <b>#{kit[k.id].jersey_label}</b> (size {kit[k.id].size}) – please return at season's end</p>}
               <p className="row">
