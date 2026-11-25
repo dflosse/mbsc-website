@@ -3,6 +3,7 @@ import { supabase, fmtDate, REG_SEASON, ageGroupFor } from '../supabase'
 import { useAuth } from '../auth'
 import useSettings from '../useSettings'
 import { FeesCard } from './About'
+import { bondInfo } from './bond'
 
 const bondText = (v) => { v = (v || '').trim(); if (!v) return ''; return /^\d/.test(v) ? '$' + v.replace(/^\$/, '') : v }
 const blank = { first: '', last: '', dob: '', gender: '', medical: '', emergency: '', photo: false, uniform: false, uSize: '', boots: false, bSize: '' }
@@ -58,9 +59,11 @@ export default function Family() {
   }
 
   const current = kids.filter((k) => k.status !== 'withdrawn')
+  const justPaid = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('paid') === '1'
   return (
     <div className="wrap">
       <h1>My family</h1>
+      {justPaid && <p className="callout">Thanks – your payment went through. It can take a minute to show as paid below; refresh if it hasn't updated.</p>}
       {msg && <p className={msg.ok ? 'ok card' : 'err card'}>{msg.text}</p>}
 
       <section>
@@ -88,7 +91,7 @@ export default function Family() {
               <legend>Uniform, and loan boots if available</legend>
               <label className="check"><input type="checkbox" checked={f.uniform} onChange={(e) => setF({ ...f, uniform: e.target.checked })} /> My child needs a club uniform this season</label>
               {f.uniform && <label className="sub">Approximate size (child's age or size, if you know it)<input value={f.uSize} onChange={(e) => setF({ ...f, uSize: e.target.value })} placeholder="e.g. size 10" /></label>}
-              {f.uniform && <p className="small muted sub">Uniforms are loaned for the season. A refundable bond{bondText(settings.uniform_bond) && bondText(settings.uniform_bond) !== 'TBA' ? ` of ${bondText(settings.uniform_bond)}` : ' (amount to be confirmed)'} applies – it's returned when the uniform comes back at the end of the season.</p>}
+              {f.uniform && <p className="small muted sub">Uniforms are loaned for the season. The uniform bond is {bondInfo(settings).text}. You can pay it online (Apple Pay, Google Pay or card) once you've registered.</p>}
               <label className="check"><input type="checkbox" checked={f.boots} onChange={(e) => setF({ ...f, boots: e.target.checked })} /> Expression of interest: we'd like to be considered for loan boots, if any are available</label>
               {f.boots && <>
                 <label className="sub">Shoe size<input value={f.bSize} onChange={(e) => setF({ ...f, bSize: e.target.value })} placeholder="e.g. kids 13 or adult 2" required /></label>
@@ -107,6 +110,7 @@ export default function Family() {
               <p className="muted">{k.season} season · {k.teams?.name || ageGroupFor(k.dob, k.season) + ' (team TBC)'}</p>
               {k.teams?.coach_names && <p>Coach: {k.teams.coach_names}</p>}
               {k.needs_boots && <p className="small">Loan boots interest (size {k.boot_size || '?'}): <b>{{ requested: "on the list – we'll be in touch only if a pair is available", allocated: 'a pair is set aside for you', waitlist: 'on the waitlist – none free yet', returned: 'returned, thanks!' }[k.boots_status] || 'requested'}</b>{k.boots_status === 'allocated' && (k.bond_paid ? ' · bond paid' : ' · bond to pay on pick-up')}{k.bond_refunded ? ' · bond refunded' : ''}</p>}
+              {k.needs_uniform && <BondLine k={k} s={settings} />}
               {k.needs_uniform && !kit[k.id] && <p className="small">Uniform requested{k.uniform_size ? ` (${k.uniform_size})` : ''} – the committee will hand it out before the first game.</p>}
               {kit[k.id] && <p className="small">Club jersey: <b>#{kit[k.id].jersey_label}</b> (size {kit[k.id].size}) – please return at season's end</p>}
               <p className="row">
@@ -164,5 +168,27 @@ function InviteGuardian({ child, onClose }) {
       {err && <p className="err">{err}</p>}
       <div className="row"><button className="btn">Send request</button><button type="button" className="btn ghost small" onClick={() => onClose()}>Cancel</button></div>
     </form></div>
+  )
+}
+
+function BondLine({ k, s }) {
+  const b = bondInfo(s)
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState('')
+  if (k.bond_refunded) return <p className="small">Uniform bond: <b>refunded</b>, thanks for returning the uniform.</p>
+  if (k.bond_paid) return <p className="small">Uniform bond: <b>paid</b>. It's refunded when the uniform comes back.</p>
+  if (!b.set) return <p className="small muted">Uniform bond: amount to be confirmed – you'll be able to pay it here.</p>
+  async function pay() {
+    setBusy(true); setErr('')
+    const { data, error } = await supabase.functions.invoke('create-bond-checkout', { body: { player_id: k.id } })
+    if (error || !data?.url) { setBusy(false); let m = data?.error; try { m = m || (await error?.context?.json())?.error } catch { /* ignore */ } return setErr(m || 'Payment could not start. Please try again.') }
+    window.location.href = data.url
+  }
+  return (
+    <div className="bondpay">
+      <button className="btn small" onClick={pay} disabled={busy}>{busy ? 'Opening payment…' : `Pay uniform bond ${b.chargeText}`}</button>
+      <span className="small muted">Apple Pay, Google Pay or card. {b.refund < b.charge ? `$${b.refund} is refunded when the uniform comes back.` : 'Refunded in full when the uniform comes back.'}</span>
+      {err && <p className="err small">{err}</p>}
+    </div>
   )
 }

@@ -324,3 +324,5 @@ dl.mini { display: grid; grid-template-columns: 112px 1fr; gap: 2px 10px; margin
 dl.mini dt { color: var(--muted); }
 dl.mini dd { margin: 0; }
 .stat span { display: block; font-size: .86rem; color: var(--muted); }
+
+.bondpay { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin: 6px 0; }

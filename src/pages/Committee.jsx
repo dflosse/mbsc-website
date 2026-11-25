@@ -7,6 +7,7 @@ import useSettings from '../useSettings'
 import { KitTags, kitText } from './kitInfo'
 import { wwccState } from './Volunteer'
 import Treasurer from './Treasurer'
+import { bondInfo } from './bond'
 
 export default function Committee() {
   const { isExec } = useAuth()
@@ -235,12 +236,24 @@ function KitRequests() {
   }, [])
   useEffect(() => { load() }, [load])
   async function set(id, patch) { const { error } = await supabase.from('players').update(patch).eq('id', id); setErr(error?.message || ''); load() }
+  const [pays, setPays] = useState({})
+  useEffect(() => { (async () => {
+    const { data } = await supabase.from('payments').select('player_id, status, amount_cents, refundable_cents, refunded_cents').eq('kind', 'uniform_bond').in('status', ['paid', 'refunded', 'partially_refunded'])
+    setPays(Object.fromEntries((data || []).map((x) => [x.player_id, x])))
+  })() }, [rows])
+  async function refund(r) {
+    const p = pays[r.id]
+    if (!confirm(`Refund $${(p.refundable_cents / 100).toFixed(2)} to ${r.first_name} ${r.last_name}'s family through Stripe? Only do this once the uniform is back.`)) return
+    const { data, error } = await supabase.functions.invoke('refund-bond', { body: { player_id: r.id } })
+    let m = data?.error; if (error && !m) { try { m = (await error.context.json()).error } catch { m = error.message } }
+    setErr(m || ''); load()
+  }
   const boots = rows.filter((r) => r.needs_boots)
   const out = boots.filter((r) => r.boots_status === 'allocated').length
   return (
     <section className="card">
       <h3>{REG_SEASON} uniform and boots requests</h3>
-      <p className="small muted">Asked for on the registration form. Loan boots: {boots.length} families interested, {out} allocated (very limited supply). Bonds: boots {s.boots_bond || 'TBA'}, uniform {s.uniform_bond || 'TBA'}. {isExec ? 'Listed in order of registration.' : 'Only the executive can allocate boots or record bonds.'}</p>
+      <p className="small muted">Asked for on the registration form. Loan boots: {boots.length} families interested, {out} allocated (very limited supply). Bonds: boots {s.boots_bond || 'TBA'}, uniform {bondInfo(s).text}. {isExec ? 'Listed in order of registration.' : 'Only the executive can allocate boots or record bonds.'}</p>
       {err && <p className="err">{err}</p>}
       {rows.length === 0 ? <p className="muted">No requests yet.</p> : (
         <div className="table-wrap"><table>
@@ -251,8 +264,8 @@ function KitRequests() {
             <td>{r.needs_boots ? (r.boot_size || 'size ?') : ''}</td>
             <td>{r.needs_boots && (isExec ? <select value={r.boots_status} onChange={(e) => set(r.id, { boots_status: e.target.value })}>
               {[['requested', 'Interested'], ['allocated', 'Allocated'], ['waitlist', 'Waitlist'], ['returned', 'Returned']].map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select> : r.boots_status)}</td>
-            <td>{isExec ? <input type="checkbox" checked={r.bond_paid} onChange={(e) => set(r.id, { bond_paid: e.target.checked })} /> : (r.bond_paid ? 'Yes' : '')}</td>
-            <td>{isExec ? <input type="checkbox" checked={r.bond_refunded} onChange={(e) => set(r.id, { bond_refunded: e.target.checked })} /> : (r.bond_refunded ? 'Yes' : '')}</td>
+            <td>{pays[r.id] ? <span className="pill good">Paid online</span> : isExec ? <label className="check small"><input type="checkbox" checked={r.bond_paid} onChange={(e) => set(r.id, { bond_paid: e.target.checked })} /> paid another way</label> : (r.bond_paid ? 'Yes' : '')}</td>
+            <td>{r.bond_refunded ? <span className="pill">Refunded</span> : pays[r.id]?.status === 'paid' && isExec ? <button className="btn small ghost" onClick={() => refund(r)}>Refund ${(pays[r.id].refundable_cents / 100).toFixed(0)}</button> : isExec ? <input type="checkbox" checked={r.bond_refunded} onChange={(e) => set(r.id, { bond_refunded: e.target.checked })} /> : ''}</td>
           </tr>)}</tbody>
         </table></div>
       )}

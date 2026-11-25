@@ -1,3 +1,4 @@
+import { bondInfo } from './bond'
 import Contours from '../components/Contours'
 import { useEffect, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
@@ -21,7 +22,7 @@ export function FeesCard({ s, compact }) {
         <dt>Season fee</dt><dd>{s.fees || 'TBA'}</dd>
         {!compact && s.fees_includes && <><dt>What it covers</dt><dd>{s.fees_includes}</dd></>}
         <dt>How to pay</dt><dd>{s.payment || 'TBA'}</dd>
-        {!compact && <><dt>Loan uniform bond</dt><dd>{s.uniform_bond || 'TBA'} – refundable when the uniform is returned</dd>
+        {!compact && <><dt>Loan uniform bond</dt><dd>{bondInfo(s).set ? bondInfo(s).text : 'TBA – refundable when the uniform is returned'}</dd>
         <dt>Loan boots bond</dt><dd>{s.boots_bond || 'TBA'} – refundable when the boots are returned (boots subject to availability)</dd></>}
       </dl>
       {!compact && <p className="muted small">Football Victoria requires member clubs to publish all fees and charges.</p>}

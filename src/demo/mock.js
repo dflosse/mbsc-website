@@ -42,7 +42,7 @@ const visible = {
   player_private: () => exec(), audit_log: () => exec(),
   gala_jobs: () => !!me(), gala_job_signups: () => !!me(),
   kit: (r) => staff() || (r.player_id && myKids().includes(r.player_id)),
-  funding: () => staff() || exec(), funding_sources: () => staff() || exec(),
+  funding: () => staff() || exec(), funding_sources: () => staff() || exec(), payments: () => exec(),
 }
 const writable = {
   players: (r) => exec() || myKids().includes(r.id),
@@ -171,6 +171,7 @@ export const mockSupabase = {
     db.player_guardians.push({ player_id: id, profile_id: me() })
     return { data: id, error: null }
   },
+  functions: { invoke: async () => ({ data: { error: 'This is the demo – real payments open Stripe checkout (Apple Pay, Google Pay or card).' }, error: null }) },
   storage: { from: () => ({
     remove: async () => ({ error: null }),
     upload: async (path) => ({ data: { path }, error: null }),

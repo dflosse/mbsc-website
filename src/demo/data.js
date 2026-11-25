@@ -112,7 +112,8 @@ export const settings = [
   { id: 's3', key: 'agm', label: 'AGM date', value: 'TBA' },
   { id: 's4', key: 'come_n_try', label: 'Come n Try day', value: 'TBA' },
   { id: 's5', key: 'boots_bond', label: 'Boots bond (refundable)', value: 'TBA' },
-  { id: 's6', key: 'uniform_bond', label: 'Uniform bond (refundable)', value: 'TBA' },
+  { id: 's6', key: 'uniform_bond_charge', label: 'Uniform bond – amount charged online ($, numbers only)', value: '45' },
+  { id: 's6b', key: 'uniform_bond_refund', label: 'Uniform bond – amount refunded when returned ($, blank = full amount)', value: '43' },
 ]
 
 const K = (t, o, n, c, s = 'todo', due = null) => ({ id: 'tk' + t.length + o.length, season: 2027, title: t, owner: o, notes: n, category: c, status: s, due })
@@ -179,3 +180,5 @@ export const funding = [
   { id: 'fu1', season: 2027, kind: 'grant', title: 'New goals and balls for U7s (sample)', funder: 'Sport and Recreation Victoria', status: 'submitted', amount_requested: 1000, applied_on: '2027-03-01', outcome_due: '2027-06-30', purpose: 'Pop-up goals and size 3 balls', source_id: 'fs1', created_at: '2027-03-01' },
   { id: 'fu2', season: 2027, kind: 'sponsorship', title: 'Sample Bakery (sample)', status: 'received', amount_awarded: 750, amount_received: 750, received_on: '2027-02-10', obligations: 'Logo on jersey sleeve, banner at home gala', acquittal_due: '2028-02-01', created_at: '2027-02-01' },
 ]
+
+export const payments = []
