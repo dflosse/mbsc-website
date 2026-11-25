@@ -1,3 +1,4 @@
+import { PW_RULE, strongPw } from './Account.jsx'
 import { useState } from 'react'
 import { Navigate, useLocation, useNavigate, Link } from 'react-router-dom'
 import { supabase, REG_SEASON } from '../supabase'
@@ -43,6 +44,7 @@ export default function Login() {
       }
     } else {
       if (!roles.length) { setBusy(false); return setMsg({ ok: false, text: 'Tick at least one option.' }) }
+      if (!strongPw(password)) { setBusy(false); return setMsg({ ok: false, text: PW_RULE }) }
       ;({ error } = await supabase.auth.signUp({ email, password, options: { emailRedirectTo: redirect, data: { full_name: name, phone, roles, season: REG_SEASON } } }))
       const helper = roles.some((r) => r !== 'parent')
       if (!error) setMsg({ ok: true, text: 'Account created. Check your email to confirm, then sign in.' + (helper ? ' Then go to Volunteer to upload your Working With Children Check so the executive can sign you off.' : '') })
@@ -70,7 +72,7 @@ export default function Login() {
           </fieldset>
         )}
         <label>Email (your username)<input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required autoComplete="email" /></label>
-        {mode !== 'link' && <label>Password<input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={mode === 'signup' ? 10 : 6} autoComplete={mode === 'signup' ? 'new-password' : 'current-password'} /></label>}
+        {mode !== 'link' && <label>Password<input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={mode === 'signup' ? 10 : 6} autoComplete={mode === 'signup' ? 'new-password' : 'current-password'} />{mode === 'signup' && <span className="small muted">{PW_RULE}</span>}</label>}
         <button className="btn" disabled={busy}>{busy ? 'Please wait…' : mode === 'link' ? 'Send sign-in link' : mode === 'signin' ? 'Sign in' : 'Create account'}</button>
         {msg && <p className={msg.ok ? 'ok' : 'err'}>{msg.text}</p>}
       </form>

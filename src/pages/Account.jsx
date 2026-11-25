@@ -29,11 +29,14 @@ export default function Account() {
   )
 }
 
+export const PW_RULE = 'At least 10 characters, with an uppercase letter, a lowercase letter and a number.'
+export const strongPw = (p) => p.length >= 10 && /[a-z]/.test(p) && /[A-Z]/.test(p) && /\d/.test(p)
+
 function ChangePassword() {
   const [pw, setPw] = useState('')
   const [msg, setMsg] = useState('')
   async function save() {
-    if (pw.length < 10) return setMsg('At least 10 characters.')
+    if (!strongPw(pw)) return setMsg(PW_RULE)
     const { error } = await supabase.auth.updateUser({ password: pw })
     setMsg(error ? error.message : 'Password updated.'); setPw('')
   }
