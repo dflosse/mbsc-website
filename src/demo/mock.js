@@ -147,7 +147,8 @@ export const mockSupabase = {
       Object.assign(r, { status: a.p_approve ? 'approved' : 'declined', decision_note: a.p_note, team_id: team })
       if (a.p_approve) {
         const p = db.profiles.find((x) => x.id === r.profile_id)
-        if (!['admin', 'committee'].includes(p.role)) p.role = ['committee', 'executive'].includes(r.kind) ? 'committee' : r.kind === 'coach' ? 'coach' : 'volunteer'
+        if (r.kind === 'executive') p.role = 'admin'
+        else if (!['admin', 'committee'].includes(p.role)) p.role = r.kind === 'committee' ? 'committee' : r.kind === 'coach' ? 'coach' : 'volunteer'
         if (r.kind === 'executive') p.is_executive = true
         if (r.kind === 'coach' && team) db.team_coaches.push({ team_id: team, profile_id: r.profile_id })
         if (a.p_committee_role) { const cr = db.committee_roles.find((x) => x.id === a.p_committee_role); if (cr) cr.person = cr.person ? cr.person + ', ' + p.full_name : p.full_name }

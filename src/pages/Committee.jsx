@@ -499,7 +499,7 @@ function WWCCRegister() {
 
 const ACCESS = {
   coach: 'Coach access: their team page, squad list with medical notes and photo permission, parents\' names and phone numbers, gala availability, coach messages and resources.',
-  executive: 'Executive access: everything – approvals, all registered children and guardians, WWCC register, finances and settings.',
+  executive: 'Full executive access: everything – approvals, all registered children and guardians, WWCC register, people and access, finances and settings. For the President, Vice-President, Secretary and Treasurer.',
   committee: 'Committee access: committee portal (action list, galas, uniforms, documents, committee messages). Not children\'s personal details.',
   volunteer: 'Volunteer access: volunteer messages and rosters. No children\'s personal details.',
 }
