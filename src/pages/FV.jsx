@@ -42,7 +42,7 @@ export default function FV() {
           <div className="card">
             <h3>Registering with FV</h3>
             <p>Each season every player is registered through FV's <b>PlayFootball</b> system, which is also where the fee is paid. The club emails the link when registrations open. Register your child on this site too so coaches and the committee have their details.</p>
-            <p><Link to="/about#fees">See fees and how to pay →</Link></p>
+            <p><Link to="/about#fees">See fees and how to pay</Link></p>
           </div>
           <h3>Links</h3>
           <List items={pub} />

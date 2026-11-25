@@ -4,6 +4,7 @@ import { Routes, Route, NavLink, Link, Navigate, useLocation } from 'react-route
 import { useAuth } from './auth'
 import { DEMO } from './supabase'
 import crest from './assets/crest.png'
+import crestInk from './assets/crest-ink.png'
 import Home from './pages/Home'
 import Galas from './pages/Galas'
 import Teams from './pages/Teams'
@@ -62,8 +63,8 @@ export default function App() {
       <header className="top">
         <div className="wrap topbar">
           <Link to="/" className="brand" onClick={close}>
-            <img src={crest} alt="" className="crest" />
-            <span><strong>Mount Beauty</strong><small>Football Club · est. 2003</small></span>
+            <img src={crestInk} alt="" className="crest" />
+            <span><strong>Mount Beauty</strong><small>Football Club</small></span>
           </Link>
           <button className="burger" aria-label="Menu" onClick={() => setOpen(!open)}>☰</button>
           <nav className={open ? 'open' : ''} onClick={close}>

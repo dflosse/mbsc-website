@@ -53,7 +53,7 @@ export default function About() {
       <div className="wrap">
         <div className="facts">
           <div><b>Who</b><span>Boys and girls aged 4–13 (born 2014–2022 for 2027)</span></div>
-          <div><b>When</b><span>School Term 2 (April–June) · training Wednesdays 4–5pm</span></div>
+          <div><b>When</b><span>School Term 2 (April–June), training Wednesdays 4–5pm</span></div>
           <div><b>Where</b><span>Les Peart Oval, Pool Road, Mount Beauty</span></div>
           <div><b>Games</b><span>Alpine Valleys gala days with Bright, Myrtleford and Yackandandah</span></div>
         </div>

@@ -42,7 +42,7 @@ function GalaCard({ g, user }) {
         <p>{fmtDate(g.gala_date)}{g.start_time ? ` · ${g.start_time}` : ''}</p>
         <p className="muted">{[g.venue, g.address].filter(Boolean).join(', ')}</p>
         {g.info && <p className="pre">{g.info}</p>}
-        {g.draw_url && <a href={g.draw_url} target="_blank" rel="noreferrer">Draw & pitch map →</a>}
+        {g.draw_url && <a href={g.draw_url} target="_blank" rel="noreferrer">Draw and pitch map</a>}
         {g.signup_closes && <p className="small">Let us know by {fmtDate(g.signup_closes)}</p>}
         {user && <Roster gala={g} />}
       </div>
