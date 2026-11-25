@@ -53,7 +53,7 @@ export default function Coach() {
             <div className="table-wrap"><table>
               <thead><tr><th>Player</th><th>Born</th><th>Parent</th><th>Medical / notes</th><th>Photos OK</th>{galas.map((g) => <th key={g.id}>{fmtDate(g.gala_date, { day: 'numeric', month: 'short' })}</th>)}</tr></thead>
               <tbody>{players.map((p) => <tr key={p.id}>
-                <td><b>{p.first_name} {p.last_name}</b></td><td>{p.dob ? fmtDate(p.dob, { year: 'numeric' }) : ''}</td>
+                <td><b>{p.first_name} {p.last_name}</b>{p.release_check && <div className="release">⚠ Check with the executive before releasing</div>}</td><td>{p.dob ? fmtDate(p.dob, { year: 'numeric' }) : ''}</td>
                 <td className="small">{p.guardians?.length ? p.guardians.map((g) => <div key={g.id}>{g.full_name || g.email}{g.phone ? <> · <a href={'tel:' + g.phone.replace(/\s/g, '')}>{g.phone}</a></> : ''}</div>) : <span className="muted">—</span>}</td>
                 <td className={p.medical_notes ? 'alert' : 'muted'}>{p.medical_notes || '—'}</td><td>{p.photo_consent ? 'Yes' : 'No'}</td>
                 {galas.map((g) => { const v = entries[g.id + ':' + p.id]; return <td key={g.id} className={'rs ' + (v || '')}>{v === 'yes' ? '✓' : v === 'no' ? '✗' : v === 'maybe' ? '?' : ''}</td> })}

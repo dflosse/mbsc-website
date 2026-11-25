@@ -33,11 +33,15 @@ const visible = {
   posts: (r) => canSee(r.audience, r.team_id),
   replies: (r) => { const p = db.posts.find((x) => x.id === r.post_id); return p && canSee(p.audience, p.team_id) },
   documents: (r) => canSee(r.audience, null),
-  tasks: () => staff(), kit: () => staff(),
+  tasks: () => staff(),
   profiles: (r) => exec() || role() === 'admin' || r.id === me() || db.player_guardians.some((g) => g.profile_id === r.id && myTeams().includes(db.players.find((p) => p.id === g.player_id)?.team_id)),
   team_coaches: () => !!me(),
   wwcc: (r) => r.profile_id === me() || exec(),
   volunteer_roles: (r) => r.profile_id === me() || exec(),
+  guardian_invites: (r) => exec() || r.invited_by === me() || myKids().includes(r.player_id),
+  player_private: () => exec(), audit_log: () => exec(),
+  gala_jobs: () => !!me(), gala_job_signups: () => !!me(),
+  kit: (r) => staff() || (r.player_id && myKids().includes(r.player_id)),
 }
 const writable = {
   players: (r) => exec() || myKids().includes(r.id),
@@ -47,6 +51,11 @@ const writable = {
   profiles: (r) => r.id === me() || role() === 'admin',
   wwcc: (r) => r.profile_id === me() || exec(),
   volunteer_roles: (r) => r.profile_id === me() || exec(),
+  guardian_invites: (r) => exec() || myKids().includes(r.player_id),
+  player_private: () => exec(),
+  gala_jobs: () => staff(),
+  gala_job_signups: (r) => r.profile_id === me() && ['volunteer', 'coach', 'committee', 'admin'].includes(role()),
+  kit: () => staff(),
 }
 const canRead = (t, r) => (visible[t] ? visible[t](r) : true)
 const canWrite = (t, r) => (writable[t] ? writable[t](r) : staff())
@@ -56,7 +65,7 @@ function embed(t, r, sel) {
   if (sel.includes('teams(') && 'team_id' in r) out.teams = db.teams.find((x) => x.id === r.team_id) || null
   if (sel.includes('profiles(') && r.profile_id) out.profiles = db.profiles.find((x) => x.id === r.profile_id) || null
   if (sel.includes('player_guardians(') && t === 'players') out.player_guardians = db.player_guardians.filter((g) => g.player_id === r.id)
-  if (sel.includes('players(') && r.player_id) { const p = db.players.find((x) => x.id === r.player_id); out.players = p ? { ...p, teams: db.teams.find((x) => x.id === p.team_id) || null } : null }
+  if (sel.includes('players(') && r.player_id && t !== 'players') { const p = db.players.find((x) => x.id === r.player_id); out.players = p ? { ...p, teams: db.teams.find((x) => x.id === p.team_id) || null } : null }
   return out
 }
 
@@ -67,6 +76,8 @@ class Query {
   neq(k, v) { this.filters.push((r) => r[k] !== v); return this }
   gte(k, v) { this.filters.push((r) => r[k] >= v); return this }
   in(k, a) { this.filters.push((r) => a.includes(r[k])); return this }
+  is(k, v) { this.filters.push((r) => (r[k] ?? null) === v); return this }
+  ilike(k, v) { this.filters.push((r) => String(r[k] || '').toLowerCase() === String(v).toLowerCase()); return this }
   order(k, o = {}) { this.orders.push([k, o.ascending !== false]); return this }
   limit(n) { this.lim = n; return this }
   maybeSingle() { this.single = true; return this }
@@ -82,18 +93,22 @@ class Query {
     if (this.op === 'insert') {
       const row = { id: uid(), created_at: new Date().toISOString(), ...this.payload }
       if (t === 'posts' || t === 'replies') { row.author_id = me(); row.author_name = db.profiles.find((p) => p.id === me())?.full_name }
+      if (t === 'guardian_invites') row.approved = exec()
+      if (t === 'gala_job_signups') { row.display_name = db.profiles.find((p) => p.id === me())?.full_name; const j = db.gala_jobs.find((x) => x.id === row.job_id); if (db.gala_job_signups.filter((x) => x.job_id === row.job_id).length >= j.slots) return { data: null, error: { message: 'That job is full' } } }
+      if (Array.isArray(this.payload)) { const rows = this.payload.map((x) => ({ id: uid(), ...x })); db[t].push(...rows); return { data: rows, error: null } }
       if (!canWrite(t, row)) return denied
       db[t].push(row); return { data: [row], error: null }
     }
     if (this.op === 'upsert') {
       const row = this.payload
       if (!canWrite(t, row)) return denied
-      const i = db[t].findIndex((r) => r.gala_id === row.gala_id && r.player_id === row.player_id)
+      const i = t === 'player_private' ? db[t].findIndex((r) => r.player_id === row.player_id) : db[t].findIndex((r) => r.gala_id === row.gala_id && r.player_id === row.player_id)
       if (i >= 0) db[t][i] = { ...db[t][i], ...row }; else db[t].push(row)
       return { data: [row], error: null }
     }
     if (this.op === 'update') {
       const rs = this.rows().filter((r) => canWrite(t, r))
+      if (t === 'players' && 'release_check' in this.payload && !exec()) return denied
       if (t === 'players' && 'status' in this.payload && !exec()) return { data: null, error: { message: 'Only the executive committee can approve or withdraw a registration' } }
       if (t === 'players' && !staff() && ['team_id', 'fees_paid', 'fv_registered'].some((k) => k in this.payload)) return { data: null, error: { message: 'Only committee can change team or payment fields' } }
       if (t === 'wwcc' && !exec() && ['status_checked_at', 'wwc_connected_at'].some((k) => k in this.payload)) return { data: null, error: { message: 'Only the executive committee can verify a WWCC' } }
@@ -138,6 +153,14 @@ export const mockSupabase = {
       }
       return { error: null }
     }
+    if (fn === 'claim_invites') return { data: 0, error: null }
+    if (fn === 'exec_add_family') {
+      if (!exec()) return { error: { message: 'Only the executive committee can add families' } }
+      const id = uid()
+      db.players.push({ id, season: a.p_season, first_name: a.p_first, last_name: a.p_last, dob: a.p_dob, gender: a.p_gender, medical_notes: a.p_medical, emergency_contact: a.p_emergency, photo_consent: a.p_photo, team_id: a.p_team, status: 'approved', fv_registered: false, fees_paid: false, committee_notes: 'Added by executive', created_at: new Date().toISOString() })
+      for (const g of a.p_guardians || []) db.guardian_invites.push({ id: uid(), player_id: id, email: g.email, name: g.name, phone: g.phone, relationship: g.relationship, invited_by: me(), approved: true, created_at: new Date().toISOString() })
+      return { data: id, error: null }
+    }
     if (fn !== 'register_player' || !me()) return { error: { message: 'Not signed in' } }
     const id = uid()
     db.players.push({ id, season: a.p_season, first_name: a.p_first, last_name: a.p_last, dob: a.p_dob, gender: a.p_gender, medical_notes: a.p_medical, emergency_contact: a.p_emergency, photo_consent: a.p_photo, status: 'pending', fv_registered: false, fees_paid: false, team_id: null, created_at: new Date().toISOString() })
@@ -145,11 +168,18 @@ export const mockSupabase = {
     return { data: id, error: null }
   },
   storage: { from: () => ({
+    remove: async () => ({ error: null }),
     upload: async (path) => ({ data: { path }, error: null }),
     createSignedUrl: async (path) => ({ data: { signedUrl: path.startsWith('data:') ? path : seedCard() }, error: null }),
   }) },
   auth: {
     updateUser: async () => ({ error: null }),
+    mfa: {
+      getAuthenticatorAssuranceLevel: async () => ({ data: me() ? { currentLevel: 'aal2', nextLevel: 'aal2' } : { currentLevel: 'aal1', nextLevel: 'aal1' } }),
+      listFactors: async () => ({ data: { totp: me() ? [{ id: 'f1', status: 'verified', friendly_name: 'Authenticator (demo)' }] : [], all: [] } }),
+      enroll: async () => ({ data: { id: 'f2', totp: { qr_code: '', secret: 'DEMO-ONLY' } } }),
+      challengeAndVerify: async () => ({ error: null }), unenroll: async () => ({ error: null }),
+    },
     getSession: async () => ({ data: { session: session() } }),
     onAuthStateChange: (fn) => { listeners.add(fn); return { data: { subscription: { unsubscribe: () => listeners.delete(fn) } } } },
     signOut: async () => setDemoRole('visitor'),

@@ -23,6 +23,7 @@ for (const t of teams) {
     players.push({
       id: 'p' + n, season: 2027, first_name: f, last_name: l, dob: `${yearFor[t.id] + (i % 2)}-0${(i % 9) + 1}-1${i % 9}`,
       gender: n % 2 ? 'M' : 'F', team_id: t.id, status: n % 11 === 3 ? 'pending' : 'approved', fv_registered: n % 6 !== 2, fees_paid: n % 5 !== 1,
+      release_check: n === 12,
       medical_notes: n % 9 === 4 ? 'Asthma – puffer in bag' : n % 13 === 6 ? 'Nut allergy (EpiPen)' : '', photo_consent: n % 7 !== 0, committee_notes: '', emergency_contact: '',
       created_at: '2026-12-01T09:00:00Z',
     })
@@ -31,7 +32,7 @@ for (const t of teams) {
 }
 // The demo family: Sam Parker, two kids
 players.push(
-  { id: 'kid1', season: 2027, first_name: 'Mia', last_name: 'Parker', dob: '2018-08-14', gender: 'F', team_id: 't9r', status: 'approved', fv_registered: true, fees_paid: true, medical_notes: '', photo_consent: true, committee_notes: '', created_at: '2026-12-02T09:00:00Z' },
+  { id: 'kid1', release_check: false, season: 2027, first_name: 'Mia', last_name: 'Parker', dob: '2018-08-14', gender: 'F', team_id: 't9r', status: 'approved', fv_registered: true, fees_paid: true, medical_notes: '', photo_consent: true, committee_notes: '', created_at: '2026-12-02T09:00:00Z' },
   { id: 'kid2', season: 2027, first_name: 'Leo', last_name: 'Parker', dob: '2021-03-02', gender: 'M', team_id: null, status: 'pending', fv_registered: false, fees_paid: false, medical_notes: 'Mild hay fever', photo_consent: true, committee_notes: '', created_at: '2026-12-02T09:05:00Z' },
 )
 
@@ -124,6 +125,7 @@ export const tasks = [
 ]
 
 export const kit = Array.from({ length: 40 }, (_, i) => {
+  if (i === 39) return { id: 'k39', jersey_label: 'R12', jersey_number: 12, size: '10', kit_bag: '43', holder_name: 'Mia Parker', player_id: 'kid1', status: 'Loaned Out', shin_guard: 'S', boots_on_loan: false, registration_paid: true, notes: '', sort_order: 39 }
   const p = players[(i * 2) % players.length]
   const out = i % 3 !== 0
   return { id: 'k' + i, jersey_label: String(i + 1), jersey_number: i + 1, size: ['6', '8', '10', '12', '14'][Math.floor(i / 8)], kit_bag: out ? String(10 + i) : '', holder_name: out ? `${p.first_name} ${p.last_name}` : '', status: out ? 'Loaned Out' : 'Shed Tub', shin_guard: out ? 'S' : '', boots_on_loan: i % 5 === 0, registration_paid: out && i % 4 !== 1, notes: '', sort_order: i }
@@ -140,4 +142,24 @@ export const volunteer_roles = [
   { id: 'vr1', profile_id: 'u-p2', season: 2027, kind: 'coach', team_id: 't7', detail: 'Happy to assist with Under 7s on Wednesdays', status: 'pending', created_at: '2026-12-05T00:00:00Z' },
   { id: 'vr2', profile_id: 'u-p3', season: 2027, kind: 'volunteer', team_id: null, detail: 'Gala day BBQ', status: 'pending', created_at: '2026-12-06T00:00:00Z' },
   { id: 'vr3', profile_id: 'u-coach', season: 2027, kind: 'coach', team_id: 't9r', detail: '', status: 'approved', created_at: '2026-11-30T00:00:00Z' },
+]
+
+export const guardian_invites = [
+  { id: 'gi1', player_id: 'kid1', email: 'chris.parker@example.com', name: 'Chris Parker', relationship: 'Dad', invited_by: 'u-parent', approved: false, created_at: '2026-12-07T00:00:00Z' },
+]
+export const player_private = []
+export const audit_log = [
+  { id: 1, at: '2026-12-01T09:12:00Z', actor_name: 'Dan Florisson', tbl: 'volunteer_roles', action: 'update', changes: { status: { from: 'pending', to: 'approved' } } },
+  { id: 2, at: '2026-12-01T09:10:00Z', actor_name: 'Dan Florisson', tbl: 'wwcc', action: 'update', changes: { status_checked_at: { from: null, to: '2026-12-01' }, wwc_connected_at: { from: null, to: '2026-12-01' } } },
+  { id: 3, at: '2026-11-30T20:05:00Z', actor_name: 'Club Secretary', tbl: 'players', action: 'update', changes: { status: { from: 'pending', to: 'approved' } } },
+]
+export const gala_jobs = [
+  { id: 'j1', gala_id: 'g1', job: 'Set-up & line marking', time_slot: 'Sat afternoon', slots: 3, sort_order: 0 },
+  { id: 'j2', gala_id: 'g1', job: 'BBQ', time_slot: '8:30–10:30am', slots: 2, sort_order: 1 },
+  { id: 'j3', gala_id: 'g1', job: 'Canteen', time_slot: '8:30–10:30am', slots: 2, sort_order: 2 },
+  { id: 'j4', gala_id: 'g1', job: 'Pack-up', time_slot: 'After last game', slots: 4, sort_order: 3 },
+]
+export const gala_job_signups = [
+  { job_id: 'j1', profile_id: 'u-coach', display_name: 'Sample coach (U9 Red)' },
+  { job_id: 'j2', profile_id: 'u-admin', display_name: 'Dan Florisson' },
 ]

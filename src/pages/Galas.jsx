@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase, fmtDate } from '../supabase'
 import { useAuth } from '../auth'
@@ -17,7 +17,7 @@ export default function Galas() {
       <p className="lead">Our teams play in the Alpine Valleys gala series with Myrtleford, Yackandandah and Bright. Each gala is a morning of short games – no ladders, just fun football.</p>
       <h2>Upcoming</h2>
       {upcoming.length === 0 && <div className="card"><p>2027 dates are still being set with the other clubs. Check back soon.</p></div>}
-      {upcoming.map((g) => <GalaCard key={g.id} g={g} />)}
+      {upcoming.map((g) => <GalaCard key={g.id} g={g} user={user} />)}
       {user ? <p><Link className="btn" to="/family">Tell us who's coming</Link></p> : <p className="muted">Families: <Link to="/login">sign in</Link> to tell us if your child can play each gala.</p>}
       {Object.keys(bySeason).sort().reverse().map((s) => (
         <section key={s}>
@@ -33,8 +33,8 @@ export default function Galas() {
   )
 }
 
-function GalaCard({ g }) {
-  return (
+function GalaCard({ g, user }) {
+  return (<>
     <div className="card gala">
       <div className="date"><b>{fmtDate(g.gala_date, { day: 'numeric' })}</b><span>{fmtDate(g.gala_date, { month: 'short' })}</span></div>
       <div>
@@ -44,7 +44,35 @@ function GalaCard({ g }) {
         {g.info && <p className="pre">{g.info}</p>}
         {g.draw_url && <a href={g.draw_url} target="_blank" rel="noreferrer">Draw & pitch map →</a>}
         {g.signup_closes && <p className="small">Let us know by {fmtDate(g.signup_closes)}</p>}
+        {user && <Roster gala={g} />}
       </div>
+    </div>
+  </>)
+}
+
+function Roster({ gala }) {
+  const { user, isVolunteer } = useAuth()
+  const [jobs, setJobs] = useState([])
+  const [signups, setSignups] = useState([])
+  const [err, setErr] = useState('')
+  const load = useCallback(async () => {
+    const { data } = await supabase.from('gala_jobs').select('*').eq('gala_id', gala.id).order('sort_order')
+    setJobs(data || [])
+    const ids = (data || []).map((j) => j.id)
+    const { data: s } = ids.length ? await supabase.from('gala_job_signups').select('*').in('job_id', ids) : { data: [] }
+    setSignups(s || [])
+  }, [gala.id])
+  useEffect(() => { load() }, [load])
+  if (!jobs.length) return null
+  async function take(j) { setErr(''); const { error } = await supabase.from('gala_job_signups').insert({ job_id: j.id, profile_id: user.id }); if (error) setErr(error.message.includes('row-level') ? 'Only approved volunteers with a checked WWCC can sign up – see the Volunteer page.' : error.message); load() }
+  async function drop(j) { await supabase.from('gala_job_signups').delete().eq('job_id', j.id).eq('profile_id', user.id); load() }
+  return (
+    <div className="roster">
+      <b>Volunteer roster</b>
+      <ul>{jobs.map((j) => { const s = signups.filter((x) => x.job_id === j.id); const mine = s.some((x) => x.profile_id === user.id); return (
+        <li key={j.id}><span>{j.job}{j.time_slot ? ` · ${j.time_slot}` : ''}<br /><span className="small muted">{s.map((x) => x.display_name).join(', ') || 'No one yet'}</span></span>
+          <span className="nowrap">{s.length}/{j.slots} {mine ? <button className="link danger" onClick={() => drop(j)}>Remove me</button> : s.length < j.slots && (isVolunteer ? <button className="btn small" onClick={() => take(j)}>I'll help</button> : <Link className="small" to="/volunteer">Volunteer to help</Link>)}</span></li>) })}</ul>
+      {err && <p className="err small">{err}</p>}
     </div>
   )
 }

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Navigate, useLocation } from 'react-router-dom'
+import { Navigate, useLocation, useNavigate, Link } from 'react-router-dom'
 import { supabase, REG_SEASON } from '../supabase'
 import { useAuth } from '../auth'
 
@@ -14,6 +14,7 @@ const ROLE_OPTS = [
 export default function Login() {
   const { user } = useAuth()
   const loc = useLocation()
+  const navigate = useNavigate()
   const [mode, setMode] = useState('signin')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -23,6 +24,8 @@ export default function Login() {
   const toggle = (r) => setRoles((rs) => rs.includes(r) ? rs.filter((x) => x !== r) : [...rs, r])
   const [msg, setMsg] = useState(null)
   const [busy, setBusy] = useState(false)
+  const { needsMfa, mfaEnrolled } = useAuth()
+  if (user && needsMfa && mfaEnrolled) return <Navigate to="/security" state={{ from: loc.state?.from }} replace />
   if (user) return <Navigate to={loc.state?.from || '/family'} replace />
 
   const redirect = window.location.origin + '/family'
@@ -34,6 +37,10 @@ export default function Login() {
       if (!error) setMsg({ ok: true, text: `Check ${email} for a sign-in link. It works once and expires after an hour.` })
     } else if (mode === 'signin') {
       ;({ error } = await supabase.auth.signInWithPassword({ email, password }))
+      if (!error) {
+        const { data: lv } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel()
+        if (lv?.nextLevel === 'aal2' && lv.currentLevel !== 'aal2') { setBusy(false); return navigate('/security', { state: { from: loc.state?.from || '/family' } }) }
+      }
     } else {
       if (!roles.length) { setBusy(false); return setMsg({ ok: false, text: 'Tick at least one option.' }) }
       ;({ error } = await supabase.auth.signUp({ email, password, options: { emailRedirectTo: redirect, data: { full_name: name, phone, roles, season: REG_SEASON } } }))
@@ -63,11 +70,11 @@ export default function Login() {
           </fieldset>
         )}
         <label>Email (your username)<input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required autoComplete="email" /></label>
-        {mode !== 'link' && <label>Password<input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={8} autoComplete={mode === 'signup' ? 'new-password' : 'current-password'} /></label>}
+        {mode !== 'link' && <label>Password<input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={mode === 'signup' ? 10 : 6} autoComplete={mode === 'signup' ? 'new-password' : 'current-password'} /></label>}
         <button className="btn" disabled={busy}>{busy ? 'Please wait…' : mode === 'link' ? 'Send sign-in link' : mode === 'signin' ? 'Sign in' : 'Create account'}</button>
         {msg && <p className={msg.ok ? 'ok' : 'err'}>{msg.text}</p>}
       </form>
-      <p className="muted small">Coaching or volunteering? Create an account, then go to <b>Volunteer</b> to apply and upload your Working With Children Check. We only use your details to run the club. Children's details are visible only to you, your child's coach and the committee.</p>
+      <p className="muted small">Coaching or volunteering? Create an account, then go to <b>Volunteer</b> to apply and upload your Working With Children Check. We only use your details to run the club – see our <Link to="/privacy">privacy statement</Link>. Children's details are visible only to you, your child's coach and the committee.</p>
     </div>
   )
 }

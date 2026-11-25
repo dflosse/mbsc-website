@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../supabase'
 import { useAuth } from '../auth'
+import { Link } from 'react-router-dom'
 
 export default function Account() {
   const { profile, refresh, user } = useAuth()
@@ -20,6 +21,7 @@ export default function Account() {
         <label>Mobile<input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} inputMode="tel" /></label>
         <label>Home address<input value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} /></label>
         <ChangePassword />
+        <p className="small"><Link to="/security">Two-factor sign-in settings →</Link></p>
         <p className="muted small">Username (email): {profile?.email} · Access: {profile?.role}{profile?.is_executive ? ' · executive committee' : ''}</p>
         <button className="btn">Save</button> {msg && <span className="ok">{msg}</span>}
       </form>
@@ -31,7 +33,7 @@ function ChangePassword() {
   const [pw, setPw] = useState('')
   const [msg, setMsg] = useState('')
   async function save() {
-    if (pw.length < 8) return setMsg('At least 8 characters.')
+    if (pw.length < 10) return setMsg('At least 10 characters.')
     const { error } = await supabase.auth.updateUser({ password: pw })
     setMsg(error ? error.message : 'Password updated.'); setPw('')
   }

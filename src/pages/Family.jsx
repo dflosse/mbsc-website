@@ -15,6 +15,9 @@ export default function Family() {
   const [adding, setAdding] = useState(false)
   const [f, setF] = useState(blank)
   const [msg, setMsg] = useState(null)
+  const [kit, setKit] = useState({})
+  const [invites, setInvites] = useState([])
+  const [inviteFor, setInviteFor] = useState(null)
 
   const load = useCallback(async () => {
     const { data: g } = await supabase.from('player_guardians').select('player_id')
@@ -25,6 +28,10 @@ export default function Family() {
     const { data: gl } = await supabase.from('galas').select('*').gte('gala_date', today).order('gala_date')
     setGalas(gl || [])
     if (ids.length) {
+      const { data: k } = await supabase.from('kit').select('player_id, jersey_label, size').in('player_id', ids)
+      setKit(Object.fromEntries((k || []).map((x) => [x.player_id, x])))
+      const { data: gi } = await supabase.from('guardian_invites').select('*').in('player_id', ids)
+      setInvites(gi || [])
       const { data: e } = await supabase.from('gala_entries').select('*').in('player_id', ids)
       setEntries(Object.fromEntries((e || []).map((x) => [x.gala_id + ':' + x.player_id, x.response])))
     }
@@ -86,16 +93,20 @@ export default function Family() {
               <h3>{k.first_name} {k.last_name}</h3>
               <p className="muted">{k.season} season · {k.teams?.name || ageGroupFor(k.dob, k.season) + ' (team TBC)'}</p>
               {k.teams?.coach_names && <p>Coach: {k.teams.coach_names}</p>}
+              {kit[k.id] && <p className="small">Club jersey: <b>#{kit[k.id].jersey_label}</b> (size {kit[k.id].size}) – please return at season's end</p>}
               <p className="row">
                 <span className={'pill ' + (k.status === 'approved' ? 'good' : 'wait')}>{k.status === 'approved' ? 'MBFC registered' : 'MBFC – awaiting committee'}</span>
                 <span className={'pill ' + (k.fv_registered ? 'good' : 'wait')}>{k.fv_registered ? 'FV registered' : 'FV registration needed'}</span>
                 <span className={'pill ' + (k.fees_paid ? 'good' : 'wait')}>{k.fees_paid ? 'Paid' : 'Payment due'}</span>
               </p>
+              {invites.filter((i) => i.player_id === k.id).map((i) => <p key={i.id} className="small muted">Other parent/guardian: {i.name || i.email} – {i.claimed_at ? 'linked' : i.approved ? 'invited, not signed up yet' : 'awaiting executive approval'}</p>)}
+              <button className="link" onClick={() => setInviteFor(k)}>+ Add another parent / guardian</button>
             </div>
           ))}
         </div>
       </section>
 
+      {inviteFor && <InviteGuardian child={inviteFor} onClose={(m) => { setInviteFor(null); if (m) setMsg({ ok: true, text: m }); load() }} />}
       <section>
         <h2>Gala days – who's coming?</h2>
         {galas.length === 0 ? <div className="card"><p>No upcoming galas yet. Once dates are set you'll be able to say yes or no for each child here.</p></div> : (
@@ -114,5 +125,29 @@ export default function Family() {
         )}
       </section>
     </div>
+  )
+}
+
+function InviteGuardian({ child, onClose }) {
+  const { user } = useAuth()
+  const [f, setF] = useState({ name: '', email: '', relationship: '' })
+  const [err, setErr] = useState('')
+  async function send(e) {
+    e.preventDefault()
+    const { error } = await supabase.from('guardian_invites').insert({ player_id: child.id, email: f.email, name: f.name, relationship: f.relationship, invited_by: user.id, approved: false })
+    if (error) return setErr(error.message)
+    onClose(`Request sent. Once the executive approves it, ${f.name || f.email} just needs to create an account with ${f.email} and ${child.first_name} will appear for them.`)
+  }
+  return (
+    <div className="modal" onClick={() => onClose()}><form className="card form" onClick={(e) => e.stopPropagation()} onSubmit={send}>
+      <h3>Add another parent or guardian for {child.first_name}</h3>
+      <p className="small">They'll get their own login and can see {child.first_name}'s details and gala days. Your contact details stay private from each other. The executive committee approves every link.</p>
+      <label>Their name<input value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} required /></label>
+      <label>Their email (they'll sign up with this)<input type="email" value={f.email} onChange={(e) => setF({ ...f, email: e.target.value })} required /></label>
+      <label>Relationship to {child.first_name}<input value={f.relationship} onChange={(e) => setF({ ...f, relationship: e.target.value })} placeholder="e.g. Dad, Mum, step-parent, grandparent" /></label>
+      <p className="small muted">If there are court orders or custody arrangements the club should know about, please email the executive privately – don't put them here.</p>
+      {err && <p className="err">{err}</p>}
+      <div className="row"><button className="btn">Send request</button><button type="button" className="btn ghost small" onClick={() => onClose()}>Cancel</button></div>
+    </form></div>
   )
 }

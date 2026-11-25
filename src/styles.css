@@ -208,3 +208,10 @@ table.dir td { font-size: .86rem; }
 .modal .form label { margin-bottom: 10px; }
 .brand small { white-space: nowrap; }
 @media (min-width: 861px) { nav a, nav .link { font-size: .86rem; padding: 7px 7px; } .topbar { gap: 10px; } }
+.release { display: inline-block; margin-top: 4px; background: #fbe2df; color: var(--bad); border-radius: 6px; padding: 2px 8px; font-size: .78rem; font-weight: 600; }
+.wide-modal { max-width: 720px !important; }
+.qr { width: 200px; height: 200px; background: #fff; padding: 8px; border-radius: 8px; border: 1px solid var(--line); }
+.prose h2 { font-size: 1.35rem; } .prose li { margin-bottom: 6px; }
+.roster { margin-top: 10px; border-top: 1px dashed var(--line); padding-top: 8px; }
+.roster ul { list-style: none; padding: 0; margin: 6px 0 0; }
+.roster li { display: flex; justify-content: space-between; gap: 10px; padding: 6px 0; border-bottom: 1px solid #efece4; font-size: .92rem; }

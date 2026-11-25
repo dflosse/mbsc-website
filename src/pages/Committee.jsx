@@ -7,12 +7,12 @@ import { wwccState } from './Volunteer'
 
 export default function Committee() {
   const { isExec } = useAuth()
-  const EXEC_ONLY = ['approvals', 'directory', 'wwcc', 'players']
+  const EXEC_ONLY = ['approvals', 'directory', 'wwcc', 'players', 'audit']
   return (
     <div className="wrap wide">
       <h1>Committee</h1>
       <div className="tabs">
-        {[['overview', 'Overview'], ['approvals', 'Approve applications'], ['directory', 'Registered players'], ['wwcc', 'WWCC register'], ['players', 'Edit players'], ['galas', 'Galas'], ['tasks', 'Action list'], ['kit', 'Uniforms'], ['teams', 'Teams'], ['people', 'People & access'], ['docs', 'Documents'], ['roles', 'Committee roles'], ['settings', 'Fees & settings']].filter(([p]) => isExec || !EXEC_ONLY.includes(p)).map(([p, l]) => <NavLink key={p} to={'/committee/' + p} className={EXEC_ONLY.includes(p) ? 'exec' : ''}>{l}</NavLink>)}
+        {[['overview', 'Overview'], ['approvals', 'Approve applications'], ['directory', 'Registered players'], ['wwcc', 'WWCC register'], ['players', 'Edit players'], ['galas', 'Galas'], ['tasks', 'Action list'], ['kit', 'Uniforms'], ['teams', 'Teams'], ['people', 'People & access'], ['docs', 'Documents'], ['roles', 'Committee roles'], ['settings', 'Fees & settings'], ['audit', 'Change log']].filter(([p]) => isExec || !EXEC_ONLY.includes(p)).map(([p, l]) => <NavLink key={p} to={'/committee/' + p} className={EXEC_ONLY.includes(p) ? 'exec' : ''}>{l}</NavLink>)}
       </div>
       {!isExec && <p className="muted small">Children's details, approvals and the WWCC register are visible to the executive committee only.</p>}
       <Routes>
@@ -30,6 +30,7 @@ export default function Committee() {
         <Route path="docs" element={<Docs />} />
         <Route path="roles" element={<Roles />} />
         <Route path="settings" element={<Settings />} />
+        <Route path="audit" element={<Audit />} />
       </Routes>
     </div>
   )
@@ -158,6 +159,7 @@ function LinkParent({ player, onClose }) {
 function Galas() {
   const order = useMemo(() => [['gala_date', false]], [])
   const [sel, setSel] = useState(null)
+  const [jobs, setJobs] = useState(null)
   return (
     <>
       <EditTable table="galas" order={order} defaults={{ season: REG_SEASON, gala_date: `${REG_SEASON}-05-01`, host_club: 'TBC' }}
@@ -167,8 +169,9 @@ function Galas() {
           { key: 'start_time', label: 'Start', width: 70 }, { key: 'signup_closes', label: 'RSVP by', type: 'date' },
           { key: 'draw_url', label: 'Draw link', width: 120 }, { key: 'info', label: 'Info for families', type: 'textarea', width: 180 },
         ]}
-        rowActions={(r) => <button className="link" title="Who's coming" onClick={() => setSel(r)}>👥</button>} />
+        rowActions={(r) => <><button className="link" title="Who's coming" onClick={() => setSel(r)}>👥</button><button className="link" title="Volunteer jobs" onClick={() => setJobs(r)}>🧰</button></>} />
       {sel && <GalaEntries gala={sel} onClose={() => setSel(null)} />}
+      {jobs && <GalaJobs gala={jobs} onClose={() => setJobs(null)} />}
     </>
   )
 }
@@ -210,13 +213,18 @@ function Tasks() {
 
 function Kit() {
   const order = useMemo(() => [['sort_order']], [])
+  const { isExec } = useAuth()
+  const [players, setPlayers] = useState([])
+  useEffect(() => { supabase.from('players').select('id, first_name, last_name, season').gte('season', PREV_SEASON).neq('status', 'withdrawn').order('last_name').then(({ data }) => setPlayers(data || [])) }, [])
+  const popts = players.map((p) => [p.id, `${p.first_name} ${p.last_name} (${p.season})`])
   return (
     <>
-      <p className="muted small">Jersey numbers repeat across print runs: plain numbers are the first run (1–55), R = repeated run, N = newer size-14 run.</p>
+      <p className="muted small">{isExec ? 'Link a jersey to a child so their family sees it under My family. ' : ''}Jersey numbers repeat across print runs: plain numbers are the first run (1–55), R = repeated run, N = newer size-14 run.</p>
       <EditTable table="kit" order={order} search={['holder_name', 'jersey_label', 'notes', 'status']} defaults={{ jersey_label: 'New', status: 'Shed Tub', sort_order: 999 }}
         cols={[
           { key: 'jersey_label', label: '#', width: 50 }, { key: 'size', label: 'Size', width: 60 }, { key: 'kit_bag', label: 'Bag', width: 50 },
-          { key: 'holder_name', label: 'Player', width: 150 },
+          ...(isExec ? [{ key: 'player_id', label: 'Linked child', type: 'select', options: popts, width: 170 }] : []),
+          { key: 'holder_name', label: 'Holder (text)', width: 140 },
           { key: 'status', label: 'Status', type: 'select', options: [['Shed Tub', 'Shed Tub'], ['Loaned Out', 'Loaned Out'], ['Outstanding', 'Outstanding'], ['Returned', 'Returned'], ['Written off', 'Written off']] },
           { key: 'shin_guard', label: 'Shin', width: 50 }, { key: 'boots_on_loan', label: 'Boots', type: 'bool' }, { key: 'registration_paid', label: 'Paid', type: 'bool' },
           { key: 'notes', label: 'Notes', width: 180 },
@@ -308,12 +316,21 @@ function Approvals() {
   const [people, setPeople] = useState({})
   const [msg, setMsg] = useState('')
   const [open, setOpen] = useState(null)
+  const [gInv, setGInv] = useState([])
+  const [dupes, setDupes] = useState({})
   const load = useCallback(async () => {
     const { data: p } = await supabase.from('players').select('*, teams(name), player_guardians(profile_id)').eq('status', 'pending').order('created_at')
     setPlayers(p || [])
+    const { data: all } = await supabase.from('players').select('id, first_name, last_name, dob, season, status')
+    const key = (x) => `${(x.first_name || '').trim().toLowerCase()}|${(x.last_name || '').trim().toLowerCase()}|${x.dob}`
+    const dm = {}
+    for (const x of p || []) { const m = (all || []).filter((y) => y.id !== x.id && key(y) === key(x)); if (m.length) dm[x.id] = m }
+    setDupes(dm)
+    const { data: gi } = await supabase.from('guardian_invites').select('*, players(first_name, last_name)').eq('approved', false).order('created_at')
+    setGInv(gi || [])
     const { data: a } = await supabase.from('volunteer_roles').select('*, teams(name)').eq('status', 'pending').order('created_at')
     setApps(a || [])
-    const ids = [...new Set([...(a || []).map((x) => x.profile_id), ...(p || []).flatMap((x) => (x.player_guardians || []).map((g) => g.profile_id))])]
+    const ids = [...new Set([...(a || []).map((x) => x.profile_id), ...(p || []).flatMap((x) => (x.player_guardians || []).map((g) => g.profile_id)), ...(gi || []).map((x) => x.invited_by)])]
     if (ids.length) {
       const { data: pr } = await supabase.from('profiles').select('*').in('id', ids)
       setPeople(Object.fromEntries((pr || []).map((x) => [x.id, x])))
@@ -374,11 +391,17 @@ function Approvals() {
           )
         })}
       </div>
+      <h2>Extra parents / guardians ({gInv.length})</h2>
+      {gInv.length === 0 ? <p className="muted">Nothing waiting.</p> : <div className="table-wrap"><table><thead><tr><th>Child</th><th>Requested by</th><th>New guardian</th><th>Relationship</th><th /></tr></thead>
+        <tbody>{gInv.map((i) => <tr key={i.id}><td><b>{i.players?.first_name} {i.players?.last_name}</b></td><td>{people[i.invited_by]?.full_name || people[i.invited_by]?.email || '—'}</td><td>{i.name}<br /><span className="small muted">{i.email}</span></td><td>{i.relationship || '—'}</td>
+          <td className="nowrap">{isExec && <><button className="btn small" onClick={async () => { const { error } = await supabase.from('guardian_invites').update({ approved: true }).eq('id', i.id); setMsg(error ? error.message : 'Approved – they\'ll be linked when they sign up.'); load() }}>Approve</button> <button className="link danger" onClick={async () => { await supabase.from('guardian_invites').delete().eq('id', i.id); setMsg('Request removed.'); load() }}>Decline</button></>}</td></tr>)}</tbody></table></div>}
+      <p className="small muted">Check custody arrangements before approving. Each parent's contact details stay hidden from the other.</p>
       <h2>Player registrations ({players.length})</h2>
       {players.length === 0 && <p className="muted">Nothing waiting.</p>}
       {players.length > 0 && <div className="table-wrap"><table><thead><tr><th>Player</th><th>Born</th><th>Season</th><th>Parent</th><th>Medical</th><th>FV reg</th><th>Paid</th><th /></tr></thead>
         <tbody>{players.map((p) => { const g = people[p.player_guardians?.[0]?.profile_id]; return (
-          <tr key={p.id}><td><b>{p.first_name} {p.last_name}</b>{p.committee_notes && <><br /><span className="small muted">{p.committee_notes}</span></>}</td><td>{p.dob ? fmtDate(p.dob) : ''}</td><td>{p.season}</td>
+          <tr key={p.id}><td><b>{p.first_name} {p.last_name}</b>{p.committee_notes && <><br /><span className="small muted">{p.committee_notes}</span></>}
+            {dupes[p.id] && <div className="release">⚠ Possible duplicate: same name and birthday already registered ({dupes[p.id].map((d) => `${d.season} ${d.status}`).join(', ')}). Check before approving.</div>}</td><td>{p.dob ? fmtDate(p.dob) : ''}</td><td>{p.season}</td>
             <td>{g ? <>{g.full_name || g.email}<br /><span className="small muted">{g.phone}</span></> : <span className="muted">not linked</span>}</td>
             <td className={p.medical_notes ? 'alert' : 'muted'}>{p.medical_notes || '—'}</td><td>{p.fv_registered ? '✓' : '—'}</td><td>{p.fees_paid ? '✓' : '—'}</td>
             <td className="nowrap">{isExec && <><button className="btn small" onClick={() => decidePlayer(p, true)}>Approve</button> <button className="link danger" onClick={() => decidePlayer(p, false)}>Decline</button></>}</td></tr>) })}</tbody></table></div>}
@@ -391,22 +414,36 @@ function Approvals() {
 function WWCCRegister() {
   const { isExec } = useAuth()
   const [rows, setRows] = useState([])
+  const [reload, setReload] = useState(0)
+  const [note, setNote] = useState('')
+  async function purge(p, w) {
+    if (!window.confirm(`Permanently delete ${p.full_name || p.email}'s WWCC record and card image? This can't be undone.`)) return
+    if (w.file_path) await supabase.storage.from('wwcc').remove([w.file_path])
+    const { error } = await supabase.from('wwcc').delete().eq('profile_id', p.id)
+    setNote(error ? error.message : 'Deleted.'); setReload((x) => x + 1)
+  }
   useEffect(() => {
     (async () => {
       const { data: pr } = await supabase.from('profiles').select('*').in('role', ['volunteer', 'coach', 'committee', 'admin']).order('full_name')
       const ids = (pr || []).map((p) => p.id)
-      const { data: w } = ids.length ? await supabase.from('wwcc').select('*').in('profile_id', ids) : { data: [] }
+      const { data: w } = await supabase.from('wwcc').select('*')
       const wm = Object.fromEntries((w || []).map((x) => [x.profile_id, x]))
-      setRows((pr || []).map((p) => ({ p, w: wm[p.id] })))
+      const { data: vr } = await supabase.from('volunteer_roles').select('profile_id, season, status').eq('status', 'approved').gte('season', PREV_SEASON)
+      const active = new Set((vr || []).map((x) => x.profile_id))
+      const extra = (w || []).filter((x) => !ids.includes(x.profile_id)).map((x) => x.profile_id)
+      const { data: pr2 } = extra.length ? await supabase.from('profiles').select('*').in('id', extra) : { data: [] }
+      setRows([...(pr || []), ...(pr2 || [])].map((p) => ({ p, w: wm[p.id], active: active.has(p.id) || ['committee', 'admin'].includes(p.role) })))
     })()
-  }, [])
+  }, [reload])
   if (!isExec) return <div className="card"><p>The WWCC register is visible to the executive committee only.</p></div>
   const sorted = [...rows].sort((a, b) => (a.w?.expiry || '0') > (b.w?.expiry || '0') ? 1 : -1)
   return (
     <>
-      <p className="muted small">Everyone with coach, volunteer or committee access. Sorted by expiry, so problems are at the top. Under 60 days to expiry is flagged.</p>
-      <div className="table-wrap"><table><thead><tr><th>Name</th><th>Access</th><th>Card</th><th>Expiry</th><th>Status</th></tr></thead>
-        <tbody>{sorted.map(({ p, w }) => { const [cls, label] = wwccState(w); return <tr key={p.id}><td>{p.full_name || p.email}</td><td>{p.role}{p.is_executive ? ' · exec' : ''}</td><td>{w?.card_number || '—'}</td><td>{w ? fmtDate(w.expiry) : '—'}</td><td><span className={'pill ' + cls}>{label}</span></td></tr> })}</tbody></table></div>
+      <p className="muted small">Everyone with coach, volunteer or committee access, plus anyone else with a card on file. Sorted by expiry, so problems are at the top; under 60 days to expiry is flagged. <b>Retention rule:</b> delete a person's WWCC record once they stop volunteering, and no later than 12 months after their last approved role – people with no approved role this season or last are marked "Not active".</p>
+      {note && <p className="ok">{note}</p>}
+      <div className="table-wrap"><table><thead><tr><th>Name</th><th>Access</th><th>Card</th><th>Expiry</th><th>Status</th><th>Active?</th><th /></tr></thead>
+        <tbody>{sorted.map(({ p, w, active }) => { const [cls, label] = wwccState(w); return <tr key={p.id}><td>{p.full_name || p.email}</td><td>{p.role}{p.is_executive ? ' · exec' : ''}</td><td>{w?.card_number || '—'}</td><td>{w ? fmtDate(w.expiry) : '—'}</td><td><span className={'pill ' + cls}>{label}</span></td>
+          <td>{active ? 'Yes' : <span className="pill wait">Not active</span>}</td><td>{w && <button className="link danger" onClick={() => purge(p, w)}>Delete record</button>}</td></tr> })}</tbody></table></div>
     </>
   )
 }
@@ -451,6 +488,9 @@ function DecideModal({ a, ok, person, onClose }) {
 function Directory() {
   const { isExec } = useAuth()
   const teams = useTeams()
+  const [reload, setReload] = useState(0)
+  const [adding, setAdding] = useState(false)
+  const [custodyFor, setCustodyFor] = useState(null)
   const [season, setSeason] = useState(REG_SEASON)
   const [rows, setRows] = useState([])
   const [q, setQ] = useState('')
@@ -465,9 +505,12 @@ function Directory() {
       const pids = [...new Set((gs || []).map((g) => g.profile_id))]
       const { data: pr } = pids.length ? await supabase.from('profiles').select('id, full_name, email, phone, address').in('id', pids) : { data: [] }
       const pm = Object.fromEntries((pr || []).map((x) => [x.id, x]))
-      setRows((ps || []).map((p) => ({ ...p, guardians: (gs || []).filter((g) => g.player_id === p.id).map((g) => pm[g.profile_id]).filter(Boolean) })))
+      const { data: gi } = ids.length ? await supabase.from('guardian_invites').select('*').in('player_id', ids).is('claimed_at', null) : { data: [] }
+      const { data: pp } = ids.length ? await supabase.from('player_private').select('*').in('player_id', ids) : { data: [] }
+      const ppm = Object.fromEntries((pp || []).map((x) => [x.player_id, x]))
+      setRows((ps || []).map((p) => ({ ...p, custody: ppm[p.id], invites: (gi || []).filter((i) => i.player_id === p.id), guardians: (gs || []).filter((g) => g.player_id === p.id).map((g) => pm[g.profile_id]).filter(Boolean) })))
     })()
-  }, [season])
+  }, [season, reload])
   if (!isExec) return <div className="card"><p>Visible to the executive committee only.</p></div>
   const shown = rows.filter((r) => (!team || r.team_id === team || (team === 'none' && !r.team_id)) && (!status || r.status === status)
     && (!q || `${r.first_name} ${r.last_name} ${r.guardians.map((g) => g.full_name + g.email).join(' ')}`.toLowerCase().includes(q.toLowerCase())))
@@ -486,19 +529,150 @@ function Directory() {
         <select className="search" value={status} onChange={(e) => setStatus(e.target.value)}><option value="">Any status</option><option value="pending">Awaiting sign-off</option><option value="approved">Approved</option><option value="withdrawn">Withdrawn</option></select>
         <input className="search" placeholder="Search child or parent…" value={q} onChange={(e) => setQ(e.target.value)} />
         <button className="btn small ghost" onClick={copy}>Copy for spreadsheet</button>{copied && <span className="small ok">{copied}</span>}
+        <button className="btn small" onClick={() => setAdding(true)}>+ Add a family</button>
       </div>
+      {adding && <AddFamily teams={teams.filter((t) => t.season === REG_SEASON)} onClose={(m) => { setAdding(false); if (m) setCopied(m); setReload((x) => x + 1) }} />}
+      {custodyFor && <CustodyModal player={custodyFor} onClose={() => { setCustodyFor(null); setReload((x) => x + 1) }} />}
       <p className="small muted">{counts.total} players · {counts.fv} FV registered · {counts.paid} paid · {counts.med} with medical notes. Edit details under <NavLink to="/committee/players">Edit players</NavLink>.</p>
       <div className="table-wrap"><table className="dir">
         <thead><tr><th>Player</th><th>Team</th><th>Status</th><th>FV</th><th>Paid</th><th>Medical</th><th>Photos</th><th>Parent / guardian</th><th>Emergency</th></tr></thead>
         <tbody>{shown.map((r) => <tr key={r.id}>
-          <td><b>{r.first_name} {r.last_name}</b><br /><span className="small muted">{r.dob ? fmtDate(r.dob, { day: 'numeric', month: 'short', year: 'numeric' }) : ''} · {ageGroupFor(r.dob, r.season)}</span></td>
+          <td><b>{r.first_name} {r.last_name}</b><br /><span className="small muted">{r.dob ? fmtDate(r.dob, { day: 'numeric', month: 'short', year: 'numeric' }) : ''} · {ageGroupFor(r.dob, r.season)}</span>
+            {r.release_check && <div className="release">⚠ Release check</div>}
+            <div><button className="link small" onClick={() => setCustodyFor(r)}>{r.custody?.custody_note || r.release_check ? 'Custody note' : '+ custody note'}</button></div></td>
           <td>{r.teams?.name || <span className="muted">TBA</span>}</td>
           <td><span className={'pill ' + ({ approved: 'good', pending: 'wait', withdrawn: 'bad' }[r.status])}>{r.status === 'pending' ? 'awaiting' : r.status}</span></td>
           <td>{r.fv_registered ? '✓' : <span className="err">✗</span>}</td><td>{r.fees_paid ? '✓' : <span className="err">✗</span>}</td>
           <td className={r.medical_notes ? 'alert' : 'muted'}>{r.medical_notes || '—'}</td><td>{r.photo_consent ? 'Yes' : 'No'}</td>
-          <td>{r.guardians.length ? r.guardians.map((g) => <div key={g.email} className="small"><b>{g.full_name || g.email}</b><br />{g.phone || ''}{g.phone ? ' · ' : ''}{g.email}</div>) : <span className="muted small">not linked</span>}</td>
+          <td>{r.guardians.map((g) => <div key={g.email} className="small"><b>{g.full_name || g.email}</b><br />{g.phone || ''}{g.phone ? ' · ' : ''}{g.email}</div>)}
+            {r.invites.map((i) => <div key={i.id} className="small muted">{i.name || i.email} ({i.relationship || 'guardian'}) – {i.approved ? 'invited, not signed up' : 'awaiting approval'}<br />{i.phone || ''} {i.email}</div>)}
+            {!r.guardians.length && !r.invites.length && <span className="muted small">not linked</span>}</td>
           <td className="small">{r.emergency_contact || '—'}</td>
         </tr>)}</tbody></table></div>
     </>
+  )
+}
+
+function AddFamily({ teams, onClose }) {
+  const [c, setC] = useState({ first: '', last: '', dob: '', gender: '', medical: '', emergency: '', photo: false, team: '' })
+  const [gs, setGs] = useState([{ name: '', email: '', phone: '', relationship: '' }])
+  const [err, setErr] = useState('')
+  const [dupe, setDupe] = useState(null)
+  async function checkDupe() {
+    if (!c.first || !c.last || !c.dob) return
+    const { data } = await supabase.from('players').select('id, season, status').ilike('first_name', c.first.trim()).ilike('last_name', c.last.trim()).eq('dob', c.dob)
+    setDupe(data?.length ? data : null)
+  }
+  async function save(e) {
+    e.preventDefault(); setErr('')
+    const { error } = await supabase.rpc('exec_add_family', { p_first: c.first.trim(), p_last: c.last.trim(), p_dob: c.dob, p_gender: c.gender, p_medical: c.medical, p_emergency: c.emergency, p_photo: c.photo, p_season: REG_SEASON, p_team: c.team || null, p_guardians: gs.filter((g) => g.email) })
+    if (error) return setErr(error.message)
+    onClose(`${c.first} added for ${REG_SEASON}. Parents just need to create an account with the email you entered – ${c.first} will already be linked.`)
+  }
+  const setG = (i, k, v) => setGs(gs.map((g, j) => (j === i ? { ...g, [k]: v } : g)))
+  return (
+    <div className="modal" onClick={() => onClose()}><form className="card form wide-modal" onClick={(e) => e.stopPropagation()} onSubmit={save}>
+      <h3>Add a family ({REG_SEASON})</h3>
+      <p className="small muted">For a child who missed registration. The child is approved straight away; each parent gets linked automatically when they sign up with the email you enter here.</p>
+      <div className="grid2 tight">
+        <label>Child first name<input value={c.first} onChange={(e) => setC({ ...c, first: e.target.value })} onBlur={checkDupe} required /></label>
+        <label>Last name<input value={c.last} onChange={(e) => setC({ ...c, last: e.target.value })} onBlur={checkDupe} required /></label>
+        <label>Date of birth<input type="date" value={c.dob} onChange={(e) => setC({ ...c, dob: e.target.value })} onBlur={checkDupe} required /></label>
+        <label>Team<select value={c.team} onChange={(e) => setC({ ...c, team: e.target.value })}><option value="">Decide later</option>{teams.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}</select></label>
+      </div>
+      {dupe && <p className="release">⚠ A child with this name and birthday is already registered ({dupe.map((d) => `${d.season} ${d.status}`).join(', ')}). Use "Edit players" to link a parent or carry them over instead.</p>}
+      <label>Medical / allergies<input value={c.medical} onChange={(e) => setC({ ...c, medical: e.target.value })} /></label>
+      <label>Emergency contact<input value={c.emergency} onChange={(e) => setC({ ...c, emergency: e.target.value })} /></label>
+      <label className="check"><input type="checkbox" checked={c.photo} onChange={(e) => setC({ ...c, photo: e.target.checked })} /> Parent has given photo permission</label>
+      {gs.map((g, i) => (
+        <fieldset key={i} className="roles-pick"><legend>Parent / guardian {i + 1}</legend>
+          <div className="grid2 tight">
+            <label>Name<input value={g.name} onChange={(e) => setG(i, 'name', e.target.value)} required={i === 0} /></label>
+            <label>Email<input type="email" value={g.email} onChange={(e) => setG(i, 'email', e.target.value)} required={i === 0} /></label>
+            <label>Mobile<input value={g.phone} onChange={(e) => setG(i, 'phone', e.target.value)} /></label>
+            <label>Relationship<input value={g.relationship} onChange={(e) => setG(i, 'relationship', e.target.value)} placeholder="Mum, Dad, carer…" /></label>
+          </div>
+        </fieldset>
+      ))}
+      {gs.length < 2 && <button type="button" className="link" onClick={() => setGs([...gs, { name: '', email: '', phone: '', relationship: '' }])}>+ Add a second parent / guardian</button>}
+      {err && <p className="err">{err}</p>}
+      <div className="row"><button className="btn">Add family</button><button type="button" className="btn ghost small" onClick={() => onClose()}>Cancel</button></div>
+    </form></div>
+  )
+}
+
+function CustodyModal({ player, onClose }) {
+  const [note, setNote] = useState(player.custody?.custody_note || '')
+  const [flag, setFlag] = useState(!!player.release_check)
+  const [err, setErr] = useState('')
+  async function save() {
+    const { data: s } = await supabase.auth.getSession()
+    const r1 = await supabase.from('player_private').upsert({ player_id: player.id, custody_note: note || null, updated_by: s.session.user.id, updated_at: new Date().toISOString() })
+    const r2 = await supabase.from('players').update({ release_check: flag }).eq('id', player.id)
+    const e = r1.error || r2.error
+    if (e) return setErr(e.message)
+    onClose()
+  }
+  return (
+    <div className="modal" onClick={() => onClose()}><div className="card form" onClick={(e) => e.stopPropagation()}>
+      <h3>Custody / release – {player.first_name} {player.last_name}</h3>
+      <label>Private executive note (court orders, who may collect, etc.)<textarea rows={4} value={note} onChange={(e) => setNote(e.target.value)} /></label>
+      <label className="check"><input type="checkbox" checked={flag} onChange={(e) => setFlag(e.target.checked)} /> Show coaches "Check with the executive before releasing this child"</label>
+      <p className="small muted">Only the executive can see the note. Coaches and parents see only the flag (coaches) – never the note.</p>
+      {err && <p className="err">{err}</p>}
+      <div className="row"><button className="btn" onClick={save}>Save</button><button className="btn ghost small" onClick={() => onClose()}>Cancel</button></div>
+    </div></div>
+  )
+}
+
+function Audit() {
+  const { isExec } = useAuth()
+  const [rows, setRows] = useState([])
+  const [tbl, setTbl] = useState('')
+  useEffect(() => {
+    let q = supabase.from('audit_log').select('*').order('at', { ascending: false }).limit(300)
+    if (tbl) q = q.eq('tbl', tbl)
+    q.then(({ data }) => setRows(data || []))
+  }, [tbl])
+  if (!isExec) return <div className="card"><p>Visible to the executive committee only.</p></div>
+  const LABEL = { players: 'Players', volunteer_roles: 'Applications', wwcc: 'WWCC', profiles: 'Access', player_guardians: 'Parent links', guardian_invites: 'Guardian invites', team_coaches: 'Coach teams', player_private: 'Custody notes' }
+  const fmt = (c) => Object.entries(c || {}).map(([k, v]) => typeof v === 'object' && v && 'to' in v ? `${k}: ${v.from ?? '–'} → ${v.to ?? '–'}` : `${k} ${typeof v === 'string' ? v : ''}`).join('; ')
+  return (
+    <>
+      <p className="muted small">Every approval, access change, payment/registration change, WWCC check, parent link and custody note edit is recorded here automatically. It can't be edited.</p>
+      <div className="tabs">{[['', 'All'], ...Object.entries(LABEL)].map(([k, l]) => <button key={k} className={tbl === k ? 'on' : ''} onClick={() => setTbl(k)}>{l}</button>)}</div>
+      <div className="table-wrap"><table><thead><tr><th>When</th><th>Who</th><th>What</th><th>Action</th><th>Changes</th></tr></thead>
+        <tbody>{rows.map((r) => <tr key={r.id}><td className="nowrap small">{new Date(r.at).toLocaleString('en-AU', { dateStyle: 'medium', timeStyle: 'short' })}</td><td>{r.actor_name || 'system'}</td><td>{LABEL[r.tbl] || r.tbl}</td><td>{r.action}</td><td className="small">{fmt(r.changes)}</td></tr>)}</tbody></table></div>
+    </>
+  )
+}
+
+function GalaJobs({ gala, onClose }) {
+  const [jobs, setJobs] = useState([])
+  const [signups, setSignups] = useState([])
+  const [f, setF] = useState({ job: '', time_slot: '', slots: 2 })
+  const load = useCallback(async () => {
+    const { data } = await supabase.from('gala_jobs').select('*').eq('gala_id', gala.id).order('sort_order')
+    setJobs(data || [])
+    const ids = (data || []).map((j) => j.id)
+    const { data: s } = ids.length ? await supabase.from('gala_job_signups').select('*').in('job_id', ids) : { data: [] }
+    setSignups(s || [])
+  }, [gala.id])
+  useEffect(() => { load() }, [load])
+  async function add(e) { e.preventDefault(); await supabase.from('gala_jobs').insert({ gala_id: gala.id, job: f.job, time_slot: f.time_slot, slots: Number(f.slots) || 1, sort_order: jobs.length }); setF({ job: '', time_slot: '', slots: 2 }); load() }
+  async function addDefaults() {
+    const D = [['Set-up & line marking', 'Sat afternoon', 3], ['BBQ', '8:30–10:30am', 2], ['BBQ', '10:30am–12:30pm', 2], ['Canteen', '8:30–10:30am', 2], ['Canteen', '10:30am–12:30pm', 2], ['Pack-up', 'After last game', 4]]
+    await supabase.from('gala_jobs').insert(D.map(([job, time_slot, slots], i) => ({ gala_id: gala.id, job, time_slot, slots, sort_order: i }))); load()
+  }
+  async function del(j) { await supabase.from('gala_jobs').delete().eq('id', j.id); load() }
+  return (
+    <div className="modal" onClick={onClose}><div className="card form wide-modal" onClick={(e) => e.stopPropagation()}>
+      <h3>Volunteer jobs – {gala.host_club}, {fmtDate(gala.gala_date)}</h3>
+      {jobs.length === 0 && <p><button className="btn small ghost" onClick={addDefaults}>Add the usual home-gala jobs</button></p>}
+      <ul className="roles">{jobs.map((j) => { const s = signups.filter((x) => x.job_id === j.id); return <li key={j.id}><span><b>{j.job}</b> {j.time_slot && <span className="muted">· {j.time_slot}</span>}<br /><span className="small">{s.map((x) => x.display_name).join(', ') || 'No one yet'}</span></span><b className={s.length >= j.slots ? '' : 'vacant'}>{s.length}/{j.slots} <button className="link danger" onClick={() => del(j)}>×</button></b></li> })}</ul>
+      <form className="row" onSubmit={add}><input placeholder="Job" value={f.job} onChange={(e) => setF({ ...f, job: e.target.value })} required /><input placeholder="Time" value={f.time_slot} onChange={(e) => setF({ ...f, time_slot: e.target.value })} /><input type="number" min="1" style={{ maxWidth: 70 }} value={f.slots} onChange={(e) => setF({ ...f, slots: e.target.value })} /><button className="btn small">Add</button></form>
+      <p className="small muted">Approved volunteers (with a checked WWCC) sign up on the Gala days page.</p>
+      <button className="btn ghost small" onClick={onClose}>Close</button>
+    </div></div>
   )
 }

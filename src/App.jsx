@@ -16,15 +16,18 @@ import Committee from './pages/Committee'
 import Board from './pages/Board'
 import Account from './pages/Account'
 import Volunteer from './pages/Volunteer'
+import Security from './pages/Security'
+import Privacy from './pages/Privacy'
 import DemoBar from './demo/DemoBar'
 
 export const CLUB = 'Mount Beauty Football Club'
 
-function Guard({ ok, children }) {
-  const { user, loading } = useAuth()
+function Guard({ ok, elevated, children }) {
+  const { user, loading, needsMfa } = useAuth()
   const loc = useLocation()
   if (loading) return <div className="wrap"><p className="muted">Loading…</p></div>
   if (!user) return <Navigate to="/login" state={{ from: loc.pathname }} replace />
+  if (elevated && needsMfa) return <Navigate to="/security" state={{ from: loc.pathname }} replace />
   if (ok === false) return <div className="wrap"><div className="card"><h2>No access</h2><p>This area is for {loc.pathname.includes('committee') ? 'committee members' : 'coaches'}. Ask the club secretary if you need access.</p></div></div>
   return children
 }
@@ -41,12 +44,16 @@ function WWCCNudge() {
       setNeed(!w)
     })()
   }, [user])
+  const { needsMfa } = useAuth()
+  if (needsMfa) return <div className="nudge"><div className="wrap">Your account has coach, committee or volunteer access – <Link to="/security">turn on two-factor sign-in</Link> (or enter your code) to use it.</div></div>
   if (!need) return null
   return <div className="nudge"><div className="wrap">You've applied to help out – please <Link to="/volunteer">upload your Working With Children Check</Link> so the executive can sign you off.</div></div>
 }
 
 export default function App() {
-  const { user, isStaff, isCoach, signOut } = useAuth()
+  const { user, profile, coachTeams, isStaff, isCoach, signOut } = useAuth()
+  const showCoach = profile?.role === 'coach' || coachTeams.length > 0
+  const showCommittee = ['committee', 'admin'].includes(profile?.role) || profile?.is_executive
   const [open, setOpen] = useState(false)
   const close = () => setOpen(false)
   return (
@@ -67,8 +74,8 @@ export default function App() {
             {user && <NavLink to="/family">My family</NavLink>}
             {user && <NavLink to="/board">Messages</NavLink>}
             {user && <NavLink to="/volunteer">Volunteer</NavLink>}
-            {user && isCoach && <NavLink to="/coach">Coaches</NavLink>}
-            {user && isStaff && <NavLink to="/committee">Committee</NavLink>}
+            {user && showCoach && <NavLink to="/coach">Coaches</NavLink>}
+            {user && showCommittee && <NavLink to="/committee">Committee</NavLink>}
             {user ? (
               <>
                 <NavLink to="/account">Account</NavLink>
@@ -93,15 +100,17 @@ export default function App() {
           <Route path="/board" element={<Guard><Board /></Guard>} />
           <Route path="/account" element={<Guard><Account /></Guard>} />
           <Route path="/volunteer" element={<Guard><Volunteer /></Guard>} />
-          <Route path="/coach" element={<Guard ok={isCoach || isStaff}><Coach /></Guard>} />
-          <Route path="/committee/*" element={<Guard ok={isStaff}><Committee /></Guard>} />
+          <Route path="/coach" element={<Guard elevated ok={isCoach || isStaff}><Coach /></Guard>} />
+          <Route path="/committee/*" element={<Guard elevated ok={isStaff || !!profile?.is_executive}><Committee /></Guard>} />
+          <Route path="/security" element={<Guard><Security /></Guard>} />
+          <Route path="/privacy" element={<Privacy />} />
           <Route path="*" element={<div className="wrap"><h1>Page not found</h1><Link to="/">Back home</Link></div>} />
         </Routes>
       </main>
       <footer className="foot">
         <div className="wrap footgrid">
           <div className="row"><img src={crest} alt="" className="crest lg" /><div><p><strong>{CLUB}</strong><br />Junior soccer in the Kiewa Valley since 2003</p><p className="muted">Les Peart Oval, Pool Road, Mount Beauty VIC 3699</p></div></div>
-          <div><p><Link to="/about">About the club</Link><br /><Link to="/about#fees">Fees & registration</Link><br /><Link to="/football-victoria">Football Victoria</Link><br /><Link to="/galas">Gala days</Link></p></div>
+          <div><p><Link to="/about">About the club</Link><br /><Link to="/about#fees">Fees & registration</Link><br /><Link to="/football-victoria">Football Victoria</Link><br /><Link to="/galas">Gala days</Link><br /><Link to="/privacy">Privacy</Link></p></div>
           <div><p>Training Wednesdays 4–5pm<br />mtbeautysoccerclub@gmail.com</p><p className="muted small">An incorporated, volunteer-run member club of Football Victoria.</p></div>
         </div>
       </footer>
