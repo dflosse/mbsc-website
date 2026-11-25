@@ -165,3 +165,17 @@ export const gala_job_signups = [
   { job_id: 'j1', profile_id: 'u-coach', display_name: 'Sample coach (U9 Red)' },
   { job_id: 'j2', profile_id: 'u-admin', display_name: 'Dan Florisson' },
 ]
+
+const FS = (id, sort, name, provider, kind, typical_amount, timing, fit, link, notes = null) => ({ id, sort, name, provider, kind, typical_amount, timing, fit, link, notes, active: true })
+export const funding_sources = [
+  FS('fs1', 10, 'Sporting Club Grants Program', 'Sport and Recreation Victoria', 'grant', 'Up to $1,000 uniforms & equipment; up to $5,000 volunteers, coaches & officials; $750 travel', 'Two rounds a year. 2026-27 Round 2 opens 18 Feb 2027.', 'Strong – new kit, loan boots, balls, first aid, coach courses, volunteer training.', 'https://sport.vic.gov.au/funding/sporting-club-grants-program', 'Clubs that received a grant in categories 1, 2, 3 or 5 in the previous year may be ineligible for the next round – check the guidelines.'),
+  FS('fs2', 20, 'Community Grants Program', 'Alpine Shire Council', 'grant', 'Projects typically $1,500–$10,000', 'Opens May each year. Apply via SmartyGrants.', 'Good – equipment storage, goals, participation projects.', 'https://www.alpineshire.vic.gov.au/community/grants-and-awards/community-grants', 'Council also runs a separate Event Funding Program – worth a look for the home gala day.'),
+  FS('fs3', 30, 'AGL Hydro Community Fund', 'AGL (Kiewa Hydro Scheme)', 'grant', 'Guide up to $5,000', 'Twice a year – April and October.', 'Strong – specifically for groups around Mount Beauty, Tawonga, Bogong and Falls Creek.', 'https://www.agl.com.au/about-agl/operations/hydroelectric-power-stations/community'),
+  FS('fs4', 40, 'Mount Beauty & District Community Bank', 'Bendigo Bank', 'sponsorship', 'Varies', 'Ask the branch about their current round.', 'Good – local sponsorship of kit, gala day or equipment.', 'https://www.bendigobank.com.au/community/foundation/community-grants'),
+  FS('fs5', 50, 'Growing Football Community Grants', 'Football Australia (with CommBank)', 'grant', 'Up to $5,000 (ex GST)', 'Annual – last round Sep–Oct 2026.', 'Good if framed around girls in football.', 'https://www.footballaustralia.com.au/community-grants'),
+  FS('fs9', 90, 'Local business sponsors', 'Mount Beauty / Kiewa Valley businesses', 'sponsorship', 'Typically $250–$2,000 or in kind', 'Any time – best before kit orders.', 'Strong – logo on shirts/banners in exchange for cash or in-kind.', null),
+]
+export const funding = [
+  { id: 'fu1', season: 2027, kind: 'grant', title: 'New goals and balls for U7s (sample)', funder: 'Sport and Recreation Victoria', status: 'submitted', amount_requested: 1000, applied_on: '2027-03-01', outcome_due: '2027-06-30', purpose: 'Pop-up goals and size 3 balls', source_id: 'fs1', created_at: '2027-03-01' },
+  { id: 'fu2', season: 2027, kind: 'sponsorship', title: 'Sample Bakery (sample)', status: 'received', amount_awarded: 750, amount_received: 750, received_on: '2027-02-10', obligations: 'Logo on jersey sleeve, banner at home gala', acquittal_due: '2028-02-01', created_at: '2027-02-01' },
+]

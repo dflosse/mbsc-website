@@ -42,6 +42,7 @@ const visible = {
   player_private: () => exec(), audit_log: () => exec(),
   gala_jobs: () => !!me(), gala_job_signups: () => !!me(),
   kit: (r) => staff() || (r.player_id && myKids().includes(r.player_id)),
+  funding: () => staff() || exec(), funding_sources: () => staff() || exec(),
 }
 const writable = {
   players: (r) => exec() || myKids().includes(r.id),
@@ -56,6 +57,7 @@ const writable = {
   gala_jobs: () => staff(),
   gala_job_signups: (r) => r.profile_id === me() && ['volunteer', 'coach', 'committee', 'admin'].includes(role()),
   kit: () => staff(),
+  funding: () => exec(), funding_sources: () => exec(),
 }
 const canRead = (t, r) => (visible[t] ? visible[t](r) : true)
 const canWrite = (t, r) => (writable[t] ? writable[t](r) : staff())

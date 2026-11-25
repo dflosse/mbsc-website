@@ -6,6 +6,7 @@ import EditTable from './EditTable'
 import useSettings from '../useSettings'
 import { KitTags, kitText } from './kitInfo'
 import { wwccState } from './Volunteer'
+import Treasurer from './Treasurer'
 
 export default function Committee() {
   const { isExec } = useAuth()
@@ -14,7 +15,7 @@ export default function Committee() {
     <div className="wrap wide">
       <h1>Committee</h1>
       <div className="tabs">
-        {[['overview', 'Overview'], ['approvals', 'Approve applications'], ['directory', 'Registered players'], ['wwcc', 'WWCC register'], ['players', 'Edit players'], ['galas', 'Galas'], ['tasks', 'Action list'], ['kit', 'Uniforms'], ['teams', 'Teams'], ['people', 'People & access'], ['docs', 'Documents'], ['roles', 'Committee roles'], ['settings', 'Fees & settings'], ['audit', 'Change log']].filter(([p]) => isExec || !EXEC_ONLY.includes(p)).map(([p, l]) => <NavLink key={p} to={'/committee/' + p} className={EXEC_ONLY.includes(p) ? 'exec' : ''}>{l}</NavLink>)}
+        {[['overview', 'Overview'], ['approvals', 'Approve applications'], ['directory', 'Registered players'], ['wwcc', 'WWCC register'], ['players', 'Edit players'], ['galas', 'Galas'], ['tasks', 'Action list'], ['kit', 'Uniforms'], ['teams', 'Teams'], ['people', 'People & access'], ['docs', 'Documents'], ['roles', 'Committee roles'], ['treasurer', 'Treasurer'], ['settings', 'Fees & settings'], ['audit', 'Change log']].filter(([p]) => isExec || !EXEC_ONLY.includes(p)).map(([p, l]) => <NavLink key={p} to={'/committee/' + p} className={EXEC_ONLY.includes(p) ? 'exec' : ''}>{l}</NavLink>)}
       </div>
       {!isExec && <p className="muted small">Children's details, approvals and the WWCC register are visible to the executive committee only.</p>}
       <Routes>
@@ -31,6 +32,7 @@ export default function Committee() {
         <Route path="people" element={<People />} />
         <Route path="docs" element={<Docs />} />
         <Route path="roles" element={<Roles />} />
+        <Route path="treasurer" element={<Treasurer />} />
         <Route path="settings" element={<Settings />} />
         <Route path="audit" element={<Audit />} />
       </Routes>
