@@ -45,6 +45,7 @@ export default function Security() {
   const [dev, setDev] = useState(device())
   const [copied, setCopied] = useState(false)
   const [keys, setKeys] = useState([])
+  const [offer, setOffer] = useState(false)
 
   async function load() {
     const { data } = await supabase.auth.mfa.listFactors()
@@ -72,6 +73,7 @@ export default function Security() {
     const { error } = await supabase.auth.mfa.webauthn.register({ friendlyName: name, webauthn: RP })
     setBusy(false)
     if (error) return setMsg({ ok: false, text: friendlyErr(error) })
+    setOffer(false)
     done(`${BIO[device()] === 'your phone' ? 'Passkey' : BIO[device()]} is on. Next time you sign in, just approve it instead of typing a code.`)
   }
   useEffect(() => { load() }, [])
@@ -92,6 +94,10 @@ export default function Security() {
     const { error } = await supabase.auth.mfa.challengeAndVerify({ factorId, code: code.replace(/\s/g, '') })
     if (error) return setMsg({ ok: false, text: 'That code didn\'t work – check the time on your phone and try the newest code.' })
     setCode(''); setEnroll(null); await load(); await refresh()
+    // Offer Face ID straight after a code sign-in, so next time is one tap.
+    const { data: fl } = await supabase.auth.mfa.listFactors()
+    const hasKey = (fl?.all || []).some((f) => f.factor_type === 'webauthn' && f.status === 'verified')
+    if (canPasskey() && !hasKey) return setOffer(true)
     setMsg({ ok: true, text: 'Two-factor sign-in is on. Your access is unlocked.' })
     if (loc.state?.from) setTimeout(() => nav(loc.state.from), 600)
   }
@@ -121,6 +127,15 @@ export default function Security() {
         </ul>
       </div>
       {msg && <p className={'card ' + (msg.ok ? 'ok' : 'err')}>{msg.text}</p>}
+
+      {offer && (
+        <div className="card form">
+          <h3>You're in. Use {BIO[device()] === 'your phone' ? 'a passkey' : BIO[device()]} next time?</h3>
+          <p>Skip the 6-digit code – just approve with {BIO[device()] === 'your phone' ? 'your phone' : BIO[device()]} when you sign in.</p>
+          <div className="row"><button className="btn" disabled={busy} onClick={addKey}>{busy ? 'Waiting for you to approve…' : `Set up ${BIO[device()] === 'your phone' ? 'a passkey' : BIO[device()]}`}</button>
+            <button className="btn ghost" onClick={() => { setOffer(false); if (loc.state?.from) nav(loc.state.from) }}>Not now</button></div>
+        </div>
+      )}
 
       {needsMfa && mfaEnrolled && keys.length > 0 && (
         <div className="card form">
