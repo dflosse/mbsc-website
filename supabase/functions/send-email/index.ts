@@ -19,7 +19,7 @@ function html(body: string, first: string) {
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors })
   try {
-    const key = Deno.env.get('RESEND_API_KEY')
+    const key = Deno.env.get('RESEND_API_KEY') ?? Deno.env.get('Resend_API_Key')
     if (!key) return json({ error: 'Email sending isn\'t switched on yet – the RESEND_API_KEY secret needs adding in Supabase.' }, 503)
     const url = Deno.env.get('SUPABASE_URL')!
     const authz = req.headers.get('Authorization') ?? ''

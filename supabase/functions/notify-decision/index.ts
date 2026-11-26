@@ -17,7 +17,7 @@ const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&l
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors })
   try {
-    const key = Deno.env.get('RESEND_API_KEY')
+    const key = Deno.env.get('RESEND_API_KEY') ?? Deno.env.get('Resend_API_Key')
     if (!key) return json({ skipped: 'Email not set up yet' })
     const url = Deno.env.get('SUPABASE_URL')!
     const authz = req.headers.get('Authorization') ?? ''
