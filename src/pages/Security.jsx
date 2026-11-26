@@ -70,6 +70,9 @@ export default function Security() {
   }
 
   const verified = factors?.[0]
+  const [busy, setBusy] = useState(false)
+  async function submitCode(factorId) { if (busy) return; setBusy(true); await verify(factorId); setBusy(false) }
+  function onCode(v, factorId) { setCode(v); if (factorId && /^\d{6}$/.test(v.replace(/\s/g, ''))) submitCode(factorId) }
   return (
     <div className="wrap narrow">
       <h1>Two-factor sign-in</h1>
@@ -78,7 +81,7 @@ export default function Security() {
         <b>How it works</b>
         <ul className="small" style={{ margin: '6px 0 0', paddingLeft: 18 }}>
           <li>Your phone makes a new 6-digit code every 30 seconds. It works offline – no texts, no mobile reception needed.</li>
-          <li>You only enter a code when you sign in on a new device or after signing out. Stay signed in on your own phone and you won't be asked again.</li>
+          <li>You enter a code once per device. Tick "Keep me signed in" when you sign in and you won't be asked again on that phone or computer unless you sign out.</li>
           <li>iPhones and Macs have this built in (Passwords). On Android or a Windows PC, use the free Google Authenticator or Microsoft Authenticator app on your phone.</li>
           <li>New phone? Add it here before you wipe the old one. Lost your phone? Ask the President or Secretary to reset it for you.</li>
         </ul>
@@ -89,8 +92,9 @@ export default function Security() {
         <div className="card form">
           <h3>Enter your code</h3>
           <p>Open Passwords (iPhone/Mac) or your authenticator app and type the current code for <b>Mount Beauty FC</b>.</p>
-          <label>6-digit code<input inputMode="numeric" autoComplete="one-time-code" value={code} onChange={(e) => setCode(e.target.value)} maxLength={7} autoFocus /></label>
-          <button className="btn" onClick={() => verify(verified.id)}>Continue</button>
+          <label>6-digit code<input inputMode="numeric" autoComplete="one-time-code" value={code} onChange={(e) => onCode(e.target.value, verified.id)} maxLength={7} autoFocus /></label>
+          <button className="btn" disabled={busy} onClick={() => submitCode(verified.id)}>{busy ? 'Checking…' : 'Continue'}</button>
+          <p className="small muted">It carries on by itself once all 6 digits are in. You won't be asked again on this device unless you sign out.</p>
         </div>
       )}
 

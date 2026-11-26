@@ -364,9 +364,9 @@ function People() {
   const tname = (id) => teams.find((t) => t.id === id)?.name + ' ' + (teams.find((t) => t.id === id)?.season || '')
   return (
     <>
-      <p className="muted small note-wide">Tick <b>Executive</b> for the President, Vice President, Secretary and Treasurer – only they can sign off registrations and volunteers. Coaches and volunteers get their access automatically when an executive approves their application. Everyone who signs up starts as a parent. {isAdmin ? 'As an admin you can make people coaches, committee members or admins.' : 'Only admins can change access levels.'} Committee members see all player details.</p>
+      <p className="muted small note-wide">Tick <b>Executive</b> for the President, Vice President, Secretary and Treasurer – only they can sign off registrations and volunteers. Everyone starts with family access (register children, reply to galas). Coach, committee, volunteer or executive access is added when an executive approves their application. {isAdmin ? 'You can also change someone\'s access here.' : 'Only admins can change access levels.'} Only the executive sees children's personal details.</p>
       {err && <p className="err">{err}</p>}
-      {isExec && <Invite onSent={load} />}
+      {isExec ? <Invite onSent={load} /> : <div className="card"><h3 style={{ marginTop: 0 }}>Invite someone</h3><p className="small">Inviting is for the executive and needs your two-factor code for this sign-in. <a href="/security">Enter your code</a>, then come back here.</p></div>}
       <div className="table-wrap"><table className="people">
         <thead><tr><th>Name</th><th>Email</th><th>Phone</th><th>Access</th><th className="c">Executive</th><th>Coaches team</th></tr></thead>
         <tbody>{people.map((p) => <tr key={p.id}>

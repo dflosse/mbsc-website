@@ -7,7 +7,17 @@ export const DEMO = import.meta.env.VITE_DEMO === '1'
 const url = import.meta.env.VITE_SUPABASE_URL || 'https://zfqlwktlknkivaecbepf.supabase.co'
 const key = import.meta.env.VITE_SUPABASE_KEY || 'sb_publishable_itSng6nlWLqezSy-fwBY9g_B7A-KrCn'
 
-export const supabase = DEMO ? mockSupabase : createClient(url, key)
+// "Keep me signed in": the sign-in lives in localStorage (stays after the browser closes).
+// Unticked, it lives in sessionStorage and ends when the browser is closed.
+export const REMEMBER_KEY = 'mbfc-remember'
+const remembered = () => { try { return localStorage.getItem(REMEMBER_KEY) !== 'no' } catch { return true } }
+const store = () => { try { return remembered() ? localStorage : sessionStorage } catch { return null } }
+const authStorage = {
+  getItem: (k) => { try { return sessionStorage.getItem(k) ?? localStorage.getItem(k) } catch { return null } },
+  setItem: (k, v) => { try { const s = store(); s.setItem(k, v); (s === localStorage ? sessionStorage : localStorage).removeItem(k) } catch { /* private mode */ } },
+  removeItem: (k) => { try { localStorage.removeItem(k); sessionStorage.removeItem(k) } catch { /* private mode */ } },
+}
+export const supabase = DEMO ? mockSupabase : createClient(url, key, { auth: { storage: authStorage, persistSession: true, autoRefreshToken: true } })
 
 // Season settings – change these when the next season opens.
 export const REG_SEASON = 2027 // the season families register for and teams are built for

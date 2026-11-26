@@ -1,7 +1,7 @@
 import { PW_RULE, strongPw } from './Account.jsx'
 import { useState } from 'react'
 import { Navigate, useLocation, useNavigate, Link } from 'react-router-dom'
-import { supabase, REG_SEASON } from '../supabase'
+import { supabase, REG_SEASON, REMEMBER_KEY } from '../supabase'
 import { useAuth } from '../auth'
 
 const ROLE_OPTS = [
@@ -26,6 +26,7 @@ export default function Login() {
   const [msg, setMsg] = useState(null)
   const [busy, setBusy] = useState(false)
   const [sent, setSent] = useState(null)
+  const [remember, setRemember] = useState(() => { try { return localStorage.getItem(REMEMBER_KEY) !== 'no' } catch { return true } })
   const { needsMfa, mfaEnrolled } = useAuth()
   if (user && needsMfa && mfaEnrolled) return <Navigate to="/security" state={{ from: loc.state?.from }} replace />
   if (user) return <Navigate to={loc.state?.from || '/family'} replace />
@@ -38,6 +39,7 @@ export default function Login() {
       ;({ error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin + '/reset-password' }))
       if (!error) setMsg({ ok: true, text: `If ${email} has an account, we've emailed it a link to set a new password. The link works once and expires after an hour.` })
     } else if (mode === 'signin') {
+      try { localStorage.setItem(REMEMBER_KEY, remember ? 'yes' : 'no') } catch { /* ignore */ }
       ;({ error } = await supabase.auth.signInWithPassword({ email, password }))
       if (!error) {
         const { data: lv } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel()
@@ -95,6 +97,7 @@ export default function Login() {
         )}
         <label>Email (your username)<input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required autoComplete="email" /></label>
         {mode !== 'link' && <label>Password<input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={mode === 'signup' ? 10 : 6} autoComplete={mode === 'signup' ? 'new-password' : 'current-password'} />{mode === 'signup' && <span className="small muted">{PW_RULE}</span>}</label>}
+        {mode === 'signin' && <label className="check"><input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} /><span>Keep me signed in on this device<br /><span className="small muted">You'll only need your two-factor code once on this device. Untick on a shared computer.</span></span></label>}
         <button className="btn" disabled={busy}>{busy ? 'Please wait…' : mode === 'link' ? 'Email me a reset link' : mode === 'signin' ? 'Sign in' : 'Create account'}</button>
         {msg && <p className={msg.ok ? 'ok' : 'err'}>{msg.text}</p>}
       </form>
