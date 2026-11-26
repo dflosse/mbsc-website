@@ -500,7 +500,11 @@ ul.picks { margin-top: -4px; }
 .invite-parent { display: grid; gap: 8px; border-top: 1px solid var(--line); padding-top: 10px; margin-top: 6px; }
 .note-group h3 { margin: 18px 0 8px; font-size: 1rem; }
 .card.note { padding: 14px 16px; margin-bottom: 10px; }
-.note-body { white-space: pre-line; line-height: 1.55; margin-top: 6px; max-width: 95ch; }
+.note-body { line-height: 1.55; margin-top: 6px; max-width: 95ch; }
+.note-body ul { margin: 0; padding-left: 1.2em; }
+.note-body li { margin: 0 0 6px; padding-left: 2px; }
+.note-body li:last-child { margin-bottom: 0; }
+.note-body p { margin: 0 0 6px; }
 .note-dates { margin: 8px 0 0; }
 .note-edit { margin-bottom: 10px; }
 .row.between { justify-content: space-between; align-items: center; }

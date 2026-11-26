@@ -954,6 +954,18 @@ function Contacts() {
   )
 }
 
+// Lines starting with "-" or "•" show as a neatly aligned bullet list; other lines as paragraphs.
+function NoteBody({ text }) {
+  const blocks = []
+  for (const raw of (text || '').split('\n')) {
+    const line = raw.trim(); if (!line) continue
+    const m = line.match(/^[-•*]\s+(.*)$/)
+    if (m) { const last = blocks[blocks.length - 1]; last?.list ? last.items.push(m[1]) : blocks.push({ list: true, items: [m[1]] }) }
+    else blocks.push({ list: false, text: line })
+  }
+  return <div className="note-body">{blocks.map((b, i) => b.list ? <ul key={i}>{b.items.map((t, j) => <li key={j}>{t}</li>)}</ul> : <p key={i}>{b.text}</p>)}</div>
+}
+
 const shortDate = (v) => (v ? fmtDate(v.slice(0, 10), { day: 'numeric', month: 'short', year: 'numeric' }) : '')
 
 // Handover notes as readable cards grouped by area; tap Edit to change one.
@@ -991,7 +1003,7 @@ function HandoverNotes() {
         <label>Order<input type="number" value={f.sort ?? ''} onChange={(e) => setF({ ...f, sort: e.target.value })} /></label>
       </div>
       <datalist id="note-areas">{groups.map((g) => <option key={g.name} value={g.name} />)}</datalist>
-      <label>Notes<textarea rows={8} value={f.body || ''} onChange={(e) => setF({ ...f, body: e.target.value })} /></label>
+      <label>Notes <span className="small muted">(start a line with "- " for a bullet point)</span><textarea rows={8} value={f.body || ''} onChange={(e) => setF({ ...f, body: e.target.value })} /></label>
       <div className="row"><button className="btn small">Save</button><button type="button" className="btn small ghost" onClick={() => setEditing(null)}>Cancel</button>
         {editing !== 'new' && <button type="button" className="link danger small" onClick={remove}>Delete note</button>}</div>
     </form>
@@ -1008,7 +1020,7 @@ function HandoverNotes() {
           {g.items.map((n) => editing === n.id ? <div key={n.id}>{form}</div> : (
             <article key={n.id} className="card note">
               <div className="row between"><b>{n.title}</b><button className="link small" onClick={() => open(n)}>Edit</button></div>
-              <div className="note-body">{n.body}</div>
+              <NoteBody text={n.body} />
               {n.created_at && <p className="small muted note-dates">Added {shortDate(n.created_at)}{n.updated_at && shortDate(n.updated_at) !== shortDate(n.created_at) ? ` · Updated ${shortDate(n.updated_at)}` : ''}</p>}
             </article>
           ))}
