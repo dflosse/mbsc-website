@@ -204,30 +204,68 @@ function PlayersTab() {
 }
 
 function LinkParent({ player, onClose }) {
+  const { user } = useAuth()
   const [links, setLinks] = useState([])
-  const [email, setEmail] = useState('')
-  const [msg, setMsg] = useState('')
+  const [invites, setInvites] = useState([])
+  const [people, setPeople] = useState([])
+  const [q, setQ] = useState('')
+  const [inv, setInv] = useState({ name: '', email: '', relationship: '' })
+  const [msg, setMsg] = useState(null)
   const load = useCallback(async () => {
-    const { data } = await supabase.from('player_guardians').select('profile_id, profiles(email, full_name)').eq('player_id', player.id)
+    const { data } = await supabase.from('player_guardians').select('profile_id, profiles(email, full_name, phone)').eq('player_id', player.id)
     setLinks(data || [])
+    const { data: gi } = await supabase.from('guardian_invites').select('*').eq('player_id', player.id).is('claimed_at', null)
+    setInvites(gi || [])
   }, [player.id])
   useEffect(() => { load() }, [load])
-  async function add(e) {
-    e.preventDefault()
-    const { data: p } = await supabase.from('profiles').select('id').eq('email', email.trim().toLowerCase()).maybeSingle()
-    if (!p) return setMsg('No account with that email yet. Ask the parent to sign up first.')
-    const { error } = await supabase.from('player_guardians').insert({ player_id: player.id, profile_id: p.id })
-    setMsg(error ? error.message : 'Linked.'); setEmail(''); load()
+  useEffect(() => { supabase.from('profiles').select('id, full_name, email').order('full_name').then(({ data }) => setPeople(data || [])) }, [])
+  const linked = new Set(links.map((l) => l.profile_id))
+  const matches = q.trim().length < 2 ? [] : people.filter((p) => !linked.has(p.id) && `${p.full_name} ${p.email}`.toLowerCase().includes(q.trim().toLowerCase())).slice(0, 6)
+  async function link(pid) {
+    const { error } = await supabase.from('player_guardians').insert({ player_id: player.id, profile_id: pid })
+    setMsg(error ? { ok: false, text: error.message } : { ok: true, text: 'Linked – they can see ' + player.first_name + ' under My family now.' }); setQ(''); load()
   }
-  async function unlink(pid) { await supabase.from('player_guardians').delete().eq('player_id', player.id).eq('profile_id', pid); load() }
+  async function unlink(l) {
+    if (!window.confirm(`Unlink ${l.profiles?.full_name || l.profiles?.email} from ${player.first_name}? They'll no longer see ${player.first_name} on the site.`)) return
+    await supabase.from('player_guardians').delete().eq('player_id', player.id).eq('profile_id', l.profile_id); load()
+  }
+  async function cancelInvite(i) { await supabase.from('guardian_invites').delete().eq('id', i.id); load() }
+  async function invite(e) {
+    e.preventDefault(); setMsg(null)
+    const email = inv.email.trim().toLowerCase()
+    const existing = people.find((p) => (p.email || '').toLowerCase() === email)
+    if (existing) return link(existing.id)
+    const { error } = await supabase.from('guardian_invites').insert({ player_id: player.id, email, name: inv.name.trim(), relationship: inv.relationship.trim() || null, invited_by: user.id, approved: true })
+    if (error) return setMsg({ ok: false, text: error.message })
+    const { data, error: fe } = await supabase.functions.invoke('invite-member', { body: { email, full_name: inv.name.trim(), kind: 'parent' } })
+    let err = data?.error
+    if (fe && !err) { try { err = (await fe.context.json()).error } catch { err = fe.message } }
+    setMsg(err ? { ok: true, text: `Saved – ${email} will be linked as soon as they sign up (the email didn't send: ${err}).` } : { ok: true, text: `Invitation emailed to ${email}. ${player.first_name} will appear for them as soon as they set a password.` })
+    setInv({ name: '', email: '', relationship: '' }); load()
+  }
   return (
-    <div className="modal" onClick={onClose}><div className="card" onClick={(e) => e.stopPropagation()}>
-      <h3>Parents of {player.first_name} {player.last_name}</h3>
-      {links.length === 0 && <p className="muted">No accounts linked.</p>}
-      <ul>{links.map((l) => <li key={l.profile_id}>{l.profiles?.full_name || l.profiles?.email} <span className="muted small">{l.profiles?.email}</span> <button className="link danger" onClick={() => unlink(l.profile_id)}>remove</button></li>)}</ul>
-      <form className="row" onSubmit={add}><input type="email" placeholder="Parent's email" value={email} onChange={(e) => setEmail(e.target.value)} required /><button className="btn small">Link</button></form>
-      {msg && <p className="small">{msg}</p>}
-      <button className="btn ghost small" onClick={onClose}>Close</button>
+    <div className="modal" onClick={onClose}><div className="card form parents-modal" onClick={(e) => e.stopPropagation()}>
+      <h3>Parents and guardians of {player.first_name} {player.last_name}</h3>
+      {links.length === 0 && invites.length === 0 && <p className="muted small">No one linked yet.</p>}
+      <ul className="plain">
+        {links.map((l) => <li key={l.profile_id}><span><b>{l.profiles?.full_name || l.profiles?.email}</b><br /><span className="small muted">{l.profiles?.email}{l.profiles?.phone ? ` · ${l.profiles.phone}` : ''}</span></span><button className="link danger small" onClick={() => unlink(l)}>Unlink</button></li>)}
+        {invites.map((i) => <li key={i.id}><span><b>{i.name || i.email}</b> <span className="pill wait small-pill">invited – not signed up yet</span><br /><span className="small muted">{i.email}{i.relationship ? ` · ${i.relationship}` : ''}</span></span><button className="link danger small" onClick={() => cancelInvite(i)}>Cancel</button></li>)}
+      </ul>
+      <label>Link someone who already has an account<input placeholder="Search by name or email" value={q} onChange={(e) => setQ(e.target.value)} /></label>
+      {matches.length > 0 && <ul className="plain picks">{matches.map((p) => <li key={p.id}><span>{p.full_name || p.email}<br /><span className="small muted">{p.email}</span></span><button className="btn small" onClick={() => link(p.id)}>Link</button></li>)}</ul>}
+      {q.trim().length >= 2 && matches.length === 0 && <p className="small muted">No account matches – invite them below.</p>}
+      <form onSubmit={invite} className="invite-parent">
+        <b className="small">Not on the site yet? Invite them</b>
+        <div className="ae-grid">
+          <label>Name<input value={inv.name} onChange={(e) => setInv({ ...inv, name: e.target.value })} required /></label>
+          <label>Email<input type="email" value={inv.email} onChange={(e) => setInv({ ...inv, email: e.target.value })} required /></label>
+          <label>Relationship<input value={inv.relationship} onChange={(e) => setInv({ ...inv, relationship: e.target.value })} placeholder="Mum, Dad, grandparent…" /></label>
+        </div>
+        <button className="btn small">Send invitation</button>
+      </form>
+      {msg && <p className={msg.ok ? 'ok small' : 'err small'}>{msg.text}</p>}
+      <p className="small muted">Each parent's contact details stay hidden from the other. For custody arrangements, use the custody note.</p>
+      <button className="btn ghost small" onClick={onClose}>Done</button>
     </div></div>
   )
 }
@@ -615,10 +653,9 @@ function Approvals() {
     const { data: p0 } = await supabase.from('players').select('*, ' + TEAM_SEL + ', player_guardians(profile_id)').eq('status', 'pending')
     const p = sortPlayers(p0)
     setPlayers(p)
-    const { data: all } = await supabase.from('players').select('id, first_name, last_name, dob, season, status')
-    const key = (x) => `${(x.first_name || '').trim().toLowerCase()}|${(x.last_name || '').trim().toLowerCase()}|${x.dob}`
+    const { data: all } = await supabase.from('players').select('id, first_name, last_name, dob, season, status, created_at')
     const dm = {}
-    for (const x of p || []) { const m = (all || []).filter((y) => y.id !== x.id && key(y) === key(x)); if (m.length) dm[x.id] = m }
+    for (const x of p || []) { const m = (all || []).filter((y) => y.id !== x.id && sameChild(x, y)); if (m.length) dm[x.id] = m }
     setDupes(dm)
     const { data: gi } = await supabase.from('guardian_invites').select('*, players(first_name, last_name)').eq('approved', false).order('created_at')
     setGInv(gi || [])
@@ -732,7 +769,9 @@ function Approvals() {
         <tbody>{players.map((p) => { const g = people[p.player_guardians?.[0]?.profile_id]; return (
           <tr key={p.id}><td><b>{p.first_name} {p.last_name}</b>{p.committee_notes && <><br /><span className="small muted">{p.committee_notes}</span></>}
             <KitTags p={p} />
-            {dupes[p.id] && <div className="release">⚠ Possible duplicate: same name and birthday already registered ({dupes[p.id].map((d) => `${d.season} ${d.status}`).join(', ')}). Check before approving.</div>}</td><td>{p.dob ? fmtDate(p.dob) : ''}</td><td>{p.season}</td>
+            {dupes[p.id] && <div className="release">⚠ Possible duplicate – this child already has a registration:
+              {dupes[p.id].map((d) => <div key={d.id} className="row small-gap">{d.season} · {d.status}{d.dob !== p.dob ? ` · birthday on file ${fmtDate(d.dob)}` : ''}
+                {isExec && d.season === p.season && <button className="btn small" onClick={async () => { if (!window.confirm(`Merge this registration into the existing ${d.season} one? The parent who registered it is linked to the existing record, and this copy is removed.`)) return; const { error } = await supabase.rpc('merge_players', { p_keep: d.id, p_dup: p.id }); setMsg(error ? error.message : `${p.first_name} merged – both parents are now linked to one registration.`); load() }}>Merge into this one</button>}</div>)}</div>}</td><td>{p.dob ? fmtDate(p.dob) : ''}</td><td>{p.season}</td>
             <td>{g ? <>{g.full_name || g.email}<br /><span className="small muted">{g.phone}</span></> : <span className="muted">not linked</span>}</td>
             <td className={p.medical_notes ? 'alert' : 'muted'}>{p.medical_notes || '—'}</td><td>{p.fv_registered ? '✓' : '—'}</td><td>{p.fees_paid ? '✓' : '—'}</td>
             <td className="nowrap">{isExec && <><button className="btn small" onClick={() => decidePlayer(p, true)}>Approve</button> <button className="link danger" onClick={() => decidePlayer(p, false)}>Decline</button></>}</td></tr>) })}</tbody></table></div>}
@@ -910,6 +949,16 @@ function Contacts() {
   )
 }
 
+// Same child: same name and birthday, or the birthday with day and month swapped (11/10 vs 10/11).
+const sameChild = (a, b) => {
+  if (!a.dob || !b.dob) return false
+  const n = (x) => (x || '').trim().toLowerCase()
+  if (n(a.first_name) !== n(b.first_name) || n(a.last_name) !== n(b.last_name)) return false
+  if (a.dob === b.dob) return true
+  const [ya, ma, da] = a.dob.split('-'), [yb, mb, db] = b.dob.split('-')
+  return ya === yb && ma === db && da === mb
+}
+
 const ACCESS = {
   coach: 'Coach access: their team page, squad list with medical notes and photo permission, parents\' names and phone numbers, gala availability, coach messages and resources.',
   executive: 'Full executive access: everything – approvals, all registered children and guardians, WWCC register, people and access, finances and settings. For the President, Vice-President, Secretary and Treasurer.',
@@ -1008,7 +1057,7 @@ function PlayersList({ season, toolbarExtra }) {
           <td><b>{r.first_name} {r.last_name}</b><br /><span className="small muted">{r.dob ? fmtDate(r.dob, { day: 'numeric', month: 'short', year: 'numeric' }) : ''} · {ageGroupFor(r.dob, r.season)}</span>
             {r.release_check && <div className="release">⚠ Release check</div>}
             <KitTags p={r} />
-            <div className="row small-gap"><button className="btn small" onClick={() => setEditing(editing === r.id ? null : r.id)}>{editing === r.id ? 'Close' : 'Edit'}</button><button className="link small" onClick={() => setCustodyFor(r)}>{r.custody?.custody_note || r.release_check ? 'Custody note' : '+ custody note'}</button><button className="link small" onClick={() => setLinkFor(r)}>Link parent</button></div></td>
+            <div className="row small-gap"><button className="btn small" onClick={() => setEditing(editing === r.id ? null : r.id)}>{editing === r.id ? 'Close' : 'Edit'}</button><button className="link small" onClick={() => setCustodyFor(r)}>{r.custody?.custody_note || r.release_check ? 'Custody note' : '+ custody note'}</button><button className="link small" onClick={() => setLinkFor(r)}>Parents</button></div></td>
           <td>{r.teams?.name || <span className="muted">TBA</span>}</td>
           <td><span className={'pill ' + ({ approved: 'good', pending: 'wait', withdrawn: 'bad' }[r.status])}>{r.status === 'pending' ? 'awaiting' : r.status}</span></td>
           <td>{r.fv_registered ? '✓' : <span className="err">✗</span>}</td><td>{r.fees_paid ? '✓' : <span className="err">✗</span>}</td>

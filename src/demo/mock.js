@@ -140,6 +140,14 @@ class Query {
 export const mockSupabase = {
   from: (t) => new Query(t),
   rpc: async (fn, a) => {
+    if (fn === 'child_maybe_registered') return { data: db.players.some((x) => x.season === a.p_season && x.first_name.toLowerCase() === a.p_first.toLowerCase() && x.last_name.toLowerCase() === a.p_last.toLowerCase()), error: null }
+    if (fn === 'merge_players') {
+      if (!exec()) return { error: { message: 'Executive only' } }
+      for (const g of db.player_guardians.filter((x) => x.player_id === a.p_dup)) if (!db.player_guardians.some((x) => x.player_id === a.p_keep && x.profile_id === g.profile_id)) g.player_id = a.p_keep
+      db.player_guardians = db.player_guardians.filter((x) => x.player_id !== a.p_dup)
+      db.players = db.players.filter((x) => x.id !== a.p_dup)
+      return { data: null, error: null }
+    }
     if (fn === 'decide_volunteer') {
       if (!exec()) return { error: { message: 'Only the executive committee can sign off volunteers' } }
       const r = db.volunteer_roles.find((x) => x.id === a.p_id)

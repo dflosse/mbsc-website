@@ -40,6 +40,18 @@ export default function Family() {
   }, [])
   useEffect(() => { load() }, [load])
 
+  // Soft check: has this child possibly been registered already (e.g. by the other parent)? Yes/no only.
+  const [maybeDup, setMaybeDup] = useState(false)
+  useEffect(() => {
+    setMaybeDup(false)
+    if (!f.first.trim() || !f.last.trim() || !f.dob) return
+    const t = setTimeout(async () => {
+      const { data } = await supabase.rpc('child_maybe_registered', { p_first: f.first.trim(), p_last: f.last.trim(), p_dob: f.dob, p_season: REG_SEASON })
+      setMaybeDup(!!data)
+    }, 500)
+    return () => clearTimeout(t)
+  }, [f.first, f.last, f.dob])
+
   async function register(e) {
     e.preventDefault(); setMsg(null)
     const { error } = await supabase.rpc('register_player', {
@@ -48,6 +60,7 @@ export default function Family() {
       p_needs_uniform: f.uniform, p_uniform_size: f.uniform ? f.uSize : null, p_needs_boots: f.boots, p_boot_size: f.boots ? f.bSize : null,
     })
     if (error) return setMsg({ ok: false, text: error.message })
+    if (maybeDup) { setMsg({ ok: true, text: `Thanks – we've received ${f.first}'s registration. It looks like ${f.first} may already be registered, so the club will check and link you to the same record. You'll see ${f.first} here once that's done.` }); setF(blank); setAdding(false); setMaybeDup(false); return load() }
     setMsg({ ok: true, text: `${f.first} is registered with MBFC for ${REG_SEASON}. Next step: register with Football Victoria through PlayFootball (we'll email the link). The committee will confirm their team.` })
     setF(blank); setAdding(false); load()
   }
@@ -83,6 +96,7 @@ export default function Family() {
               <label>Date of birth<input type="date" value={f.dob} onChange={(e) => setF({ ...f, dob: e.target.value })} required /></label>
               <label>Gender<select value={f.gender} onChange={(e) => setF({ ...f, gender: e.target.value })}><option value="">Prefer not to say</option><option>F</option><option>M</option><option>X</option></select></label>
             </div>
+            {maybeDup && <div className="card callout small"><b>{f.first} may already be registered</b> – for example by another parent or guardian. You don't need to register them twice: ask the other parent to add you under <b>My family → + Add another parent / guardian</b>. If you go ahead anyway, the club will check and link you to the same registration.</div>}
             {f.dob && <p className="muted small">Age group for {REG_SEASON}: <b>{ageGroupFor(f.dob, REG_SEASON)}</b> (the committee may place them in a combined squad)</p>}
             <label>Medical conditions, allergies or anything the coach should know<textarea value={f.medical} onChange={(e) => setF({ ...f, medical: e.target.value })} rows={2} /></label>
             <label>Emergency contact (name and phone, if not you)<input value={f.emergency} onChange={(e) => setF({ ...f, emergency: e.target.value })} /></label>

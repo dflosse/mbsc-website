@@ -493,3 +493,8 @@ tr.editrow td { background: #fff8f0; padding: 12px 14px 16px; }
 tr.clickable { cursor: pointer; } tr.clickable:hover td { background: #f6f8f4; } tr.opened td { background: #fff8f0; }
 .asset-detail { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; }
 @media (max-width: 640px) { .asset-table table { table-layout: auto; } .asset-table th:nth-child(4), .asset-table td:nth-child(4) { display: none; } }
+.parents-modal { max-width: 560px; width: 100%; }
+ul.plain { list-style: none; padding: 0; margin: 6px 0 12px; }
+ul.plain li { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 8px 0; border-top: 1px solid var(--line); }
+ul.picks { margin-top: -4px; }
+.invite-parent { display: grid; gap: 8px; border-top: 1px solid var(--line); padding-top: 10px; margin-top: 6px; }
