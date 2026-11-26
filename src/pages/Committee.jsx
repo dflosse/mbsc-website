@@ -8,7 +8,7 @@ import { KitTags, kitText } from './kitInfo'
 import { wwccState } from './Volunteer'
 import Treasurer from './Treasurer'
 import Assets from './Assets'
-import Preseason, { STAGES } from './Preseason'
+import Preseason, { STAGES, GROUPS } from './Preseason'
 import { bondInfo } from './bond'
 import { sortPlayers, TEAM_SEL } from './sortPlayers'
 
@@ -331,9 +331,9 @@ function Tasks() {
   return (
     <>
       <div className="row"><span>Season:</span>{[PREV_SEASON, REG_SEASON].map((s) => <button key={s} className={'btn small ' + (s === season ? '' : 'ghost')} onClick={() => setSeason(s)}>{s}</button>)}</div>
-      <EditTable key={season} table="tasks" filter={filter} order={order} search={['title', 'owner', 'notes']} defaults={{ season, title: 'New action' }}
+      <EditTable key={season} table="tasks" filter={filter} order={order} search={['title', 'owner', 'notes']} defaults={{ season, title: 'New action', owner: 'Exec' }}
         cols={[
-          { key: 'title', label: 'Action', type: 'textarea', width: 220 }, { key: 'owner', label: 'Who', width: 100 },
+          { key: 'title', label: 'Action', type: 'textarea', width: 220 }, { key: 'owner', label: 'Who', type: 'select', options: GROUPS.map((g) => [g, g]), width: 100 },
           { key: 'due', label: 'Due', type: 'date' },
           { key: 'status', label: 'Status', type: 'select', options: [['todo', 'To do'], ['doing', 'Doing'], ['done', 'Done']] },
           { key: 'category', label: 'Area', width: 90 }, { key: 'stage', label: 'Preseason section', type: 'select', options: STAGES.map((x) => [x.key, x.title]), width: 130 }, { key: 'notes', label: 'Notes', type: 'textarea', width: 260 },

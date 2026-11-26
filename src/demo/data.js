@@ -138,6 +138,7 @@ tasks.push(
   { id: 'ps5', season: 2027, stage: 'ready', sort: 1, title: 'Uniform handout day and bonds collected', owner: 'Uniforms', status: 'todo', category: 'Uniforms', link: '/committee/kit' },
   { id: 'ps6', season: 2027, stage: 'gala', sort: 1, title: 'Submit team entries to each host club', owner: 'Secretary', status: 'todo', category: 'Galas', link: '/committee/galas' },
 )
+tasks.forEach((t) => { t.owner = /^coach/i.test(t.owner || '') ? 'Coaches' : ['Committee', 'Equipment', 'Uniforms'].includes(t.owner) ? 'Committee' : 'Exec' })
 export const key_dates = [
   { id: 'kd1', season: 2027, label: 'AGM', on_date: '2027-02-24', sort: 1 },
   { id: 'kd2', season: 2027, label: 'Registrations open', on_date: '2027-02-01', sort: 2, notes: 'Website + PlayFootball' },

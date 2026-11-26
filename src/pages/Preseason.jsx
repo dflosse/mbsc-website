@@ -14,6 +14,7 @@ export const STAGES = [
   { key: 'ready', title: 'Ready for first training', when: 'Before term 2', blurb: 'Hand out uniforms, brief coaches, final checks.' },
   { key: 'gala', title: 'Gala days', when: 'Term 2', blurb: 'Entries, availability and hosting our home gala.' },
 ]
+export const GROUPS = ['Exec', 'Committee', 'Coaches']
 const STATUS = { todo: 'To do', doing: 'Under way', done: 'Done' }
 const today = () => new Date().toISOString().slice(0, 10)
 const daysTo = (d) => Math.round((new Date(d + 'T00:00:00') - new Date(today() + 'T00:00:00')) / 86400000)
@@ -32,7 +33,8 @@ export default function Preseason() {
 
   const [owner, setOwner] = useState('')
   const [hideDone, setHideDone] = useState(false)
-  const owners = useMemo(() => [...new Set((tasks || []).map((t) => t.owner).filter(Boolean))].sort(), [tasks])
+  const owners = GROUPS
+  const count = (g) => (tasks || []).filter((t) => t.owner === g && t.status !== 'done').length
   const done = (tasks || []).filter((t) => t.status === 'done').length
   const total = (tasks || []).length
   const overdue = (tasks || []).filter((t) => t.status !== 'done' && t.due && t.due < today()).length
@@ -63,7 +65,9 @@ export default function Preseason() {
         <div className="row between pre-tools">
           <h2>Checklist</h2>
           <div className="row">
-            <label className="inline">Who <select value={owner} onChange={(e) => setOwner(e.target.value)}><option value="">Everyone</option>{owners.map((o) => <option key={o}>{o}</option>)}</select></label>
+            <div className="seg" role="group" aria-label="Show jobs for">
+              {['', ...GROUPS].map((g) => <button key={g || 'all'} className={owner === g ? 'on' : ''} onClick={() => setOwner(g)}>{g || 'Everyone'}{g && tasks ? <span className="n">{count(g)}</span> : null}</button>)}
+            </div>
             <label className="check inline"><input type="checkbox" checked={hideDone} onChange={(e) => setHideDone(e.target.checked)} /> Hide done</label>
           </div>
         </div>
@@ -116,7 +120,7 @@ function Item({ t, setStatus, onEdit }) {
       <div className="pre-item-main">
         <button className="pre-item-title" onClick={() => setMore(!more)}>{t.title}</button>
         <div className="pre-meta">
-          {t.owner && <span className="tag">{t.owner}</span>}
+          {t.owner && <span className={'tag grp-' + t.owner.toLowerCase()}>{t.owner}</span>}
           {t.status === 'doing' && <span className="pill wait">Under way</span>}
           {t.due && <span className={late ? 'due late' : 'due'}>{late ? 'Overdue · ' : 'Due '}{fmtDate(t.due)}</span>}
           {t.link && (internal ? <Link to={t.link} className="go">Open →</Link> : <a href={t.link} target="_blank" rel="noreferrer" className="go">Open ↗</a>)}
@@ -136,7 +140,7 @@ function Item({ t, setStatus, onEdit }) {
 }
 
 function ItemForm({ item, owners, onDone }) {
-  const [f, setF] = useState({ title: '', owner: '', due: '', status: 'todo', notes: '', link: '', category: '', ...item })
+  const [f, setF] = useState({ title: '', owner: 'Exec', due: '', status: 'todo', notes: '', link: '', category: '', ...item })
   const [err, setErr] = useState(null)
   const set = (k) => (e) => setF({ ...f, [k]: e.target.value })
   async function save(e) {
@@ -154,12 +158,11 @@ function ItemForm({ item, owners, onDone }) {
     <form className="pre-form" onSubmit={save}>
       <label>What needs doing<input value={f.title} onChange={set('title')} required autoFocus /></label>
       <div className="ae-grid">
-        <label>Who<input value={f.owner || ''} onChange={set('owner')} list="pre-owners" placeholder="e.g. Secretary" /></label>
+        <label>Who<select value={f.owner || 'Exec'} onChange={set('owner')}>{GROUPS.map((g) => <option key={g}>{g}</option>)}</select></label>
         <label>Due<input type="date" value={f.due || ''} onChange={set('due')} /></label>
         <label>Status<select value={f.status} onChange={set('status')}>{Object.entries(STATUS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></label>
         <label>Section<select value={f.stage} onChange={set('stage')}>{STAGES.map((s) => <option key={s.key} value={s.key}>{s.title}</option>)}</select></label>
       </div>
-      <datalist id="pre-owners">{owners.map((o) => <option key={o} value={o} />)}</datalist>
       <label>Notes<textarea rows={3} value={f.notes || ''} onChange={set('notes')} /></label>
       <label>Link <span className="muted small">(a page on this site like /committee/kit, or a web address)</span><input value={f.link || ''} onChange={set('link')} /></label>
       {err && <p className="err small">{err}</p>}
