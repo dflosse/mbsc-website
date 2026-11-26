@@ -19,6 +19,13 @@ const device = () => {
   if (/Macintosh|Mac OS X/.test(ua)) return 'mac'
   return 'pc'
 }
+// Face ID / fingerprint (WebAuthn) as the second step. Bound to the club domain so it keeps working
+// whichever address people type (www and netlify.app both redirect here).
+const RP = { rpId: 'mountbeautyfc.org.au', rpOrigins: ['https://mountbeautyfc.org.au'] }
+const canPasskey = () => typeof window !== 'undefined' && !!window.PublicKeyCredential && location.hostname === RP.rpId
+const BIO = { iphone: 'Face ID', android: 'fingerprint', mac: 'Touch ID', pc: 'your phone' }
+const friendlyErr = (e) => /NotAllowed|abort|cancel/i.test((e?.name || '') + (e?.message || '')) ? 'Cancelled – tap the button to try again.' : (e?.message || 'That didn’t work – try again or use your 6-digit code.')
+
 const DEVICE_NAME = { iphone: 'iPhone', android: 'Android', mac: 'Mac', pc: 'Computer' }
 const HOW = {
   iphone: { title: 'On iPhone', steps: ['Tap "Add to this iPhone" below. Your iPhone opens Passwords (built in – nothing to install) and asks where to save the code. Save it to your Mount Beauty FC login, or as a new entry.', 'Come back here and type the 6-digit code it shows. When you sign in later on this iPhone, Safari offers the code above the keyboard – just tap it.', 'Prefer an app? Google Authenticator or Microsoft Authenticator (free) work too – the same button opens them.'] },
@@ -37,10 +44,35 @@ export default function Security() {
   const [msg, setMsg] = useState(null)
   const [dev, setDev] = useState(device())
   const [copied, setCopied] = useState(false)
+  const [keys, setKeys] = useState([])
 
   async function load() {
     const { data } = await supabase.auth.mfa.listFactors()
-    setFactors((data?.totp || []).filter((f) => f.status === 'verified'))
+    const v = (data?.all || []).filter((f) => f.status === 'verified')
+    setFactors(v.filter((f) => f.factor_type === 'totp'))
+    setKeys(v.filter((f) => f.factor_type === 'webauthn'))
+  }
+  async function done(text) {
+    await load(); await refresh()
+    setMsg({ ok: true, text })
+    if (loc.state?.from) setTimeout(() => nav(loc.state.from), 600)
+  }
+  async function useKey(f) {
+    setMsg(null); setBusy(true)
+    if (!(await ensureSession())) { setBusy(false); return setMsg({ ok: false, text: 'Your sign-in has lapsed. Please sign out, sign back in with your email and password, then try again.' }) }
+    const { error } = await supabase.auth.mfa.webauthn.authenticate({ factorId: f.id, webauthn: RP })
+    setBusy(false)
+    if (error) return setMsg({ ok: false, text: friendlyErr(error) })
+    done('Signed in. Your access is unlocked.')
+  }
+  async function addKey() {
+    setMsg(null); setBusy(true)
+    if (!(await ensureSession())) { setBusy(false); return setMsg({ ok: false, text: 'Your sign-in has lapsed. Please sign out, sign back in with your email and password, then try again.' }) }
+    const name = `${BIO[device()] === 'your phone' ? 'Passkey' : BIO[device()]} – ${DEVICE_NAME[device()]} ${new Date().toISOString().slice(0, 10)}`
+    const { error } = await supabase.auth.mfa.webauthn.register({ friendlyName: name, webauthn: RP })
+    setBusy(false)
+    if (error) return setMsg({ ok: false, text: friendlyErr(error) })
+    done(`${BIO[device()] === 'your phone' ? 'Passkey' : BIO[device()]} is on. Next time you sign in, just approve it instead of typing a code.`)
   }
   useEffect(() => { load() }, [])
 
@@ -64,23 +96,25 @@ export default function Security() {
     if (loc.state?.from) setTimeout(() => nav(loc.state.from), 600)
   }
   async function remove(f) {
-    if (factors.length === 1 && elevated && !window.confirm('Removing your only authenticator will switch off your coach/committee/volunteer access until you set it up again. Continue?')) return
+    if (factors.length + keys.length === 1 && elevated && !window.confirm('Removing your only authenticator will switch off your coach/committee/volunteer access until you set it up again. Continue?')) return
     const { error } = await supabase.auth.mfa.unenroll({ factorId: f.id })
     setMsg(error ? { ok: false, text: error.message } : { ok: true, text: 'Removed.' }); load(); refresh()
   }
 
   const verified = factors?.[0]
+  const anyOn = !!verified || keys.length > 0
   const [busy, setBusy] = useState(false)
   async function submitCode(factorId) { if (busy) return; setBusy(true); await verify(factorId); setBusy(false) }
   function onCode(v, factorId) { setCode(v); if (factorId && /^\d{6}$/.test(v.replace(/\s/g, ''))) submitCode(factorId) }
   return (
     <div className="wrap narrow">
       <h1>Two-factor sign-in</h1>
-      <p className="lead">Anyone who can see children's details – executive, committee, coaches and volunteers – signs in with a password <b>and</b> a 6-digit code from their phone. It takes about two minutes to set up.</p>
+      <p className="lead">Anyone who can see children's details – executive, committee, coaches and volunteers – signs in with a password <b>and</b> a second check: Face ID / fingerprint, or a 6-digit code from their phone. It takes a minute to set up.</p>
       <div className="card callout">
         <b>How it works</b>
         <ul className="small" style={{ margin: '6px 0 0', paddingLeft: 18 }}>
-          <li>Your phone makes a new 6-digit code every 30 seconds. It works offline – no texts, no mobile reception needed.</li>
+          <li>Easiest: Face ID, Touch ID or your fingerprint. On a computer, your browser shows a QR code and you approve on your phone.</li>
+          <li>Or a 6-digit code: your phone makes a new one every 30 seconds. It works offline – no texts, no mobile reception needed.</li>
           <li>You enter a code once per device. Tick "Keep me signed in" when you sign in and you won't be asked again on that phone or computer unless you sign out.</li>
           <li>iPhones and Macs have this built in (Passwords). On Android or a Windows PC, use the free Google Authenticator or Microsoft Authenticator app on your phone.</li>
           <li>New phone? Add it here before you wipe the old one. Lost your phone? Ask the President or Secretary to reset it for you.</li>
@@ -88,19 +122,36 @@ export default function Security() {
       </div>
       {msg && <p className={'card ' + (msg.ok ? 'ok' : 'err')}>{msg.text}</p>}
 
+      {needsMfa && mfaEnrolled && keys.length > 0 && (
+        <div className="card form">
+          <h3>Confirm it's you</h3>
+          {keys.map((k) => <button key={k.id} className="btn big" disabled={busy} onClick={() => useKey(k)}>{busy ? 'Waiting for you to approve…' : keys.length > 1 ? `Use ${k.friendly_name?.split(' – ')[0] || 'passkey'} (${k.friendly_name?.split(' – ')[1]?.replace(/ \d{4}-.*/, '') || ''})` : `Use ${BIO[device()] === 'your phone' ? 'your phone (passkey)' : BIO[device()]}`}</button>)}
+          <p className="small muted">On a computer without it, your browser shows a QR code – scan it with your phone and approve there.{verified ? ' Or type your 6-digit code below.' : ''}</p>
+        </div>
+      )}
+
       {needsMfa && mfaEnrolled && verified && (
         <div className="card form">
-          <h3>Enter your code</h3>
+          <h3>{keys.length ? 'Or enter your code' : 'Enter your code'}</h3>
           <p>Open Passwords (iPhone/Mac) or your authenticator app and type the current code for <b>Mount Beauty FC</b>.</p>
-          <label>6-digit code<input inputMode="numeric" autoComplete="one-time-code" value={code} onChange={(e) => onCode(e.target.value, verified.id)} maxLength={7} autoFocus /></label>
+          <label>6-digit code<input inputMode="numeric" autoComplete="one-time-code" value={code} onChange={(e) => onCode(e.target.value, verified.id)} maxLength={7} autoFocus={!keys.length} /></label>
           <button className="btn" disabled={busy} onClick={() => submitCode(verified.id)}>{busy ? 'Checking…' : 'Continue'}</button>
           <p className="small muted">It carries on by itself once all 6 digits are in. You won't be asked again on this device unless you sign out.</p>
         </div>
       )}
 
-      {factors && factors.length === 0 && !enroll && (
+      {factors && !anyOn && !enroll && canPasskey() && (
         <div className="card">
-          <h3>Set it up</h3>
+          <h3>Quickest: use {BIO[device()] === 'your phone' ? 'a passkey' : BIO[device()]}</h3>
+          <p>{dev === 'pc' ? 'Your browser shows a QR code – scan it with your phone and approve with Face ID or your fingerprint.' : `Approve with ${BIO[device()]} instead of typing a code. Nothing to install.`}</p>
+          <button className="btn" disabled={busy} onClick={addKey}>{busy ? 'Waiting…' : `Set up ${BIO[device()] === 'your phone' ? 'a passkey' : BIO[device()]}`}</button>
+          <p className="small muted">We'd also suggest adding a 6-digit code (below) as a backup, in case you lose your phone.</p>
+        </div>
+      )}
+
+      {factors && factors.length === 0 && keys.length === 0 && !enroll && (
+        <div className="card">
+          <h3>{canPasskey() ? 'Or use a 6-digit code' : 'Set it up'}</h3>
           <p>Choose what you're using right now:</p>
           <div className="tabs" style={{ margin: '0 0 10px' }}>{Object.entries(DEVICE_NAME).map(([k, l]) => <button key={k} className={dev === k ? 'on' : ''} onClick={() => setDev(k)}>{k === 'pc' ? 'Windows PC' : l}</button>)}</div>
           <ol className="steps">{HOW[dev].steps.map((t, i) => <li key={i}>{t}</li>)}</ol>
@@ -124,11 +175,13 @@ export default function Security() {
         </div>
       )}
 
-      {verified && !needsMfa && (
+      {anyOn && !needsMfa && (
         <div className="card">
           <p><span className="pill good">On</span> Two-factor sign-in is active on this account.</p>
-          {factors.map((f) => <p key={f.id} className="small">{f.friendly_name || 'Authenticator'} <button className="link danger" onClick={() => remove(f)}>remove</button></p>)}
-          {!enroll && <button className="btn small ghost" onClick={start}>Add another device (e.g. a new phone)</button>}
+          {keys.map((f) => <p key={f.id} className="small">🔑 {f.friendly_name || 'Passkey'} <button className="link danger" onClick={() => remove(f)}>remove</button></p>)}
+          {factors.map((f) => <p key={f.id} className="small">6-digit code: {f.friendly_name || 'Authenticator'} <button className="link danger" onClick={() => remove(f)}>remove</button></p>)}
+          {canPasskey() && <button className="btn small" disabled={busy} onClick={addKey}>{keys.length ? `Add ${BIO[device()] === 'your phone' ? 'a passkey' : BIO[device()]} on this device` : `Use ${BIO[device()] === 'your phone' ? 'a passkey' : BIO[device()]} instead of typing codes`}</button>}
+          {!enroll && <button className="btn small ghost" onClick={start}>{verified ? 'Add another code device (e.g. a new phone)' : 'Add a 6-digit code as a backup'}</button>}
           <p className="small muted">New phone? Add it first, then remove the old one. Lost your phone? Ask the President or Secretary to reset it.</p>
         </div>
       )}
