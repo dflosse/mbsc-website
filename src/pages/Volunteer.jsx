@@ -72,6 +72,7 @@ export default function Volunteer() {
     }
     if (!file_path) return setMsg({ ok: false, text: wf.pending ? 'Please upload a screenshot of your application receipt email from Service Victoria.' : 'Please upload a photo or PDF of your WWCC card (front), or a screenshot of your digital card.' })
     if (!wf.pending && !wf.expiry) return setMsg({ ok: false, text: 'Please enter the expiry date on your card.' })
+    if (wf.pending && /^\d{7}[A-Z]-\d{2}$/i.test(wf.card_number.trim()) && !window.confirm('That looks like a WWCC card number. If you already have your card, choose "I have a WWCC card" and add its expiry date instead. Keep it as "applied"?')) return
     const row = { profile_id: user.id, card_number: wf.card_number.trim().toUpperCase(), expiry: wf.pending ? null : wf.expiry, card_type: wf.card_type, pending: wf.pending, file_path }
     const { error } = w ? await supabase.from('wwcc').update(row).eq('profile_id', user.id) : await supabase.from('wwcc').insert(row)
     if (error) return setMsg({ ok: false, text: error.message })
@@ -111,7 +112,11 @@ export default function Volunteer() {
               <label>Email<input value={profile?.email || ''} disabled /></label>
             </div>
             <label>Home address<input value={me.address} onChange={(e) => setMe({ ...me, address: e.target.value })} required /></label>
-            <label className="check"><input type="checkbox" checked={wf.pending} onChange={(e) => setWf({ ...wf, pending: e.target.checked })} /> I've applied for a WWCC and I'm waiting for my card</label>
+            <fieldset className="choice">
+              <legend>Your Working With Children Check</legend>
+              <label className="check"><input type="radio" name="wwcc-kind" checked={!wf.pending} onChange={() => setWf({ ...wf, pending: false })} /><span><b>I have a WWCC card</b> <span className="small muted">(physical or digital, with an expiry date)</span></span></label>
+              <label className="check"><input type="radio" name="wwcc-kind" checked={wf.pending} onChange={() => setWf({ ...wf, pending: true })} /><span><b>I've applied and I'm still waiting for my card</b> <span className="small muted">(you have an application number, no card yet)</span></span></label>
+            </fieldset>
             <div className="grid2 tight">
               <label>{wf.pending ? 'Application number' : 'WWCC card number'}<input value={wf.card_number} onChange={(e) => setWf({ ...wf, card_number: e.target.value })} required placeholder={wf.pending ? 'From your Service Victoria receipt' : 'e.g. 01234567A-01'} /></label>
               {!wf.pending && <label>Expiry date<input type="date" value={wf.expiry} onChange={(e) => setWf({ ...wf, expiry: e.target.value })} required /></label>}

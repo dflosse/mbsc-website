@@ -446,6 +446,7 @@ function Approvals() {
   const [gInv, setGInv] = useState([])
   const [dupes, setDupes] = useState({})
   const [acct, setAcct] = useState({})
+  const [fixing, setFixing] = useState(null)
   const load = useCallback(async () => {
     const { data: p0 } = await supabase.from('players').select('*, ' + TEAM_SEL + ', player_guardians(profile_id)').eq('status', 'pending')
     const p = sortPlayers(p0)
@@ -542,6 +543,8 @@ function Approvals() {
                 {w ? <>
                   <p className="small">{w.pending ? <>Applied – application no. <b>{w.card_number}</b> ({w.card_type}). Check it in the status checker using the application number.</> : <>Card <b>{w.card_number}</b> ({w.card_type}) · expires {fmtDate(w.expiry)}</>}</p>
                   {w.file_path && <button className="link" onClick={() => viewCard(w.file_path)}>{w.pending ? 'View application receipt' : 'View card image'}</button>}
+                  {isExec && <div className="row small-gap"><a className="btn small ghost" href={WWC_STATUS_URL} target="_blank" rel="noreferrer">Status checker</a><a className="btn small ghost" href={WWC_CONNECT_URL} target="_blank" rel="noreferrer">WWC Connect login</a><button className="link small" onClick={() => setFixing(fixing === a.profile_id ? null : a.profile_id)}>{fixing === a.profile_id ? 'Close' : 'Correct card details'}</button></div>}
+                  {fixing === a.profile_id && <FixCard w={w} onDone={(m) => { setFixing(null); setMsg(m); load() }} />}
                   <ul className="ticks">
                     <li className={w.status_checked_at ? 'done' : ''}>Status checked {w.status_checked_at ? fmtDate(w.status_checked_at.slice(0, 10)) : isExec && <button className="btn small ghost" onClick={() => mark(a.profile_id, 'status')}>Mark checked</button>}</li>
                     <li className={w.wwc_connected_at ? 'done' : ''}>Connected in WWC Connect {w.wwc_connected_at ? fmtDate(w.wwc_connected_at.slice(0, 10)) : isExec && <button className="btn small ghost" onClick={() => mark(a.profile_id, 'connect')}>Mark connected</button>}</li>
@@ -571,6 +574,30 @@ function Approvals() {
       {deciding && <DecideModal a={deciding.a} ok={deciding.ok} person={people[deciding.a.profile_id] || {}} onClose={(m) => { setDeciding(null); if (m) setMsg(m); load() }} />}
       {open && <div className="modal" onClick={() => setOpen(null)}><div className="card" onClick={(e) => e.stopPropagation()}><h3>WWCC card</h3>{/\.pdf/i.test(open.split('?')[0]) ? <a href={open} target="_blank" rel="noreferrer">Open PDF</a> : <img src={open} alt="WWCC card" style={{ maxWidth: '100%' }} />}<p className="small muted">This link expires in 2 minutes.</p><button className="btn small ghost" onClick={() => setOpen(null)}>Close</button></div></div>}
     </>
+  )
+}
+
+// Exec: correct a volunteer's card details from what the status checker shows (e.g. they ticked "applied" but have a card).
+function FixCard({ w, onDone }) {
+  const [f, setF] = useState({ card_number: w.card_number || '', expiry: w.expiry || '', card_type: w.card_type || 'Volunteer', pending: !!w.pending })
+  const [err, setErr] = useState('')
+  async function save(e) {
+    e.preventDefault()
+    if (!f.pending && !f.expiry) return setErr('Add the expiry date shown in the status checker.')
+    const { error } = await supabase.from('wwcc').update({ card_number: f.card_number.trim().toUpperCase(), expiry: f.pending ? null : f.expiry, card_type: f.card_type, pending: f.pending }).eq('profile_id', w.profile_id)
+    if (error) return setErr(error.message)
+    onDone('Card details updated.')
+  }
+  return (
+    <form className="fixcard" onSubmit={save}>
+      <label className="check"><input type="radio" checked={!f.pending} onChange={() => setF({ ...f, pending: false })} /> Has a card</label>
+      <label className="check"><input type="radio" checked={f.pending} onChange={() => setF({ ...f, pending: true })} /> Applied, no card yet</label>
+      <label>{f.pending ? 'Application no.' : 'Card no.'}<input value={f.card_number} onChange={(e) => setF({ ...f, card_number: e.target.value })} required /></label>
+      {!f.pending && <label>Expiry<input type="date" value={f.expiry} onChange={(e) => setF({ ...f, expiry: e.target.value })} required /></label>}
+      <label>Type<select value={f.card_type} onChange={(e) => setF({ ...f, card_type: e.target.value })}><option>Volunteer</option><option>Employee</option></select></label>
+      {err && <p className="err small">{err}</p>}
+      <button className="btn small">Save</button>
+    </form>
   )
 }
 
