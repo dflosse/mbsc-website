@@ -451,7 +451,14 @@ function Approvals() {
     if (error && !text) { try { text = (await error.context.json()).error } catch { text = error.message } }
     setMsg(text || `Invitation sent again to ${p.email}.`)
   }
-  useEffect(() => { load() }, [load])
+  useEffect(() => {
+    load()
+    // keep the setup checklists current while the page is open
+    const t = setInterval(() => document.visibilityState === 'visible' && load(), 60000)
+    const vis = () => document.visibilityState === 'visible' && load()
+    document.addEventListener('visibilitychange', vis)
+    return () => { clearInterval(t); document.removeEventListener('visibilitychange', vis) }
+  }, [load])
 
   async function decidePlayer(p, ok) {
     const { error } = await supabase.from('players').update({ status: ok ? 'approved' : 'withdrawn' }).eq('id', p.id)
