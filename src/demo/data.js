@@ -214,3 +214,17 @@ export const club_notes = [
 export const wwcc_offline = [
   { id: 'wo1', season: 2026, last_name: 'Sample', first_name: 'Coach', card_number: '1234567A-01', card_type: 'Volunteer', expiry: '2029-01-01', club_role: 'Coach', email: null, phone: null, address: null, status_checked_at: null, wwc_connected_at: null, disconnected_at: null, confirmed_at: null, notes: 'Sample row' },
 ]
+
+// Sample gala games for the Under 9 Red coach (gala 1). Scores and scorers are sample data.
+export const gala_games = [
+  { id: 'gg1', gala_id: 'g1', team_id: 't9r', kickoff: '9:00am', pitch: 'Pitch 2', opponent: 'Bright Red', our_score: 3, their_score: 1, sort: 0 },
+  { id: 'gg2', gala_id: 'g1', team_id: 't9r', kickoff: '9:50am', pitch: 'Pitch 4', opponent: 'Myrtleford White', our_score: 2, their_score: 2, sort: 1 },
+  { id: 'gg3', gala_id: 'g1', team_id: 't9r', kickoff: '10:40am', pitch: 'Pitch 2', opponent: 'Yackandandah', our_score: null, their_score: null, sort: 2 },
+  { id: 'gg4', gala_id: 'g1', team_id: 't9g', kickoff: '9:25am', pitch: 'Pitch 3', opponent: 'Bright White', our_score: 1, their_score: 4, sort: 0 },
+]
+export const gala_goals = [
+  { id: 'gl1', game_id: 'gg1', player_id: 'kid1', goals: 2 },
+  { id: 'gl2', game_id: 'gg1', player_id: 'p16', goals: 1 },
+  { id: 'gl3', game_id: 'gg2', player_id: 'p18', goals: 1 },
+  { id: 'gl4', game_id: 'gg2', player_id: 'kid1', goals: 1 },
+]

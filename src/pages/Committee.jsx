@@ -311,6 +311,8 @@ function Teams() {
     ]} />
 }
 
+const ROLE_LABEL = { parent: 'Parent', volunteer: 'Volunteer', coach: 'Coach', committee: 'Committee', admin: 'Admin (full access)' }
+
 function Invite({ onSent }) {
   const [f, setF] = useState({ full_name: '', email: '', kind: 'coach' })
   const [busy, setBusy] = useState(false)
@@ -329,15 +331,15 @@ function Invite({ onSent }) {
     <form className="card" onSubmit={send}>
       <h3 style={{ marginTop: 0 }}>Invite someone</h3>
       <p className="small muted">Emails them a link to join, with their role already chosen. It gives them no access on its own – they still add their WWCC and you approve them as usual.</p>
-      <div className="row wrap">
+      <div className="invite-grid">
         <label>Name<input value={f.full_name} onChange={(e) => setF({ ...f, full_name: e.target.value })} required /></label>
         <label>Email<input type="email" value={f.email} onChange={(e) => setF({ ...f, email: e.target.value })} required /></label>
         <label>Joining as<select value={f.kind} onChange={(e) => setF({ ...f, kind: e.target.value })}>
           <option value="executive">Executive (President, VP, Secretary, Treasurer)</option><option value="committee">Committee member</option>
           <option value="coach">Coach</option><option value="volunteer">Volunteer</option><option value="parent">Parent / family</option></select></label>
+        <button className="btn" disabled={busy}>{busy ? 'Sending…' : 'Send invitation'}</button>
       </div>
       {msg && <p className={msg.ok ? 'ok' : 'err'}>{msg.text}</p>}
-      <button className="btn small" disabled={busy}>{busy ? 'Sending…' : 'Send invitation'}</button>
     </form>
   )
 }
@@ -362,15 +364,15 @@ function People() {
   const tname = (id) => teams.find((t) => t.id === id)?.name + ' ' + (teams.find((t) => t.id === id)?.season || '')
   return (
     <>
-      <p className="muted small">Tick <b>Executive</b> for the President, Vice President, Secretary and Treasurer – only they can sign off registrations and volunteers. Coaches and volunteers get their access automatically when an executive approves their application. Everyone who signs up starts as a parent. {isAdmin ? 'As an admin you can make people coaches, committee members or admins.' : 'Only admins can change access levels.'} Committee members see all player details.</p>
+      <p className="muted small note-wide">Tick <b>Executive</b> for the President, Vice President, Secretary and Treasurer – only they can sign off registrations and volunteers. Coaches and volunteers get their access automatically when an executive approves their application. Everyone who signs up starts as a parent. {isAdmin ? 'As an admin you can make people coaches, committee members or admins.' : 'Only admins can change access levels.'} Committee members see all player details.</p>
       {err && <p className="err">{err}</p>}
       {isExec && <Invite onSent={load} />}
-      <div className="table-wrap"><table>
-        <thead><tr><th>Name</th><th>Email</th><th>Phone</th><th>Access</th><th>Executive</th><th>Coaches</th></tr></thead>
+      <div className="table-wrap"><table className="people">
+        <thead><tr><th>Name</th><th>Email</th><th>Phone</th><th>Access</th><th className="c">Executive</th><th>Coaches team</th></tr></thead>
         <tbody>{people.map((p) => <tr key={p.id}>
           <td>{p.full_name}</td><td>{p.email}</td><td>{p.phone}</td>
-          <td>{isAdmin && p.id !== user.id ? <select value={p.role} onChange={(e) => setRole(p.id, e.target.value)}>{['parent', 'volunteer', 'coach', 'committee', 'admin'].map((r) => <option key={r}>{r}</option>)}</select> : p.role}</td>
-          <td>{isAdmin ? <input type="checkbox" checked={!!p.is_executive} onChange={(e) => setExec(p.id, e.target.checked)} title="President, VP, Secretary, Treasurer – can sign off registrations and volunteers" /> : (p.is_executive ? 'Yes' : '')}</td>
+          <td>{isAdmin && p.id !== user.id ? <select value={p.role} onChange={(e) => setRole(p.id, e.target.value)}>{Object.entries(ROLE_LABEL).map(([r, l]) => <option key={r} value={r}>{l}</option>)}</select> : ROLE_LABEL[p.role] || p.role}</td>
+          <td className="c">{isAdmin ? <input type="checkbox" checked={!!p.is_executive} onChange={(e) => setExec(p.id, e.target.checked)} title="President, VP, Secretary, Treasurer – can sign off registrations and volunteers" /> : (p.is_executive ? 'Yes' : '')}</td>
           <td>{tc.filter((t) => t.profile_id === p.id).map((t) => <span key={t.team_id} className="pill">{tname(t.team_id)} <button className="link danger" onClick={() => rmCoach(p.id, t.team_id)}>×</button></span>)}
             <select value="" onChange={(e) => addCoach(p.id, e.target.value)}><option value="">+ team</option>{teams.map((t) => <option key={t.id} value={t.id}>{t.name} {t.season}</option>)}</select></td>
         </tr>)}</tbody>

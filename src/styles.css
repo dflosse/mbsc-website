@@ -377,3 +377,59 @@ dl.mini dd { margin: 0; }
 .setup li.done .tick { background: var(--forest, #1e3b2f); }
 .setup li.wait .tick { border-color: var(--marker, #f08a3c); color: var(--marker, #f08a3c); }
 .nav-setup .badge { display: inline-grid; place-items: center; min-width: 18px; height: 18px; margin-left: 6px; padding: 0 5px; border-radius: 9px; background: var(--marker, #f08a3c); color: var(--forest, #1e3b2f); font-size: 12px; font-weight: 700; }
+
+/* Gala games: public list and coach editor */
+.gamelist { margin-top: 12px; }
+.gamelist.compact .resgroup h3 { font-size: 1rem; margin: 10px 0 4px; }
+.game-line { display: grid; grid-template-columns: 9.5em 1fr auto auto; align-items: center; gap: 10px; }
+.game-line .when { white-space: nowrap; font-variant-numeric: tabular-nums; }
+.game-line .score { font-variant-numeric: tabular-nums; min-width: 2.6em; text-align: right; }
+@media (max-width: 560px) { .game-line { grid-template-columns: 1fr auto auto; } .game-line .when { grid-column: 1 / -1; } }
+.editor { display: grid; gap: 10px; }
+.game-edit, .add-game { padding: 12px 14px; }
+.ge-top { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px; }
+.ge-top label { display: flex; flex-direction: column; gap: 3px; font-size: .8rem; color: var(--muted); margin: 0; }
+.ge-top input { margin: 0; }
+.ge-score { display: flex; align-items: flex-end; gap: 6px; }
+.ge-score .dash { padding-bottom: 10px; font-weight: 700; }
+.ge-del { margin-left: auto; padding-bottom: 10px; }
+.ge-goals { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line); }
+.ge-goals select { width: auto; margin: 0; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { display: inline-flex; align-items: center; gap: 4px; background: var(--ground, #e9ede6); border-radius: 999px; padding: 3px 4px 3px 10px; font-size: .85rem; }
+.chip button { border: 0; background: #fff; border-radius: 50%; width: 22px; height: 22px; line-height: 1; cursor: pointer; font-weight: 700; color: var(--forest, #1e3b2f); }
+
+/* Alignment pass: table rows, compact in-table controls, invite form, header */
+th, td { vertical-align: middle; }
+td.c, th.c { text-align: center; }
+.table-wrap td select, .table-wrap td input:not([type=checkbox]):not([type=radio]) { width: auto; max-width: 100%; margin: 0; padding: 6px 30px 6px 10px; font-size: .9rem; min-height: 0; }
+.table-wrap td input:not([type=checkbox]):not([type=radio]) { padding-right: 10px; }
+.table-wrap td input[type=checkbox] { width: 18px; height: 18px; margin: 0; vertical-align: middle; }
+.table-wrap td .pill { display: inline-flex; align-items: center; gap: 4px; margin: 2px 6px 2px 0; }
+table.people td:nth-child(2) { word-break: break-all; }
+table.people td:last-child { min-width: 200px; }
+.invite-grid { display: grid; grid-template-columns: minmax(140px, 1fr) minmax(180px, 1.3fr) minmax(170px, 1fr) auto; gap: 12px; align-items: end; }
+.invite-grid label { display: flex; flex-direction: column; gap: 4px; margin: 0; font-size: .85rem; color: var(--ink-2); }
+.invite-grid input, .invite-grid select { margin: 0; }
+.invite-grid .btn { white-space: nowrap; }
+@media (max-width: 760px) { .invite-grid { grid-template-columns: 1fr; } }
+p.note-wide { max-width: 90ch; }
+.top .wrap.topbar { max-width: 1320px; }
+.brand strong { white-space: nowrap; }
+nav { row-gap: 0; }
+.galacard { display: grid; grid-template-columns: 64px minmax(0, 1fr); gap: 16px; align-items: start; }
+.galacard .date { display: flex; flex-direction: column; align-items: center; justify-content: center; width: 64px; padding: 8px 0; border-radius: 10px; background: var(--forest, #1e3b2f); color: #fff; line-height: 1; }
+.galacard .date b { font-size: 1.6rem; font-weight: 800; }
+.galacard .date span { font-size: .8rem; text-transform: uppercase; letter-spacing: .06em; margin-top: 4px; }
+.galacard h3 { margin: 0 0 2px; }
+.galacard p { margin: 2px 0; }
+.cards.wide > .card { display: flex; flex-direction: column; }
+.cards.wide > .card > .row:last-child { margin-top: auto; padding-top: 8px; }
+.ticks li .btn { flex-shrink: 0; }
+@media (max-width: 560px) {
+  .galacard { grid-template-columns: 1fr; gap: 10px; }
+  .galacard .date { flex-direction: row; width: auto; justify-self: start; gap: 6px; padding: 6px 12px; }
+  .galacard .date b { font-size: 1.1rem; }
+  .galacard .date span { margin-top: 0; }
+  .gamelist .resgroup { margin-left: 0; padding-left: 0; }
+}

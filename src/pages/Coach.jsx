@@ -2,6 +2,7 @@ import { KitTags } from './kitInfo'
 import { useEffect, useState } from 'react'
 import { supabase, fmtDate, ROSTER_SEASON } from '../supabase'
 import { useAuth } from '../auth'
+import { GameEditor } from './GalaGames'
 
 export default function Coach() {
   const { isStaff, coachTeams } = useAuth()
@@ -11,6 +12,8 @@ export default function Coach() {
   const [galas, setGalas] = useState([])
   const [entries, setEntries] = useState({})
   const [docs, setDocs] = useState([])
+  const [allGalas, setAllGalas] = useState([])
+  const [galaId, setGalaId] = useState('')
 
   useEffect(() => {
     supabase.from('teams').select('*').eq('season', ROSTER_SEASON).order('sort_order').then(({ data }) => {
@@ -18,6 +21,7 @@ export default function Coach() {
       setTeams(mine); if (mine[0]) setTeamId((id) => id || mine[0].id)
     })
     supabase.from('galas').select('*').gte('gala_date', new Date().toISOString().slice(0, 10)).order('gala_date').then(({ data }) => setGalas(data || []))
+    supabase.from('galas').select('*').order('gala_date').then(({ data }) => setAllGalas(data || []))
     supabase.from('documents').select('*').in('audience', ['coaches', 'public']).order('title').then(({ data }) => setDocs(data || []))
   }, [isStaff, coachTeams])
 
@@ -37,6 +41,9 @@ export default function Coach() {
   }, [teamId])
 
   const team = teams.find((t) => t.id === teamId)
+  const seasonGalas = allGalas.filter((g) => !team || g.season === team.season)
+  const today = new Date().toISOString().slice(0, 10)
+  const gala = seasonGalas.find((g) => g.id === galaId) || seasonGalas.find((g) => g.gala_date >= today) || seasonGalas[seasonGalas.length - 1]
   const count = (g, r) => players.filter((p) => entries[g + ':' + p.id] === r).length
   return (
     <div className="wrap">
@@ -48,6 +55,14 @@ export default function Coach() {
           {galas.length > 0 && (
             <section><h2>Gala availability</h2>
               <div className="cards">{galas.map((g) => <div key={g.id} className="card"><h3>{fmtDate(g.gala_date)}</h3><p className="muted">{g.host_club}</p><p><span className="pill good">{count(g.id, 'yes')} yes</span> <span className="pill wait">{count(g.id, 'maybe')} maybe</span> <span className="pill bad">{count(g.id, 'no')} no</span> <span className="pill">{players.length - count(g.id, 'yes') - count(g.id, 'maybe') - count(g.id, 'no')} no reply</span></p></div>)}</div>
+            </section>
+          )}
+          {team && gala && (
+            <section><h2>Gala games</h2>
+              <p className="muted small">Add your team's games from the draw – time, pitch and opponent – then the score and who scored. Times and scores show publicly on Gala days; scorers show only to signed-in club families, coaches and volunteers (first name and initial).</p>
+              <div className="tabs">{seasonGalas.map((g) => <button key={g.id} className={g.id === gala.id ? 'on' : ''} onClick={() => setGalaId(g.id)}>{fmtDate(g.gala_date, { day: 'numeric', month: 'short' })} · {g.host_club.replace(/ (SC|FC)$/, '')}</button>)}</div>
+              <p className="small">{fmtDate(gala.gala_date)}{gala.start_time ? ` · starts ${gala.start_time}` : ''}{gala.venue ? ` · ${gala.venue}` : ''}{gala.address ? `, ${gala.address}` : ''}{gala.draw_url ? <> · <a href={gala.draw_url} target="_blank" rel="noreferrer">Draw</a></> : null}</p>
+              <GameEditor key={gala.id + team.id} gala={gala} team={team} squad={players} />
             </section>
           )}
           <section><h2>Squad</h2>

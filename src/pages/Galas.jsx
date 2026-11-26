@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase, fmtDate } from '../supabase'
 import { useAuth } from '../auth'
+import GalaGames from './GalaGames'
 
 export default function Galas() {
   const { user } = useAuth()
@@ -26,7 +27,7 @@ export default function Galas() {
 
 function GalaCard({ g, user }) {
   return (<>
-    <div className="card gala">
+    <div className="card galacard">
       <div className="date"><b>{fmtDate(g.gala_date, { day: 'numeric' })}</b><span>{fmtDate(g.gala_date, { month: 'short' })}</span></div>
       <div>
         <h3>{g.host_club}</h3>
@@ -35,6 +36,7 @@ function GalaCard({ g, user }) {
         {g.info && <p className="pre">{g.info}</p>}
         {g.draw_url && <a href={g.draw_url} target="_blank" rel="noreferrer">Draw and pitch map</a>}
         {g.signup_closes && <p className="small">Let us know by {fmtDate(g.signup_closes)}</p>}
+        <GalaGames gala={g} compact />
         {user && <Roster gala={g} />}
       </div>
     </div>
@@ -104,6 +106,7 @@ function SeasonResults({ season, galas }) {
                 <span><b>Gala {i + 1} – {g.host_club.replace(/ (SC|FC)$/, '')}</b><span className="muted small"> {fmtDate(g.gala_date)}{g.venue ? `, ${g.venue}` : ''}</span></span>
                 {rs.length > 0 ? <Rec t={tally(rs)} /> : <span className="muted small">no results</span>}
               </button>
+              {isOpen && <GalaGames gala={g} />}
               {isOpen && Object.entries(groups).map(([k, list]) => (
                 <div key={k} className="resgroup">
                   <h3>{k}</h3>
@@ -128,7 +131,7 @@ function SeasonResults({ season, galas }) {
           <h3>{season} awards</h3>
           <ul className="roles">{awards.map((a) => <li key={a.id}><span>{a.award}</span><b>{a.recipients}</b>{a.note && <span className="small muted"> {a.note}</span>}</li>)}</ul>
         </div>
-      )) : <p className="muted small">Club families can <Link to="/login">sign in</Link> to see goal scorers and end-of-season awards.</p>}
+      )) : <p className="muted small">Club families, coaches and volunteers can <Link to="/login">sign in</Link> to see goal scorers and end-of-season awards.</p>}
     </section>
   )
 }

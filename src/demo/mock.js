@@ -159,6 +159,11 @@ export const mockSupabase = {
       return { error: null }
     }
     if (fn === 'claim_invites') return { data: 0, error: null }
+    if (fn === 'gala_scorers') {
+      if (!me()) return { data: [], error: null }
+      const games = new Set(db.gala_games.filter((g) => g.gala_id === a.p_gala).map((g) => g.id))
+      return { data: db.gala_goals.filter((x) => games.has(x.game_id)).map((x) => { const p = db.players.find((y) => y.id === x.player_id) || {}; return { game_id: x.game_id, scorer: p.first_name + ' ' + (p.last_name || '').slice(0, 1) + '.', goals: x.goals } }).sort((a, b) => b.goals - a.goals), error: null }
+    }
     if (fn === 'exec_add_family') {
       if (!exec()) return { error: { message: 'Only the executive committee can add families' } }
       const id = uid()

@@ -43,7 +43,7 @@ export default function Privacy() {
       <p><b>Who sees it:</b> only you and the executive committee. Coaches, other committee members and parents cannot see your WWCC details. We don't share them with anyone except Service Victoria and the Social Services Regulator (through the steps above), or Football Victoria if it asks us to confirm a coach or official is checked.</p>
 
       <h2>Gala results</h2>
-      <p>Scores and results are shown on the public website. Goal scorers and end-of-season awards include children's first names, so they're only shown to signed-in club families.</p>
+      <p>Game times, pitches and scores are public. Goal scorers (first name and surname initial) and end-of-season awards are only shown to signed-in members: families with a registered child, approved coaches and volunteers, and the committee. Coaches can only record goals for players in their own team.</p>
 
       <h2>Photos</h2>
       <p>We only use photos of children on club social media or this website if a parent has given permission. You can change this at any time in My family.</p>
