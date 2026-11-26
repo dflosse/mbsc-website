@@ -88,10 +88,10 @@ export default function Security() {
     if (error) return setMsg({ ok: false, text: error.message })
     setEnroll(data)
   }
-  async function verify(factorId) {
+  async function verify(factorId, value) {
     setMsg(null)
     if (!(await ensureSession())) return setMsg({ ok: false, text: 'Your sign-in has lapsed. Please sign out, sign back in with your email and password, then try again.' })
-    const { error } = await supabase.auth.mfa.challengeAndVerify({ factorId, code: code.replace(/\s/g, '') })
+    const { error } = await supabase.auth.mfa.challengeAndVerify({ factorId, code: (value ?? code).replace(/\s/g, '') })
     if (error) return setMsg({ ok: false, text: 'That code didn\'t work – check the time on your phone and try the newest code.' })
     setCode(''); setEnroll(null); await load(); await refresh()
     // Offer Face ID straight after a code sign-in, so next time is one tap.
@@ -110,8 +110,8 @@ export default function Security() {
   const verified = factors?.[0]
   const anyOn = !!verified || keys.length > 0
   const [busy, setBusy] = useState(false)
-  async function submitCode(factorId) { if (busy) return; setBusy(true); await verify(factorId); setBusy(false) }
-  function onCode(v, factorId) { setCode(v); if (factorId && /^\d{6}$/.test(v.replace(/\s/g, ''))) submitCode(factorId) }
+  async function submitCode(factorId, value) { if (busy) return; setBusy(true); await verify(factorId, value); setBusy(false) }
+  function onCode(v, factorId) { setCode(v); if (factorId && /^\d{6}$/.test(v.replace(/\s/g, ''))) submitCode(factorId, v) }
   return (
     <div className="wrap narrow">
       <h1>Two-factor sign-in</h1>
