@@ -52,19 +52,41 @@ export default function Committee() {
   const can = (p) => isExec || !EXEC_ONLY.includes(p)
   const sections = SECTIONS.map((x) => ({ ...x, pages: x.pages.filter(can) })).filter((x) => x.pages.length && (!x.exec || isExec))
   const current = sections.find((x) => x.pages.includes(page)) || sections[0]
+  const [menu, setMenu] = useState(false)
+  useEffect(() => { setMenu(false) }, [page])
+  const link = (p) => (
+    <NavLink key={p} to={'/committee/' + p} className={'cn-link' + (p === 'preseason' ? ' feature' : '')}>
+      <span>{PAGES[p][0]}</span>{EXEC_ONLY.includes(p) && <em>Exec</em>}
+    </NavLink>
+  )
   return (
     <div className="wrap wide">
-      <h1>Committee</h1>
-      <nav className="sections" aria-label="Committee sections">
-        {sections.map((x) => <NavLink key={x.key} to={'/committee/' + x.pages[0]} className={'section-btn ' + x.key + (x === current ? ' on' : '')}>{x.key === 'season' ? <><span className="sec-dot" aria-hidden>✓</span>{x.label}</> : x.label}</NavLink>)}
-      </nav>
-      {current.pages.length > 1 && (
-        <div className="tabs sub">
-          {current.pages.map((p) => <NavLink key={p} to={'/committee/' + p} className={(EXEC_ONLY.includes(p) ? 'exec' : '') + (p === 'preseason' ? ' feature' : '')}>{p === 'preseason' ? <><span aria-hidden>✓</span> {PAGES[p][0]}</> : PAGES[p][0]}</NavLink>)}
-        </div>
-      )}
-      {PAGES[page] && page !== 'overview' && <p className="page-desc">{PAGES[page][1]}{EXEC_ONLY.includes(page) && <span className="pill">Executive only</span>}</p>}
-      {!isExec && page === 'overview' && <p className="muted small">Children's details, approvals and the WWCC register are visible to the executive committee only.</p>}
+      <h1 className="cmte-title">Committee</h1>
+      <div className="cmte">
+        <aside className={'cmte-nav' + (menu ? ' open' : '')} aria-label="Committee pages">
+          <button className="cn-toggle" onClick={() => setMenu(!menu)} aria-expanded={menu}>
+            <span className="muted small">{current.key === 'home' || current.key === 'start' ? 'Committee' : current.label}</span>
+            <b>{PAGES[page]?.[0] || 'Home'}</b><span className="chev" aria-hidden>{menu ? '▴' : '▾'}</span>
+          </button>
+          <div className="cn-list">
+            <NavLink to="/committee/start" className="cn-start"><b>Start here</b><span>New to the committee? How it all works.</span></NavLink>
+            <NavLink to="/committee/overview" className="cn-link home"><span>Home</span></NavLink>
+            {sections.filter((x) => x.key !== 'home' && x.key !== 'start').map((x) => (
+              <div key={x.key} className="cn-group">
+                <h4>{x.label}</h4>
+                {x.pages.map(link)}
+              </div>
+            ))}
+            {!isExec && <p className="muted small cn-note">Players, approvals, the WWCC register and club emails are for the executive only.</p>}
+          </div>
+        </aside>
+        <div className="cmte-main">
+          {page !== 'overview' && page !== 'start' && PAGES[page] && (
+            <div className="page-head">
+              <p className="crumb">{current.label} <span aria-hidden>›</span> {PAGES[page][0]}{EXEC_ONLY.includes(page) && <span className="pill">Executive only</span>}</p>
+              <p className="page-desc">{PAGES[page][1]}</p>
+            </div>
+          )}
       <Routes>
         <Route index element={<Navigate to="overview" replace />} />
         <Route path="overview" element={<Overview />} />
@@ -88,6 +110,8 @@ export default function Committee() {
         <Route path="audit" element={<Audit />} />
         <Route path="start" element={<CommitteeStart />} />
       </Routes>
+        </div>
+      </div>
     </div>
   )
 }
@@ -141,6 +165,8 @@ function Overview() {
   useLive(isExec ? ['players', 'volunteer_roles', 'wwcc', 'tasks', 'teams', 'committee_roles', 'key_dates'] : ['tasks', 'teams', 'committee_roles', 'key_dates'], load)
   if (!s) return <p className="muted">Loading…</p>
   return (
+    <>
+    <StartPanel />
     <div className="dash">
       <div className="dash-main">
         <section className="card attention">
@@ -167,30 +193,48 @@ function Overview() {
           )}
           <Link to="/committee/preseason" className="small">All key dates →</Link>
         </section>
-        <Link to="/committee/start" className="card start-card"><b>New to the committee?</b><span>Start here: how these pages work, and where to go for each job.</span></Link>
       </aside>
     </div>
+    </>
   )
 }
 
+function StartPanel() {
+  const { isExec } = useAuth()
+  const quick = START_JOBS.filter(([, , ex, top]) => top && (isExec || !ex)).slice(0, 6)
+  return (
+    <section className="start-panel">
+      <div className="sp-head">
+        <div><h2>Start here</h2><p>New to the committee, or not sure where something is? Pick what you want to do.</p></div>
+        <Link to="/committee/start" className="btn">Full guide</Link>
+      </div>
+      <div className="sp-grid">
+        {quick.map(([t, to]) => <Link key={t} to={'/committee/' + to} className="sp-tile"><span>{t}</span><b aria-hidden>→</b></Link>)}
+      </div>
+    </section>
+  )
+}
+
+const START_JOBS = [
+    ['Approve a new family or volunteer', 'approvals', true, true],
+    ['Check a coach\'s Working With Children Check', 'wwcc', true, true],
+    ['Find a player, fix their details or link a second parent', 'players', true],
+    ['Put players into teams, or add a coach to a team', 'teams', false, true],
+    ['See what needs doing before the season, and tick jobs off', 'preseason', false, true],
+    ['Set or change the key dates (AGM, Come n Try, first training)', 'preseason'],
+    ['Email families, coaches or the committee', 'email', true, true],
+    ['Hand out or record a uniform', 'kit', false, true],
+    ['Record who has a key, or update the equipment list', 'registers', false, true],
+    ['Change fees, training times or the club email shown on the site', 'settings', false, true],
+    ['Update who holds a committee role', 'roles'],
+    ['Add a gala, or record gala-day jobs', 'galas', false, true],
+    ['Find a phone number (Shire, Football Victoria, suppliers)', 'contacts', false, true],
+    ['See who changed something', 'audit', true],
+]
+
 function CommitteeStart() {
   const { isExec } = useAuth()
-  const jobs = [
-    ['Approve a new family or volunteer', 'approvals', true],
-    ['Check a coach\'s Working With Children Check', 'wwcc', true],
-    ['Find a player, fix their details or link a second parent', 'players', true],
-    ['Put players into teams, or add a coach to a team', 'teams'],
-    ['See what needs doing before the season, and tick jobs off', 'preseason'],
-    ['Set or change the key dates (AGM, Come n Try, first training)', 'preseason'],
-    ['Email families, coaches or the committee', 'email', true],
-    ['Hand out or record a uniform', 'kit'],
-    ['Record who has a key, or update the equipment list', 'registers'],
-    ['Change fees, training times or the club email shown on the site', 'settings'],
-    ['Update who holds a committee role', 'roles'],
-    ['Add a gala, or record gala-day jobs', 'galas'],
-    ['Find a phone number (Shire, Football Victoria, suppliers)', 'contacts'],
-    ['See who changed something', 'audit', true],
-  ]
+  const jobs = START_JOBS
   return (
     <div className="start-guide">
       <section className="card">
