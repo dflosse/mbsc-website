@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useMemo } from 'react'
+import { useEffect, useState, useCallback, useMemo, Fragment } from 'react'
 import { NavLink, Routes, Route, Navigate } from 'react-router-dom'
 import { supabase, REG_SEASON, PREV_SEASON, fmtDate, ageGroupFor } from '../supabase'
 import { useAuth } from '../auth'
@@ -13,21 +13,21 @@ import { sortPlayers, TEAM_SEL } from './sortPlayers'
 
 export default function Committee() {
   const { isExec } = useAuth()
-  const EXEC_ONLY = ['approvals', 'directory', 'wwcc', 'players', 'audit']
+  const EXEC_ONLY = ['approvals', 'wwcc', 'players', 'audit']
   return (
     <div className="wrap wide">
       <h1>Committee</h1>
       <div className="tabs">
-        {[['overview', 'Overview'], ['approvals', 'Approve applications'], ['directory', 'Registered players'], ['wwcc', 'WWCC register'], ['players', 'Edit players'], ['galas', 'Galas'], ['tasks', 'Action list'], ['kit', 'Uniforms'], ['registers', 'Keys & assets'], ['contacts', 'Contacts & handover'], ['teams', 'Teams'], ['people', 'People & access'], ['docs', 'Documents'], ['roles', 'Committee roles'], ['treasurer', 'Treasurer'], ['settings', 'Fees & settings'], ['audit', 'Change log']].filter(([p]) => isExec || !EXEC_ONLY.includes(p)).map(([p, l]) => <NavLink key={p} to={'/committee/' + p} className={EXEC_ONLY.includes(p) ? 'exec' : ''}>{l}</NavLink>)}
+        {[['overview', 'Overview'], ['approvals', 'Approve applications'], ['players', 'Players'], ['wwcc', 'WWCC register'], ['galas', 'Galas'], ['tasks', 'Action list'], ['kit', 'Uniforms'], ['registers', 'Keys & assets'], ['contacts', 'Contacts & handover'], ['teams', 'Teams'], ['people', 'People & access'], ['docs', 'Documents'], ['roles', 'Committee roles'], ['treasurer', 'Treasurer'], ['settings', 'Fees & settings'], ['audit', 'Change log']].filter(([p]) => isExec || !EXEC_ONLY.includes(p)).map(([p, l]) => <NavLink key={p} to={'/committee/' + p} className={EXEC_ONLY.includes(p) ? 'exec' : ''}>{l}</NavLink>)}
       </div>
       {!isExec && <p className="muted small">Children's details, approvals and the WWCC register are visible to the executive committee only.</p>}
       <Routes>
         <Route index element={<Navigate to="overview" replace />} />
         <Route path="overview" element={<Overview />} />
         <Route path="approvals" element={<Approvals />} />
-        <Route path="directory" element={<Directory />} />
+        <Route path="directory" element={<Navigate to="/committee/players" replace />} />
         <Route path="wwcc" element={<WWCCRegister />} />
-        <Route path="players" element={<Players />} />
+        <Route path="players" element={<PlayersTab />} />
         <Route path="galas" element={<Galas />} />
         <Route path="tasks" element={<Tasks />} />
         <Route path="kit" element={<Kit />} />
@@ -96,9 +96,8 @@ function useTeams() {
   return teams
 }
 
-function Players() {
+function PlayersGrid({ season }) {
   const teams = useTeams()
-  const [season, setSeason] = useState(REG_SEASON)
   const [linkFor, setLinkFor] = useState(null)
   const filter = useCallback((q) => q.eq('season', season), [season])
   const order = useMemo(() => [['status', false], ['last_name']], [])
@@ -115,10 +114,8 @@ function Players() {
   }
   return (
     <>
-      <div className="row"><span>Season:</span>{[PREV_SEASON, REG_SEASON].map((s) => <button key={s} className={'btn small ' + (s === season ? '' : 'ghost')} onClick={() => setSeason(s)}>{s}</button>)}
-        {season === REG_SEASON && teamOpts.length === 0 && <span className="muted small">No {REG_SEASON} teams yet – add them under Teams to assign players.</span>}</div>
       {note && <p className="ok">{note}</p>}
-      <p className="muted small">Registrations are signed off by the executive on the <NavLink to="/committee/approvals">Approvals</NavLink> tab. {season === PREV_SEASON ? `Last season's players are kept here. Use ➜${REG_SEASON} to carry a returning player over. ` : ''}Edits save as you go. "Approved" + FV registered + paid = fully registered. Use 🔗 to link a parent's account to a player.</p>
+      <p className="muted small">Spreadsheet view for quick bulk changes – edits save as you go. {season === PREV_SEASON ? `Use ➜${REG_SEASON} to carry a returning player over. ` : ''}Use 🔗 to link a parent's account.</p>
       <EditTable live key={season} table="players" filter={filter} order={order} select={'*, ' + TEAM_SEL} sortRows={sortPlayers} search={['first_name', 'last_name']}
         defaults={{ season, first_name: 'New', last_name: 'Player', status: 'pending' }}
         cols={[
@@ -144,6 +141,66 @@ function Players() {
       {linkFor && <LinkParent player={linkFor} onClose={() => setLinkFor(null)} />}
     </>
   )
+}
+
+// One child's details in a form (Players tab → Edit).
+function PlayerEditor({ p, teams, onDone }) {
+  const F = ['first_name', 'last_name', 'dob', 'gender', 'team_id', 'status', 'fv_registered', 'fees_paid', 'medical_notes', 'photo_consent', 'emergency_contact', 'needs_uniform', 'uniform_size', 'needs_boots', 'boot_size', 'boots_status', 'bond_paid', 'bond_refunded', 'committee_notes']
+  const [f, setF] = useState(Object.fromEntries(F.map((k) => [k, p[k] ?? (typeof p[k] === 'boolean' ? false : '')])))
+  const [err, setErr] = useState('')
+  const [busy, setBusy] = useState(false)
+  const t = (k) => (e) => setF({ ...f, [k]: e.target.value })
+  const b = (k) => (e) => setF({ ...f, [k]: e.target.checked })
+  async function save(e) {
+    e.preventDefault(); setBusy(true)
+    const row = Object.fromEntries(F.map((k) => [k, f[k] === '' ? null : f[k]]))
+    const { error } = await supabase.from('players').update(row).eq('id', p.id)
+    setBusy(false)
+    if (error) return setErr(error.message)
+    onDone()
+  }
+  async function rollOver() {
+    const { data: exists } = await supabase.from('players').select('id').eq('season', REG_SEASON).eq('first_name', p.first_name).eq('last_name', p.last_name).eq('dob', p.dob)
+    if (exists?.length) return setErr(`${p.first_name} is already on the ${REG_SEASON} list.`)
+    const { data: ins, error } = await supabase.from('players').insert({ season: REG_SEASON, first_name: p.first_name, last_name: p.last_name, dob: p.dob, gender: p.gender, medical_notes: p.medical_notes, photo_consent: p.photo_consent, status: 'pending', committee_notes: `Returning from ${PREV_SEASON}` }).select()
+    if (error) return setErr(error.message)
+    const { data: g } = await supabase.from('player_guardians').select('profile_id').eq('player_id', p.id)
+    if (ins?.[0] && g?.length) await supabase.from('player_guardians').insert(g.map((x) => ({ player_id: ins[0].id, profile_id: x.profile_id })))
+    onDone()
+  }
+  return (
+    <form className="player-edit" onSubmit={save}>
+      <div className="ae-grid">
+        <label>First name<input value={f.first_name} onChange={t('first_name')} required /></label>
+        <label>Surname<input value={f.last_name} onChange={t('last_name')} required /></label>
+        <label>Date of birth<input type="date" value={f.dob} onChange={t('dob')} /></label>
+        <label>Gender<select value={f.gender} onChange={t('gender')}><option value="">—</option><option value="F">Girl</option><option value="M">Boy</option><option value="X">Other / prefer not to say</option></select></label>
+        <label>Team<select value={f.team_id} onChange={t('team_id')}><option value="">No team yet</option>{teams.map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}</select></label>
+        <label>Status<select value={f.status} onChange={t('status')}><option value="pending">Awaiting sign-off</option><option value="approved">Approved</option><option value="withdrawn">Withdrawn</option></select></label>
+        <label className="wide">Medical / allergies<input value={f.medical_notes} onChange={t('medical_notes')} /></label>
+        <label className="half">Emergency contact<input value={f.emergency_contact} onChange={t('emergency_contact')} /></label>
+        <label className="half">Committee notes (exec only)<input value={f.committee_notes} onChange={t('committee_notes')} /></label>
+        <label>Uniform size<input value={f.uniform_size} onChange={t('uniform_size')} /></label>
+        <label>Boot size<input value={f.boot_size} onChange={t('boot_size')} /></label>
+        <label>Loan boots<select value={f.boots_status} onChange={t('boots_status')}><option value="none">—</option><option value="requested">Interested</option><option value="allocated">Allocated</option><option value="waitlist">Waitlist</option><option value="returned">Returned</option></select></label>
+      </div>
+      <div className="ticks-row">
+        {[['fv_registered', 'FV registered'], ['fees_paid', 'Fees paid'], ['photo_consent', 'Photos OK'], ['needs_uniform', 'Needs a uniform'], ['needs_boots', 'Wants loan boots'], ['bond_paid', 'Bond paid'], ['bond_refunded', 'Bond refunded']].map(([k, l]) => <label key={k} className="check"><input type="checkbox" checked={!!f[k]} onChange={b(k)} /> {l}</label>)}
+      </div>
+      {err && <p className="err small">{err}</p>}
+      <div className="row"><button className="btn small" disabled={busy}>{busy ? 'Saving…' : 'Save'}</button><button type="button" className="btn small ghost" onClick={onDone}>Cancel</button>{p.season === PREV_SEASON && <button type="button" className="link small" onClick={rollOver}>Copy to {REG_SEASON} as returning player</button>}</div>
+    </form>
+  )
+}
+
+function PlayersTab() {
+  const [season, setSeason] = useState(REG_SEASON)
+  const [view, setView] = useState('list')
+  const bar = <>
+    <span>Season:</span>{[PREV_SEASON, REG_SEASON].map((x) => <button key={x} className={'btn small ' + (x === season ? '' : 'ghost')} onClick={() => setSeason(x)}>{x}</button>)}
+    <span className="seg"><button className={view === 'list' ? 'on' : ''} onClick={() => setView('list')}>List</button><button className={view === 'grid' ? 'on' : ''} onClick={() => setView('grid')}>Spreadsheet</button></span>
+  </>
+  return view === 'list' ? <PlayersList key={season} season={season} toolbarExtra={bar} /> : <><div className="row">{bar}</div><PlayersGrid key={season} season={season} /></>
 }
 
 function LinkParent({ player, onClose }) {
@@ -321,7 +378,7 @@ async function teamDeleteWarning(t) {
   return lines.join('\n')
 }
 
-// Players under each team. Moving a player here or on Edit players updates both straight away.
+// Players under each team. Moving a player here or on the Players tab updates both straight away.
 function Squads() {
   const { isExec } = useAuth()
   const [teams, setTeams] = useState([])
@@ -345,7 +402,7 @@ function Squads() {
   return (
     <section className="squads">
       <h2>{REG_SEASON} squads</h2>
-      <p className="muted small">Move a child by choosing a different team. It saves straight away and shows on Edit players too. Pending registrations are included and marked.</p>
+      <p className="muted small">Move a child by choosing a different team. It saves straight away and shows on the Players tab too. Pending registrations are included and marked.</p>
       {err && <p className="err">{err}</p>}
       <div className="squad-grid">
         {groups.map(({ t, list }) => (
@@ -372,7 +429,7 @@ function Teams() {
   return (
     <>
       <h2>{REG_SEASON} teams</h2>
-      <p className="muted small">Add, rename or split teams here (e.g. "Under 9 Red" and "Under 9 Green"), then assign children under Edit players and coaches under People &amp; access. Coaches' names show on the public Teams page.</p>
+      <p className="muted small">Add, rename or split teams here (e.g. "Under 9 Red" and "Under 9 Green"), then assign children below or on the Players tab, and coaches under People &amp; access. Coaches' names show on the public Teams page.</p>
       <EditTable live table="teams" filter={thisSeason} order={order} defaults={{ season: REG_SEASON, name: 'New team', age_group: 'U?', sort_order: 99 }} cols={TEAM_COLS} confirmDelete={teamDeleteWarning} deleteLabel="Delete" />
       <Squads />
       <details className="past">
@@ -851,13 +908,14 @@ function DecideModal({ a, ok, person, onClose }) {
   )
 }
 
-function Directory() {
+function PlayersList({ season, toolbarExtra }) {
   const { isExec } = useAuth()
   const teams = useTeams()
   const [reload, setReload] = useState(0)
   const [adding, setAdding] = useState(false)
   const [custodyFor, setCustodyFor] = useState(null)
-  const [season, setSeason] = useState(REG_SEASON)
+  const [linkFor, setLinkFor] = useState(null)
+  const [editing, setEditing] = useState(null)
   const [rows, setRows] = useState([])
   const [q, setQ] = useState('')
   const [team, setTeam] = useState('')
@@ -878,6 +936,8 @@ function Directory() {
       setRows((ps || []).map((p) => ({ ...p, custody: ppm[p.id], invites: (gi || []).filter((i) => i.player_id === p.id), guardians: (gs || []).filter((g) => g.player_id === p.id).map((g) => pm[g.profile_id]).filter(Boolean) })))
     })()
   }, [season, reload])
+  const bump = useCallback(() => setReload((x) => x + 1), [])
+  useLive(['players', 'player_guardians'], bump)
   if (!isExec) return <div className="card"><p>Visible to the executive committee only.</p></div>
   const shown = rows.filter((r) => (!team || r.team_id === team || (team === 'none' && !r.team_id)) && (!status || r.status === status)
     && (!q || `${r.first_name} ${r.last_name} ${r.guardians.map((g) => g.full_name + g.email).join(' ')}`.toLowerCase().includes(q.toLowerCase())))
@@ -891,7 +951,7 @@ function Directory() {
   return (
     <>
       <div className="row">
-        <span>Season:</span>{[PREV_SEASON, REG_SEASON].map((s) => <button key={s} className={'btn small ' + (s === season ? '' : 'ghost')} onClick={() => setSeason(s)}>{s}</button>)}
+        {toolbarExtra}
         <select className="search" value={team} onChange={(e) => setTeam(e.target.value)}><option value="">All teams</option><option value="none">No team yet</option>{teams.filter((t) => t.season === season).map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}</select>
         <select className="search" value={status} onChange={(e) => setStatus(e.target.value)}><option value="">Any status</option><option value="pending">Awaiting sign-off</option><option value="approved">Approved</option><option value="withdrawn">Withdrawn</option></select>
         <input className="search" placeholder="Search child or parent…" value={q} onChange={(e) => setQ(e.target.value)} />
@@ -900,14 +960,14 @@ function Directory() {
       </div>
       {adding && <AddFamily teams={teams.filter((t) => t.season === REG_SEASON)} onClose={(m) => { setAdding(false); if (m) setCopied(m); setReload((x) => x + 1) }} />}
       {custodyFor && <CustodyModal player={custodyFor} onClose={() => { setCustodyFor(null); setReload((x) => x + 1) }} />}
-      <p className="small muted">{counts.total} players · {counts.fv} FV registered · {counts.paid} paid · {counts.med} with medical notes · {counts.uni} need a uniform · {counts.boots} interested in loan boots. Edit details under <NavLink to="/committee/players">Edit players</NavLink>.</p>
+      <p className="small muted">{counts.total} players · {counts.fv} FV registered · {counts.paid} paid · {counts.med} with medical notes · {counts.uni} need a uniform · {counts.boots} interested in loan boots. Click <b>Edit</b> on a child to change their details.</p>
       <div className="table-wrap"><table className="dir">
         <thead><tr><th>Player</th><th>Team</th><th>Status</th><th>FV</th><th>Paid</th><th>Medical</th><th>Photos</th><th>Parent / guardian</th><th>Emergency</th></tr></thead>
-        <tbody>{shown.map((r) => <tr key={r.id}>
+        <tbody>{shown.map((r) => <Fragment key={r.id}><tr className={editing === r.id ? 'editing-row' : ''}>
           <td><b>{r.first_name} {r.last_name}</b><br /><span className="small muted">{r.dob ? fmtDate(r.dob, { day: 'numeric', month: 'short', year: 'numeric' }) : ''} · {ageGroupFor(r.dob, r.season)}</span>
             {r.release_check && <div className="release">⚠ Release check</div>}
             <KitTags p={r} />
-            <div><button className="link small" onClick={() => setCustodyFor(r)}>{r.custody?.custody_note || r.release_check ? 'Custody note' : '+ custody note'}</button></div></td>
+            <div className="row small-gap"><button className="btn small" onClick={() => setEditing(editing === r.id ? null : r.id)}>{editing === r.id ? 'Close' : 'Edit'}</button><button className="link small" onClick={() => setCustodyFor(r)}>{r.custody?.custody_note || r.release_check ? 'Custody note' : '+ custody note'}</button><button className="link small" onClick={() => setLinkFor(r)}>Link parent</button></div></td>
           <td>{r.teams?.name || <span className="muted">TBA</span>}</td>
           <td><span className={'pill ' + ({ approved: 'good', pending: 'wait', withdrawn: 'bad' }[r.status])}>{r.status === 'pending' ? 'awaiting' : r.status}</span></td>
           <td>{r.fv_registered ? '✓' : <span className="err">✗</span>}</td><td>{r.fees_paid ? '✓' : <span className="err">✗</span>}</td>
@@ -916,7 +976,8 @@ function Directory() {
             {r.invites.map((i) => <div key={i.id} className="small muted">{i.name || i.email} ({i.relationship || 'guardian'}) – {i.approved ? 'invited, not signed up' : 'awaiting approval'}<br />{i.phone || ''} {i.email}</div>)}
             {!r.guardians.length && !r.invites.length && <span className="muted small">not linked</span>}</td>
           <td className="small">{r.emergency_contact || '—'}</td>
-        </tr>)}</tbody></table></div>
+        </tr>{editing === r.id && <tr className="editrow"><td colSpan={9}><PlayerEditor p={r} teams={teams.filter((t) => t.season === r.season)} onDone={() => { setEditing(null); bump() }} /></td></tr>}</Fragment>)}</tbody></table></div>
+      {linkFor && <LinkParent player={linkFor} onClose={() => { setLinkFor(null); bump() }} />}
     </>
   )
 }
@@ -948,7 +1009,7 @@ function AddFamily({ teams, onClose }) {
         <label>Date of birth<input type="date" value={c.dob} onChange={(e) => setC({ ...c, dob: e.target.value })} onBlur={checkDupe} required /></label>
         <label>Team<select value={c.team} onChange={(e) => setC({ ...c, team: e.target.value })}><option value="">Decide later</option>{teams.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}</select></label>
       </div>
-      {dupe && <p className="release">⚠ A child with this name and birthday is already registered ({dupe.map((d) => `${d.season} ${d.status}`).join(', ')}). Use "Edit players" to link a parent or carry them over instead.</p>}
+      {dupe && <p className="release">⚠ A child with this name and birthday is already registered ({dupe.map((d) => `${d.season} ${d.status}`).join(', ')}). Use the Players tab to link a parent or carry them over instead.</p>}
       <label>Medical / allergies<input value={c.medical} onChange={(e) => setC({ ...c, medical: e.target.value })} /></label>
       <label>Emergency contact<input value={c.emergency} onChange={(e) => setC({ ...c, emergency: e.target.value })} /></label>
       <label className="check"><input type="checkbox" checked={c.photo} onChange={(e) => setC({ ...c, photo: e.target.checked })} /> Parent has given photo permission</label>

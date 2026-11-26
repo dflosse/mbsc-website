@@ -477,3 +477,10 @@ table.people td:nth-child(4) .pill { margin: 2px 4px 2px 0; }
 .ae-grid label.wide { grid-column: 1 / -1; }
 .ae-grid input, .ae-grid select { margin: 0; }
 .ae-grid label.half { grid-column: span 2; } @media (max-width: 560px) { .ae-grid label.half { grid-column: 1 / -1; } }
+.seg { display: inline-flex; border: 1.5px solid var(--rule, #c9d2c6); border-radius: 8px; overflow: hidden; }
+.seg button { border: 0; background: var(--paper, #fff); padding: 6px 12px; font: inherit; font-size: .88rem; cursor: pointer; color: var(--ink); }
+.seg button.on { background: var(--forest, #1e3b2f); color: #fff; }
+tr.editing-row td { background: #fff8f0; }
+tr.editrow td { background: #fff8f0; padding: 12px 14px 16px; }
+.ticks-row { display: flex; flex-wrap: wrap; gap: 6px 18px; margin: 12px 0; }
+.ticks-row .check { margin: 0; }
