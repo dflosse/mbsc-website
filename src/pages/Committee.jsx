@@ -336,8 +336,6 @@ function Teams() {
   )
 }
 
-const ROLE_LABEL = { parent: 'Parent', volunteer: 'Volunteer', coach: 'Coach', committee: 'Committee', admin: 'Admin (full access)' }
-
 function Invite({ onSent }) {
   const [f, setF] = useState({ full_name: '', email: '', kind: 'coach' })
   const [busy, setBusy] = useState(false)
@@ -369,38 +367,71 @@ function Invite({ onSent }) {
   )
 }
 
+// One "Access" choice per person. Executive = President, VP, Secretary or Treasurer: full admin access.
+const ACCESS_OPTS = [['exec', 'Executive (full access)'], ['committee', 'Committee'], ['coach', 'Coach'], ['volunteer', 'Volunteer'], ['parent', 'Parent / family']]
+const accessOf = (p) => (p.is_executive || p.role === 'admin' ? 'exec' : p.role)
+const ACCESS_RANK = { exec: 0, committee: 1, coach: 2, volunteer: 3, parent: 4 }
+const KIND_LABEL = { executive: 'Executive', committee: 'Committee', coach: 'Coach', volunteer: 'Volunteer' }
+
 function People() {
   const { isAdmin, isExec, user } = useAuth()
   const teams = useTeams()
   const [people, setPeople] = useState([])
   const [tc, setTc] = useState([])
+  const [apps, setApps] = useState([])
+  const [acct, setAcct] = useState({})
+  const [posts, setPosts] = useState([])
   const [err, setErr] = useState('')
   const load = useCallback(async () => {
-    const { data } = await supabase.from('profiles').select('*').order('created_at', { ascending: false })
+    const { data } = await supabase.from('profiles').select('*')
     setPeople(data || [])
     const { data: t } = await supabase.from('team_coaches').select('*')
     setTc(t || [])
+    const { data: v } = await supabase.from('volunteer_roles').select('profile_id, kind, status, detail, teams(name)').eq('season', REG_SEASON).in('status', ['pending', 'approved'])
+    setApps(v || [])
+    const { data: cr } = await supabase.from('committee_roles').select('role, person, sort_order').eq('season', REG_SEASON).eq('grp', 'Executive').order('sort_order')
+    setPosts(cr || [])
+    if ((data || []).length) {
+      const { data: st } = await supabase.rpc('account_status', { p_ids: data.map((x) => x.id) })
+      setAcct(Object.fromEntries((st || []).map((x) => [x.id, x])))
+    }
   }, [])
   useEffect(() => { load() }, [load])
-  async function setExec(id, v) { const { error } = await supabase.from('profiles').update({ is_executive: v }).eq('id', id); setErr(error?.message || ''); load() }
-  async function setRole(id, role) { const { error } = await supabase.from('profiles').update({ role }).eq('id', id); setErr(error?.message || ''); load() }
+  async function setAccess(p, v) {
+    if (v === accessOf(p)) return
+    if (v === 'exec' && !window.confirm(`Give ${p.full_name || p.email} full executive access? They'll see all children's details, approve people and change settings. Only for the President, Vice President, Secretary and Treasurer.`)) return load()
+    if (accessOf(p) === 'exec' && !window.confirm(`Remove ${p.full_name || p.email}'s executive access?`)) return load()
+    const patch = v === 'exec' ? { role: 'admin', is_executive: true } : { role: v, is_executive: false }
+    const { error } = await supabase.from('profiles').update(patch).eq('id', p.id)
+    setErr(error?.message || ''); load()
+  }
   async function addCoach(profile_id, team_id) { if (!team_id) return; const { error } = await supabase.from('team_coaches').insert({ profile_id, team_id }); setErr(error?.message || ''); load() }
   async function rmCoach(profile_id, team_id) { await supabase.from('team_coaches').delete().eq('profile_id', profile_id).eq('team_id', team_id); load() }
-  const tname = (id) => teams.find((t) => t.id === id)?.name + ' ' + (teams.find((t) => t.id === id)?.season || '')
+  const tname = (id) => { const t = teams.find((x) => x.id === id); return t ? `${t.name} ${t.season}` : '' }
+  const postOf = (p) => posts.filter((r) => r.person && p.full_name && r.person.toLowerCase().includes(p.full_name.toLowerCase())).map((r) => r.role)
+  const sorted = [...people].sort((x, y) => (ACCESS_RANK[accessOf(x)] - ACCESS_RANK[accessOf(y)]) || ((posts.findIndex((r) => postOf(x).includes(r.role)) + 99) % 99 - (posts.findIndex((r) => postOf(y).includes(r.role)) + 99) % 99) || (x.full_name || x.email).localeCompare(y.full_name || y.email))
+  const execCount = people.filter((p) => accessOf(p) === 'exec').length
   return (
     <>
-      <p className="muted small note-wide">Tick <b>Executive</b> for the President, Vice President, Secretary and Treasurer – only they can sign off registrations and volunteers. Everyone starts with family access (register children, reply to galas). Coach, committee, volunteer or executive access is added when an executive approves their application. {isAdmin ? 'You can also change someone\'s access here.' : 'Only admins can change access levels.'} Only the executive sees children's personal details.</p>
+      <p className="muted small note-wide">Choose each person's <b>Access</b>. <b>Executive</b> is for the President, Vice President, Secretary and Treasurer ({execCount} of 4 filled{execCount >= 4 ? '' : ` – ${4 - execCount} to go`}) and gives full access. Everyone else starts with family access; coach, committee and volunteer access is normally added by approving their application. Only the executive sees children's personal details.</p>
       {err && <p className="err">{err}</p>}
       {isExec ? <Invite onSent={load} /> : <div className="card"><h3 style={{ marginTop: 0 }}>Invite someone</h3><p className="small">Inviting is for the executive and needs your two-factor code for this sign-in. <a href="/security">Enter your code</a>, then come back here.</p></div>}
       <div className="table-wrap"><table className="people">
-        <thead><tr><th>Name</th><th>Email</th><th>Phone</th><th>Access</th><th className="c">Executive</th><th>Coaches team</th></tr></thead>
-        <tbody>{people.map((p) => <tr key={p.id}>
-          <td>{p.full_name}</td><td>{p.email}</td><td>{p.phone}</td>
-          <td>{isAdmin && p.id !== user.id ? <select value={p.role} onChange={(e) => setRole(p.id, e.target.value)}>{Object.entries(ROLE_LABEL).map(([r, l]) => <option key={r} value={r}>{l}</option>)}</select> : ROLE_LABEL[p.role] || p.role}</td>
-          <td className="c">{isAdmin ? <input type="checkbox" checked={!!p.is_executive} onChange={(e) => setExec(p.id, e.target.checked)} title="President, VP, Secretary, Treasurer – can sign off registrations and volunteers" /> : (p.is_executive ? 'Yes' : '')}</td>
-          <td>{tc.filter((t) => t.profile_id === p.id).map((t) => <span key={t.team_id} className="pill">{tname(t.team_id)} <button className="link danger" onClick={() => rmCoach(p.id, t.team_id)}>×</button></span>)}
-            <select value="" onChange={(e) => addCoach(p.id, e.target.value)}><option value="">+ team</option>{teams.map((t) => <option key={t.id} value={t.id}>{t.name} {t.season}</option>)}</select></td>
-        </tr>)}</tbody>
+        <thead><tr><th>Name</th><th>Joined</th><th>Access</th><th>Applications ({REG_SEASON})</th><th>Coaches team</th></tr></thead>
+        <tbody>{sorted.map((p) => {
+          const st = acct[p.id]
+          const mine = apps.filter((x) => x.profile_id === p.id)
+          const invitedBy = mine.find((x) => /^Invited by/.test(x.detail || ''))?.detail
+          const post = postOf(p)
+          return <tr key={p.id}>
+            <td><b>{p.full_name || '—'}</b>{post.length > 0 && <span className="pill good small-pill">{post.join(', ')}</span>}<br /><span className="small muted">{p.email}{p.phone ? ` · ${p.phone}` : ''}</span></td>
+            <td className="small">{st?.invited_at ? <>{invitedBy || 'Invited'}<br /><span className={st.confirmed_at ? 'muted' : 'warn-text'}>{st.confirmed_at ? `Accepted ${fmtDate(st.confirmed_at.slice(0, 10), { day: 'numeric', month: 'short' })}` : 'Hasn\'t accepted yet'}</span></> : <>Signed up themselves<br /><span className="muted">{p.created_at ? fmtDate(p.created_at.slice(0, 10), { day: 'numeric', month: 'short' }) : ''}</span></>}</td>
+            <td>{isAdmin && p.id !== user.id ? <select value={accessOf(p)} onChange={(e) => setAccess(p, e.target.value)}>{ACCESS_OPTS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select> : ACCESS_OPTS.find(([v]) => v === accessOf(p))?.[1]}</td>
+            <td className="small">{mine.length === 0 ? <span className="muted">—</span> : mine.map((x, i) => <span key={i} className={'pill ' + (x.status === 'approved' ? 'good' : 'wait')}>{KIND_LABEL[x.kind]}{x.teams?.name ? ` · ${x.teams.name}` : ''}: {x.status === 'approved' ? 'approved' : 'pending'}</span>)}</td>
+            <td>{tc.filter((t) => t.profile_id === p.id).map((t) => <span key={t.team_id} className="pill">{tname(t.team_id)} <button className="link danger" onClick={() => rmCoach(p.id, t.team_id)}>×</button></span>)}
+              <select value="" onChange={(e) => addCoach(p.id, e.target.value)}><option value="">+ team</option>{teams.filter((t) => t.season === REG_SEASON).map((t) => <option key={t.id} value={t.id}>{t.name} {t.season}</option>)}</select></td>
+          </tr>
+        })}</tbody>
       </table></div>
     </>
   )
