@@ -45,7 +45,7 @@ export default function Volunteer() {
   const [file, setFile] = useState(null)
   const [apps, setApps] = useState([])
   const [teams, setTeams] = useState([])
-  const [req, setReq] = useState({ kind: 'coach', detail: '', team_id: '' })
+  const [req, setReq] = useState({ kind: '', detail: '', team_id: '' })
   const [msg, setMsg] = useState(null)
 
   const load = useCallback(async () => {
@@ -81,14 +81,17 @@ export default function Volunteer() {
 
   async function apply(e) {
     e.preventDefault(); setMsg(null)
+    if (!req.kind) return setMsg({ ok: false, text: 'Choose a role first.' })
     const { error } = await supabase.from('volunteer_roles').insert({ profile_id: user.id, season: REG_SEASON, kind: req.kind, detail: req.detail, team_id: req.kind === 'coach' && req.team_id ? req.team_id : null })
-    if (error) return setMsg({ ok: false, text: error.message })
-    setReq({ kind: 'coach', detail: '', team_id: '' }); load()
+    if (error) return setMsg({ ok: false, text: /duplicate|unique/i.test(error.message) ? "You've already applied for that role." : error.message })
+    setReq({ kind: '', detail: '', team_id: '' }); load()
     setMsg({ ok: true, text: 'Thanks! Your application is with the executive committee.' })
   }
   async function withdraw(id) { await supabase.from('volunteer_roles').update({ status: 'withdrawn' }).eq('id', id); load() }
 
   const [cls, label] = wwccState(w)
+  const taken = new Set(apps.filter((a) => ['pending', 'approved'].includes(a.status) && a.season === REG_SEASON).map((a) => a.kind))
+  const open = KINDS.filter(([k]) => !taken.has(k))
   return (
     <div className="wrap">
       <h1>Volunteer with MBFC</h1>
@@ -98,7 +101,8 @@ export default function Volunteer() {
       <div className="grid2">
         <section>
           <h2>1. Your details & WWCC</h2>
-          {(!w || w.pending || (w.expiry && new Date(w.expiry) < new Date())) && <ApplyWWCC />}
+          {(!w || (w.expiry && new Date(w.expiry) < new Date())) && <ApplyWWCC />}
+          {w?.pending && <p className="card small">You've applied for your WWCC – thanks. When the card arrives (3 to 12 weeks), untick "I've applied" below and add the card number, expiry and a photo.</p>}
           <form className="card form" onSubmit={saveAll}>
             <p className="row"><span className={'pill ' + cls}>{label}</span></p>
             <label>Full name<input value={me.full_name} onChange={(e) => setMe({ ...me, full_name: e.target.value })} required /></label>
@@ -121,14 +125,15 @@ export default function Volunteer() {
         </section>
 
         <section>
-          <h2>2. What are you applying for?</h2>
-          <form className="card form" onSubmit={apply}>
-            <label>Role<select value={req.kind} onChange={(e) => setReq({ ...req, kind: e.target.value })}>{KINDS.map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select></label>
+          <h2>2. {taken.size ? 'Your roles' : 'What are you applying for?'}</h2>
+          {taken.size > 0 && <p className="small muted">You've already applied for the roles below. Only add another if you're taking on something extra.</p>}
+          {open.length > 0 && <form className="card form" onSubmit={apply}>
+            <label>{taken.size ? 'Add another role' : 'Role'}<select value={req.kind} onChange={(e) => setReq({ ...req, kind: e.target.value })} required><option value="">Choose…</option>{open.map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select></label>
             {req.kind === 'coach' && <label>Team (if you know)<select value={req.team_id} onChange={(e) => setReq({ ...req, team_id: e.target.value })}><option value="">Not sure yet</option>{teams.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}</select></label>}
             <label>{['committee', 'executive'].includes(req.kind) ? 'Which role? (see About us for open roles)' : 'Anything we should know?'}<input value={req.detail} onChange={(e) => setReq({ ...req, detail: e.target.value })} /></label>
             <button className="btn">Apply</button>
-          </form>
-          <h3>My applications</h3>
+          </form>}
+          <h3>{taken.size ? 'Applications' : 'My applications'}</h3>
           {apps.length === 0 && <p className="muted">None yet.</p>}
           {apps.map((a) => (
             <div key={a.id} className="card">

@@ -25,11 +25,12 @@ export default function Login() {
   const toggle = (r) => setRoles((rs) => rs.includes(r) ? rs.filter((x) => x !== r) : [...rs, r])
   const [msg, setMsg] = useState(null)
   const [busy, setBusy] = useState(false)
+  const [sent, setSent] = useState(null)
   const { needsMfa, mfaEnrolled } = useAuth()
   if (user && needsMfa && mfaEnrolled) return <Navigate to="/security" state={{ from: loc.state?.from }} replace />
   if (user) return <Navigate to={loc.state?.from || '/family'} replace />
 
-  const redirect = window.location.origin + '/family'
+  const redirect = window.location.origin + '/start'
   async function submit(e) {
     e.preventDefault(); setBusy(true); setMsg(null)
     let error
@@ -46,12 +47,33 @@ export default function Login() {
       if (!roles.length) { setBusy(false); return setMsg({ ok: false, text: 'Tick at least one option.' }) }
       if (!strongPw(password)) { setBusy(false); return setMsg({ ok: false, text: PW_RULE }) }
       ;({ error } = await supabase.auth.signUp({ email, password, options: { emailRedirectTo: redirect, data: { full_name: name, phone, roles, season: REG_SEASON } } }))
-      const helper = roles.some((r) => r !== 'parent')
-      if (!error) setMsg({ ok: true, text: 'Account created. Check your email to confirm, then sign in.' + (helper ? ' Then go to Volunteer to upload your Working With Children Check so the executive can sign you off.' : '') })
+      if (!error) { setBusy(false); setPassword(''); window.scrollTo(0, 0); return setSent(email) }
     }
     if (error) setMsg({ ok: false, text: error.message })
     setBusy(false)
   }
+
+  async function resend() {
+    setBusy(true); setMsg(null)
+    const { error } = await supabase.auth.resend({ type: 'signup', email: sent, options: { emailRedirectTo: redirect } })
+    setBusy(false)
+    setMsg(error ? { ok: false, text: /rate|seconds/i.test(error.message) ? 'Please wait a minute before sending another email.' : error.message } : { ok: true, text: 'Sent again. It can take a minute or two to arrive.' })
+  }
+  if (sent) return (
+    <div className="wrap narrow">
+      <h1>Check your email</h1>
+      <div className="card">
+        <p>We've sent a confirmation link to <b>{sent}</b>.</p>
+        <ol className="small">
+          <li>Open the email from <b>Mount Beauty Football Club</b> (noreply@mountbeautyfc.org.au).</li>
+          <li>Tap <b>Confirm my email</b>. You'll be signed in and taken to a short "Getting started" checklist.</li>
+        </ol>
+        <p className="small muted">Not there after a couple of minutes? Check your spam or junk folder. The link lasts 24 hours.</p>
+        <div className="row"><button className="btn small ghost" disabled={busy} onClick={resend}>{busy ? 'Sending…' : 'Resend email'}</button><button className="link" onClick={() => { setSent(null); setMsg(null); setMode('signup') }}>Wrong email? Start again</button></div>
+        {msg && <p className={msg.ok ? 'ok' : 'err'}>{msg.text}</p>}
+      </div>
+    </div>
+  )
 
   return (
     <div className="wrap narrow">

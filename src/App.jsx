@@ -19,6 +19,7 @@ import Account from './pages/Account'
 import Volunteer from './pages/Volunteer'
 import Security from './pages/Security'
 import Welcome from './pages/Welcome'
+import Start, { useSetup } from './pages/Start'
 import Privacy from './pages/Privacy'
 import ResetPassword from './pages/ResetPassword'
 import DemoBar from './demo/DemoBar'
@@ -35,6 +36,12 @@ function Guard({ ok, elevated, children }) {
   return children
 }
 
+function SetupLink() {
+  const s = useSetup()
+  if (!s || s.allDone) return null
+  return <NavLink to="/start" className="nav-setup">Getting started{s.todo ? <span className="badge">{s.todo}</span> : null}</NavLink>
+}
+
 function WWCCNudge() {
   const { user } = useAuth()
   const [need, setNeed] = useState(false)
@@ -48,6 +55,8 @@ function WWCCNudge() {
     })()
   }, [user])
   const { needsMfa } = useAuth()
+  const here = useLocation().pathname
+  if (here === '/start' || here === '/security') return null
   if (needsMfa) return <div className="nudge"><div className="wrap">Your account has coach, committee or volunteer access – <Link to="/security">turn on two-factor sign-in</Link> (or enter your code) to use it.</div></div>
   if (!need) return null
   return <div className="nudge"><div className="wrap">You've applied to help out – please <Link to="/volunteer">upload your Working With Children Check</Link> so the executive can sign you off.</div></div>
@@ -76,6 +85,7 @@ export default function App() {
             <NavLink to="/teams">Teams</NavLink>
             <NavLink to="/football-victoria">Football Victoria</NavLink>
             <NavLink to="/privacy">Privacy</NavLink>
+            {user && <SetupLink />}
             {user && <NavLink to="/family">My family</NavLink>}
             {user && <NavLink to="/board">Messages</NavLink>}
             {user && <NavLink to="/volunteer">Volunteer</NavLink>}
@@ -111,6 +121,7 @@ export default function App() {
           <Route path="/security" element={<Guard><Security /></Guard>} />
           <Route path="/privacy" element={<Privacy />} />
           <Route path="/welcome" element={<Welcome />} />
+          <Route path="/start" element={<Guard><Start /></Guard>} />
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="*" element={<div className="wrap"><h1>Page not found</h1><Link to="/">Back home</Link></div>} />
         </Routes>

@@ -367,3 +367,13 @@ dl.mini dd { margin: 0; }
 .fvpair + .fvpair { margin-top: 18px; }
 
 .setupkey { word-break: break-all; background: var(--ground); padding: 4px 8px; border-radius: 6px; font-size: .85rem; }
+
+/* Getting started checklist */
+.setup { list-style: none; padding: 0; margin: 0 0 24px; display: grid; gap: 10px; }
+.setup li { display: grid; grid-template-columns: 32px 1fr; gap: 12px; background: #fff; border-radius: var(--r, 12px); padding: 14px 16px; border: 1px solid rgba(30, 59, 47, .12); }
+.setup li p { margin: 4px 0 10px; }
+.setup .tick { width: 28px; height: 28px; border-radius: 50%; border: 2px solid var(--forest, #1e3b2f); display: grid; place-items: center; font-weight: 700; color: #fff; }
+.setup li.done { opacity: .75; }
+.setup li.done .tick { background: var(--forest, #1e3b2f); }
+.setup li.wait .tick { border-color: var(--marker, #f08a3c); color: var(--marker, #f08a3c); }
+.nav-setup .badge { display: inline-grid; place-items: center; min-width: 18px; height: 18px; margin-left: 6px; padding: 0 5px; border-radius: 9px; background: var(--marker, #f08a3c); color: var(--forest, #1e3b2f); font-size: 12px; font-weight: 700; }
