@@ -18,6 +18,7 @@ import Board from './pages/Board'
 import Account from './pages/Account'
 import Volunteer from './pages/Volunteer'
 import Security from './pages/Security'
+import Welcome from './pages/Welcome'
 import Privacy from './pages/Privacy'
 import ResetPassword from './pages/ResetPassword'
 import DemoBar from './demo/DemoBar'
@@ -109,6 +110,7 @@ export default function App() {
           <Route path="/committee/*" element={<Guard elevated ok={isStaff || !!profile?.is_executive}><Committee /></Guard>} />
           <Route path="/security" element={<Guard><Security /></Guard>} />
           <Route path="/privacy" element={<Privacy />} />
+          <Route path="/welcome" element={<Welcome />} />
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="*" element={<div className="wrap"><h1>Page not found</h1><Link to="/">Back home</Link></div>} />
         </Routes>

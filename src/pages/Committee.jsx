@@ -311,8 +311,39 @@ function Teams() {
     ]} />
 }
 
+function Invite({ onSent }) {
+  const [f, setF] = useState({ full_name: '', email: '', kind: 'coach' })
+  const [busy, setBusy] = useState(false)
+  const [msg, setMsg] = useState(null)
+  async function send(e) {
+    e.preventDefault(); setMsg(null); setBusy(true)
+    const { data, error } = await supabase.functions.invoke('invite-member', { body: f })
+    setBusy(false)
+    let text = data?.error
+    if (error && !text) { try { text = (await error.context.json()).error } catch { text = error.message } }
+    if (text) return setMsg({ ok: false, text })
+    setMsg({ ok: true, text: `Invitation sent to ${f.email}. Their application will appear in Approve applications once they've added their WWCC.` })
+    setF({ full_name: '', email: '', kind: f.kind }); onSent?.()
+  }
+  return (
+    <form className="card" onSubmit={send}>
+      <h3 style={{ marginTop: 0 }}>Invite someone</h3>
+      <p className="small muted">Emails them a link to join, with their role already chosen. It gives them no access on its own – they still add their WWCC and you approve them as usual.</p>
+      <div className="row wrap">
+        <label>Name<input value={f.full_name} onChange={(e) => setF({ ...f, full_name: e.target.value })} required /></label>
+        <label>Email<input type="email" value={f.email} onChange={(e) => setF({ ...f, email: e.target.value })} required /></label>
+        <label>Joining as<select value={f.kind} onChange={(e) => setF({ ...f, kind: e.target.value })}>
+          <option value="executive">Executive (President, VP, Secretary, Treasurer)</option><option value="committee">Committee member</option>
+          <option value="coach">Coach</option><option value="volunteer">Volunteer</option><option value="parent">Parent / family</option></select></label>
+      </div>
+      {msg && <p className={msg.ok ? 'ok' : 'err'}>{msg.text}</p>}
+      <button className="btn small" disabled={busy}>{busy ? 'Sending…' : 'Send invitation'}</button>
+    </form>
+  )
+}
+
 function People() {
-  const { isAdmin, user } = useAuth()
+  const { isAdmin, isExec, user } = useAuth()
   const teams = useTeams()
   const [people, setPeople] = useState([])
   const [tc, setTc] = useState([])
@@ -333,6 +364,7 @@ function People() {
     <>
       <p className="muted small">Tick <b>Executive</b> for the President, Vice President, Secretary and Treasurer – only they can sign off registrations and volunteers. Coaches and volunteers get their access automatically when an executive approves their application. Everyone who signs up starts as a parent. {isAdmin ? 'As an admin you can make people coaches, committee members or admins.' : 'Only admins can change access levels.'} Committee members see all player details.</p>
       {err && <p className="err">{err}</p>}
+      {isExec && <Invite onSent={load} />}
       <div className="table-wrap"><table>
         <thead><tr><th>Name</th><th>Email</th><th>Phone</th><th>Access</th><th>Executive</th><th>Coaches</th></tr></thead>
         <tbody>{people.map((p) => <tr key={p.id}>
