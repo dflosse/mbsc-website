@@ -85,7 +85,8 @@ class Query {
   is(k, v) { this.filters.push((r) => (r[k] ?? null) === v); return this }
   ilike(k, v) { this.filters.push((r) => String(r[k] || '').toLowerCase() === String(v).toLowerCase()); return this }
   order(k, o = {}) { this.orders.push([k, o.ascending !== false]); return this }
-  or(expr) { const parts = expr.split(',').map((x) => x.split('.')); this.filters.push((r) => parts.some(([k, , v]) => String(r[k]) === v)); return this }
+  or(expr) { const parts = expr.split(',').map((x) => x.split('.')); this.filters.push((r) => parts.some(([k, , v]) => (v === 'null' ? r[k] == null : String(r[k]) === v))); return this }
+  not(k, op, v) { this.filters.push((r) => (op === 'is' && v === null ? r[k] != null : r[k] !== v)); return this }
   limit(n) { this.lim = n; return this }
   maybeSingle() { this.single = true; return this }
   insert(row) { this.op = 'insert'; this.payload = row; return this }

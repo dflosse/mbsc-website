@@ -128,6 +128,25 @@ export const tasks = [
   K('Confirm coaches for every squad', 'President / Secretary', 'Head + assistant per squad.', 'Coaching', 'todo', '2027-03-20'),
 ]
 
+// Preseason sections for the sample actions (in order above)
+;['plan', 'plan', 'register', 'teams', 'plan', 'teams', 'teams'].forEach((st, i) => { tasks[i].stage = st; tasks[i].sort = i })
+tasks.push(
+  { id: 'ps1', season: 2027, stage: 'register', sort: 1, title: 'Set 2027 fees in PlayFootball and open registrations', owner: 'Secretary', status: 'todo', category: 'Registrations' },
+  { id: 'ps2', season: 2027, stage: 'register', sort: 5, title: 'Approve player registrations weekly', owner: 'Executive', status: 'doing', category: 'Registrations', link: '/committee/approvals' },
+  { id: 'ps3', season: 2027, stage: 'people', sort: 1, title: 'Call-out for coaches, assistant coaches and gala helpers', owner: 'President', status: 'todo', category: 'Volunteers', notes: 'Aim for a head coach and an assistant per team.' },
+  { id: 'ps4', season: 2027, stage: 'people', sort: 2, title: 'Every coach and volunteer: website account, WWCC checked and connected, approved', owner: 'Executive', status: 'todo', category: 'Child safety', link: '/committee/wwcc' },
+  { id: 'ps5', season: 2027, stage: 'ready', sort: 1, title: 'Uniform handout day and bonds collected', owner: 'Uniforms', status: 'todo', category: 'Uniforms', link: '/committee/kit' },
+  { id: 'ps6', season: 2027, stage: 'gala', sort: 1, title: 'Submit team entries to each host club', owner: 'Secretary', status: 'todo', category: 'Galas', link: '/committee/galas' },
+)
+export const key_dates = [
+  { id: 'kd1', season: 2027, label: 'AGM', on_date: '2027-02-24', sort: 1 },
+  { id: 'kd2', season: 2027, label: 'Registrations open', on_date: '2027-02-01', sort: 2, notes: 'Website + PlayFootball' },
+  { id: 'kd3', season: 2027, label: 'Come n Try day', on_date: '2027-03-10', sort: 3 },
+  { id: 'kd4', season: 2027, label: 'Registrations close', on_date: null, sort: 4 },
+  { id: 'kd5', season: 2027, label: 'First training', on_date: '2027-04-21', sort: 5, notes: 'Les Peart Oval' },
+  { id: 'kd6', season: 2027, label: 'First gala', on_date: null, sort: 6 },
+]
+
 export const kit = Array.from({ length: 40 }, (_, i) => {
   if (i === 39) return { id: 'k39', jersey_label: 'R12', jersey_number: 12, size: '10', kit_bag: '43', holder_name: 'Mia Parker', player_id: 'kid1', status: 'Loaned Out', shin_guard: 'S', boots_on_loan: false, registration_paid: true, notes: '', sort_order: 39, season: 2027, bond_paid: true, bond_refunded: false }
   const p = players[(i * 2) % players.length]

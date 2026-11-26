@@ -8,6 +8,7 @@ import { KitTags, kitText } from './kitInfo'
 import { wwccState } from './Volunteer'
 import Treasurer from './Treasurer'
 import Assets from './Assets'
+import Preseason, { STAGES } from './Preseason'
 import { bondInfo } from './bond'
 import { sortPlayers, TEAM_SEL } from './sortPlayers'
 
@@ -18,12 +19,13 @@ export default function Committee() {
     <div className="wrap wide">
       <h1>Committee</h1>
       <div className="tabs">
-        {[['overview', 'Overview'], ['approvals', 'Approve applications'], ['players', 'Players'], ['wwcc', 'WWCC register'], ['galas', 'Galas'], ['tasks', 'Action list'], ['kit', 'Uniforms'], ['registers', 'Keys & assets'], ['contacts', 'Contacts & handover'], ['teams', 'Teams'], ['people', 'People & access'], ['docs', 'Documents'], ['roles', 'Committee roles'], ['treasurer', 'Treasurer'], ['settings', 'Fees & settings'], ['audit', 'Change log']].filter(([p]) => isExec || !EXEC_ONLY.includes(p)).map(([p, l]) => <NavLink key={p} to={'/committee/' + p} className={EXEC_ONLY.includes(p) ? 'exec' : ''}>{l}</NavLink>)}
+        {[['overview', 'Overview'], ['preseason', 'Preseason'], ['approvals', 'Approve applications'], ['players', 'Players'], ['wwcc', 'WWCC register'], ['galas', 'Galas'], ['tasks', 'Action list'], ['kit', 'Uniforms'], ['registers', 'Keys & assets'], ['contacts', 'Contacts & handover'], ['teams', 'Teams'], ['people', 'People & access'], ['docs', 'Documents'], ['roles', 'Committee roles'], ['treasurer', 'Treasurer'], ['settings', 'Fees & settings'], ['audit', 'Change log']].filter(([p]) => isExec || !EXEC_ONLY.includes(p)).map(([p, l]) => <NavLink key={p} to={'/committee/' + p} className={EXEC_ONLY.includes(p) ? 'exec' : ''}>{l}</NavLink>)}
       </div>
       {!isExec && <p className="muted small">Children's details, approvals and the WWCC register are visible to the executive committee only.</p>}
       <Routes>
         <Route index element={<Navigate to="overview" replace />} />
         <Route path="overview" element={<Overview />} />
+        <Route path="preseason" element={<Preseason />} />
         <Route path="approvals" element={<Approvals />} />
         <Route path="directory" element={<Navigate to="/committee/players" replace />} />
         <Route path="wwcc" element={<WWCCRegister />} />
@@ -70,6 +72,7 @@ function Overview() {
   if (!s) return <p className="muted">Loading…</p>
   return (
     <>
+      <PreseasonBanner />
       <p><b>Next AGM:</b> {st.agm || 'TBA'} <span className="muted small">(committee and executive only – not shown on the public site; set it in Fees & settings)</span></p>
       <div className="stats">
         <Stat n={s.pending} l="player registrations awaiting sign-off" to="approvals" warn={s.pending > 0} />
@@ -87,6 +90,12 @@ function Overview() {
       <div className="table-wrap"><table><tbody>{due.map((t) => <tr key={t.id}><td><b>{t.title}</b><br /><span className="muted small">{t.notes}</span></td><td>{t.owner}</td><td className="nowrap">{t.due ? fmtDate(t.due) : ''}</td></tr>)}</tbody></table></div>
     </>
   )
+}
+function PreseasonBanner() {
+  const [c, setC] = useState(null)
+  useEffect(() => { supabase.from('tasks').select('status').eq('season', REG_SEASON).not('stage', 'is', null).then(({ data }) => setC({ done: (data || []).filter((t) => t.status === 'done').length, total: (data || []).length })) }, [])
+  if (!c || !c.total) return null
+  return <NavLink to="/committee/preseason" className="pre-banner"><b>{REG_SEASON} preseason</b><span className="bar"><span style={{ width: `${(c.done / c.total) * 100}%` }} /></span><span>{c.done} of {c.total} done · open checklist →</span></NavLink>
 }
 const Stat = ({ n, l, to, warn }) => <NavLink to={'/committee/' + to} className={'stat' + (warn ? ' warn' : '')}><b>{n ?? '–'}</b><span>{l}</span></NavLink>
 
@@ -327,7 +336,7 @@ function Tasks() {
           { key: 'title', label: 'Action', type: 'textarea', width: 220 }, { key: 'owner', label: 'Who', width: 100 },
           { key: 'due', label: 'Due', type: 'date' },
           { key: 'status', label: 'Status', type: 'select', options: [['todo', 'To do'], ['doing', 'Doing'], ['done', 'Done']] },
-          { key: 'category', label: 'Area', width: 90 }, { key: 'notes', label: 'Notes', type: 'textarea', width: 260 },
+          { key: 'category', label: 'Area', width: 90 }, { key: 'stage', label: 'Preseason section', type: 'select', options: STAGES.map((x) => [x.key, x.title]), width: 130 }, { key: 'notes', label: 'Notes', type: 'textarea', width: 260 },
         ]} />
     </>
   )
