@@ -20,6 +20,7 @@ import Volunteer from './pages/Volunteer'
 import Security from './pages/Security'
 import Welcome from './pages/Welcome'
 import Start, { useSetup } from './pages/Start'
+import useFreshVersion from './useFreshVersion'
 import Privacy from './pages/Privacy'
 import ResetPassword from './pages/ResetPassword'
 import DemoBar from './demo/DemoBar'
@@ -65,6 +66,7 @@ function WWCCNudge() {
 export default function App() {
   const { user, profile, coachTeams, isStaff, isCoach, signOut, recovering } = useAuth()
   const where = useLocation()
+  useFreshVersion()
   const showCoach = profile?.role === 'coach' || coachTeams.length > 0
   const showCommittee = ['committee', 'admin'].includes(profile?.role) || profile?.is_executive
   const [open, setOpen] = useState(false)
