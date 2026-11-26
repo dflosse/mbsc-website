@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase, REG_SEASON, fmtDate } from '../supabase'
 import { useAuth } from '../auth'
+import { useLive } from './EditTable'
 
 const KINDS = [
   ['coach', 'Coach or assistant coach'],
@@ -30,6 +31,7 @@ export function ApplyWWCC() {
 export const wwccState = (w) => {
   if (!w) return ['bad', 'No WWCC on file']
   if (w.pending) return [w.status_checked_at && w.wwc_connected_at ? 'wait' : 'wait', w.status_checked_at && w.wwc_connected_at ? 'Applied – card not issued yet' : 'Applied – awaiting executive check']
+  if (!w.expiry) return ['wait', w.status_checked_at && w.wwc_connected_at ? 'Card checked – expiry date not recorded' : 'Card – expiry date not recorded']
   const days = (new Date(w.expiry) - new Date()) / 86400000
   if (days < 0) return ['bad', 'Expired ' + fmtDate(w.expiry)]
   if (!w.status_checked_at || !w.wwc_connected_at) return ['wait', 'Awaiting executive check']
@@ -55,6 +57,7 @@ export default function Volunteer() {
     setApps(a || [])
   }, [user.id])
   useEffect(() => { load() }, [load])
+  useLive(['wwcc', 'volunteer_roles'], load)
   useEffect(() => { if (profile) setMe({ full_name: profile.full_name || '', phone: profile.phone || '', address: profile.address || '' }) }, [profile])
   useEffect(() => { supabase.from('teams').select('id,name').eq('season', REG_SEASON).order('sort_order').then(({ data }) => setTeams(data || [])) }, [])
 

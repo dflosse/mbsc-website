@@ -605,6 +605,7 @@ function Approvals() {
       setAcct(Object.fromEntries((st || []).map((x) => [x.id, x])))
     }
   }, [])
+  useLive(['wwcc', 'volunteer_roles', 'profiles', 'players', 'guardian_invites'], load)
   async function resend(p) {
     setMsg('')
     const { data, error } = await supabase.functions.invoke('invite-member', { body: { email: p.email, full_name: p.full_name, resend: true } })
@@ -676,7 +677,7 @@ function Approvals() {
               {w && <div className="wwccbox">
                 <p><span className={'pill ' + cls}>{label}</span></p>
                 {w ? <>
-                  <p className="small">{w.pending ? <>Applied – application no. <b>{w.card_number}</b> ({w.card_type}). Check it in the status checker using the application number.</> : <>Card <b>{w.card_number}</b> ({w.card_type}) · expires {fmtDate(w.expiry)}</>}</p>
+                  <p className="small">{w.pending ? <>Applied – application no. <b>{w.card_number}</b> ({w.card_type}). Check it in the status checker using the application number.</> : <>Card <b>{w.card_number}</b> ({w.card_type}) · {w.expiry ? `expires ${fmtDate(w.expiry)}` : <span className="warn-text">expiry not recorded – add it with "Correct card details"</span>}</>}</p>
                   {w.file_path && <button className="link" onClick={() => viewCard(w.file_path)}>{w.pending ? 'View application receipt' : 'View card image'}</button>}
                   {isExec && <div className="row small-gap"><a className="btn small ghost" href={WWC_STATUS_URL} target="_blank" rel="noreferrer">Status checker</a><a className="btn small ghost" href={WWC_CONNECT_URL} target="_blank" rel="noreferrer">WWC Connect login</a><button className="link small" onClick={() => setFixing(fixing === a.profile_id ? null : a.profile_id)}>{fixing === a.profile_id ? 'Close' : 'Correct card details'}</button></div>}
                   {fixing === a.profile_id && <FixCard w={w} onDone={(m) => { setFixing(null); setMsg(m); load() }} />}
@@ -751,6 +752,10 @@ function WWCCRegister() {
   const [rows, setRows] = useState([])
   const [reload, setReload] = useState(0)
   const [note, setNote] = useState('')
+  const bump = useCallback(() => setReload((x) => x + 1), [])
+  useLive(['wwcc', 'profiles', 'volunteer_roles', 'wwcc_offline'], bump)
+  const [offline, setOffline] = useState([])
+  useEffect(() => { supabase.from('wwcc_offline').select('id, first_name, last_name').then(({ data }) => setOffline(data || [])) }, [reload])
   async function purge(p, w) {
     if (!window.confirm(`Permanently delete ${p.full_name || p.email}'s WWCC record and card image? This can't be undone.`)) return
     if (w.file_path) await supabase.storage.from('wwcc').remove([w.file_path])
@@ -793,6 +798,7 @@ function WWCCRegister() {
   for (const { p, w, active } of rows) {
     const n = p.full_name || p.email
     if (!w) continue
+    if (active && !w.pending && !w.expiry) todo.push(`${n}: card expiry date not recorded – add it from the status checker`)
     if (active && !w.status_checked_at) todo.push(`${n}: check their ${w.pending ? 'application' : 'card'} in the status checker`)
     if (active && w.pending && daysSince(w.updated_at) > 84) todo.push(`${n}: applied over 12 weeks ago – ask whether their card has arrived`)
     if (active && w.status_checked_at && !w.wwc_connected_at) todo.push(`${n}: connect in WWC Connect (within 21 days of starting)`)
@@ -823,7 +829,7 @@ function WWCCRegister() {
       <h2>People with a site account</h2>
       <p className="muted small">Sorted by expiry, so problems are at the top. <b>Retention:</b> delete a WWCC record once someone stops volunteering, no later than 12 months after their last role (WWC Connect keeps the 7-year history).</p>
       <div className="table-wrap"><table><thead><tr><th>Name</th><th>Access</th><th>Card</th><th>Expiry</th><th>Status</th><th>Checked</th><th>WWC Connect</th><th>Active?</th><th /></tr></thead>
-        <tbody>{sorted.map(({ p, w, active }) => { const [cls, label] = wwccState(w); return <tr key={p.id}><td>{p.full_name || p.email}<br /><span className="small muted">{p.phone || 'no phone'} · {p.address ? 'address ✓' : 'no address'}</span></td><td>{p.role}{p.is_executive ? ' · exec' : ''}</td><td>{w?.card_number || '—'}<br /><span className="small muted">{w?.card_type}</span></td><td>{w ? (w.pending ? <span className="small">Application no.</span> : fmtDate(w.expiry)) : '—'}</td><td><span className={'pill ' + cls}>{label}</span></td>
+        <tbody>{sorted.map(({ p, w, active }) => { const [cls, label] = wwccState(w); return <tr key={p.id}><td>{p.full_name || p.email}<br /><span className="small muted">{p.phone || 'no phone'} · {p.address ? 'address ✓' : 'no address'}</span></td><td>{p.role}{p.is_executive ? ' · exec' : ''}</td><td>{w?.card_number || '—'}<br /><span className="small muted">{w?.card_type}</span></td><td>{w ? (w.pending ? <span className="small">Application no.</span> : w.expiry ? fmtDate(w.expiry) : <span className="small warn-text">not recorded</span>) : '—'}</td><td><span className={'pill ' + cls}>{label}</span></td>
           <td className="small">{w ? (w.status_checked_at ? fmtDate(w.status_checked_at.slice(0, 10)) : <button className="btn small ghost" onClick={() => act(p, 'check')}>Mark checked</button>) : '—'}</td>
           <td className="small">{!w ? '—' : w.disconnected_at ? <>Disconnected {fmtDate(w.disconnected_at.slice(0, 10))}</> : w.wwc_connected_at ? <>Connected {fmtDate(w.wwc_connected_at.slice(0, 10))}
             {w.details_changed_at && <><br /><span className="pill wait">Details changed</span> <button className="link" onClick={() => act(p, 'updated')}>Updated ✓</button></>}
@@ -831,8 +837,14 @@ function WWCCRegister() {
             <br /><button className="link danger" onClick={() => act(p, 'disconnect')}>Disconnected…</button></> : <button className="btn small ghost" onClick={() => act(p, 'connect')}>Mark connected</button>}</td>
           <td>{active ? 'Yes' : <span className="pill wait">Not active</span>}</td><td>{w && <button className="link danger" onClick={() => purge(p, w)}>Delete record</button>}</td></tr> })}</tbody></table></div>
       <h2>People without a site account</h2>
+      {(() => {
+        const norm = (x) => (x || '').toLowerCase().replace(/\(.*?\)/g, '').replace(/\s+/g, ' ').trim()
+        const dup = offline.filter((o) => rows.some(({ p, w }) => w && norm(p.full_name).includes(norm(o.last_name)) && norm(p.full_name).startsWith(norm(o.first_name).split(' ')[0])))
+        if (!dup.length) return null
+        return <div className="card callout small"><b>Now on the site:</b> {dup.map((o) => `${o.first_name} ${o.last_name}`).join(', ')} {dup.length > 1 ? 'have' : 'has'} a site account with a WWCC on file, so the old row below is out of date. <button className="link danger" onClick={async () => { if (!window.confirm(`Remove the old rows for ${dup.map((o) => o.first_name + ' ' + o.last_name).join(', ')}? Their site WWCC record stays.`)) return; await supabase.from('wwcc_offline').delete().in('id', dup.map((o) => o.id)); bump() }}>Remove old rows</button></div>
+      })()}
       <p className="muted small">Brought across from the old Operations Doc. Once a person signs up on the site and uploads their card, delete their row here. Dates are the day you did each step.</p>
-      <EditTable table="wwcc_offline" order={[['season', false], ['last_name']]} search={['last_name', 'first_name', 'club_role', 'notes']} defaults={{ season: REG_SEASON }}
+      <EditTable live table="wwcc_offline" order={[['season', false], ['last_name']]} search={['last_name', 'first_name', 'club_role', 'notes']} defaults={{ season: REG_SEASON }}
         cols={[{ key: 'season', label: 'Season', type: 'number', width: 70 }, { key: 'last_name', label: 'Family name', width: 110 }, { key: 'first_name', label: 'Given name', width: 100 },
           { key: 'club_role', label: 'Role', width: 90 }, { key: 'card_number', label: 'Card no.', width: 110 }, { key: 'card_type', label: 'Type', type: 'select', options: [['Volunteer', 'Volunteer'], ['Employee', 'Employee'], ['VIT', 'VIT teacher'], ['Applied', 'Applied – awaiting card']], width: 100 },
           { key: 'expiry', label: 'Expiry', type: 'date' }, { key: 'email', label: 'Email', width: 140 }, { key: 'phone', label: 'Phone', width: 100 }, { key: 'address', label: 'Address', width: 160 },
