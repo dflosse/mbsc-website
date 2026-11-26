@@ -39,122 +39,181 @@ export const wwccState = (w) => {
   return ['good', 'Verified · expires ' + fmtDate(w.expiry)]
 }
 
+const BLANK_W = { card_number: '', expiry: '', card_type: 'Volunteer', pending: false }
+const BLANK_REQ = { kind: '', detail: '', team_id: '' }
+const roleName = (k) => KINDS.find((x) => x[0] === k)?.[1].split(' (')[0] || k
+
 export default function Volunteer() {
   const { user, profile, refresh } = useAuth()
-  const [me, setMe] = useState({ full_name: '', phone: '', address: '' })
   const [w, setW] = useState(null)
-  const [wf, setWf] = useState({ card_number: '', expiry: '', card_type: 'Volunteer', pending: false })
-  const [file, setFile] = useState(null)
   const [apps, setApps] = useState([])
   const [teams, setTeams] = useState([])
-  const [req, setReq] = useState({ kind: '', detail: '', team_id: '' })
+  const [loaded, setLoaded] = useState(false)
   const [msg, setMsg] = useState(null)
+  const [updatingCard, setUpdatingCard] = useState(false)
 
   const load = useCallback(async () => {
     const { data: ww } = await supabase.from('wwcc').select('*').eq('profile_id', user.id).maybeSingle()
-    setW(ww); if (ww) setWf({ card_number: ww.card_number, expiry: ww.expiry || '', card_type: ww.card_type || 'Volunteer', pending: !!ww.pending })
+    setW(ww)
     const { data: a } = await supabase.from('volunteer_roles').select('*, teams(name)').eq('profile_id', user.id).order('created_at', { ascending: false })
-    setApps(a || [])
+    setApps(a || []); setLoaded(true)
   }, [user.id])
   useEffect(() => { load() }, [load])
   useLive(['wwcc', 'volunteer_roles'], load)
-  useEffect(() => { if (profile) setMe({ full_name: profile.full_name || '', phone: profile.phone || '', address: profile.address || '' }) }, [profile])
   useEffect(() => { supabase.from('teams').select('id,name').eq('season', REG_SEASON).order('sort_order').then(({ data }) => setTeams(data || [])) }, [])
+  async function withdraw(id) { if (window.confirm('Withdraw this application?')) { await supabase.from('volunteer_roles').update({ status: 'withdrawn' }).eq('id', id); load() } }
 
-  async function saveAll(e) {
-    e.preventDefault(); setMsg(null)
-    if (!me.full_name || !me.phone || !me.address) return setMsg({ ok: false, text: 'Please fill in your full name, mobile and address – the club needs these to link you in WWC Connect.' })
-    const { error: pe } = await supabase.from('profiles').update(me).eq('id', user.id)
-    if (pe) return setMsg({ ok: false, text: pe.message })
-    let file_path = w?.file_path || null
-    if (file) {
-      const ext = (file.name.split('.').pop() || 'jpg').toLowerCase()
-      file_path = `${user.id}/wwcc-${Date.now()}.${ext}`
-      const { error: ue } = await supabase.storage.from('wwcc').upload(file_path, file, { upsert: true })
-      if (ue) return setMsg({ ok: false, text: 'Upload failed: ' + ue.message })
-    }
-    if (!file_path) return setMsg({ ok: false, text: wf.pending ? 'Please upload a screenshot of your application receipt email from Service Victoria.' : 'Please upload a photo or PDF of your WWCC card (front), or a screenshot of your digital card.' })
-    if (!wf.pending && !wf.expiry) return setMsg({ ok: false, text: 'Please enter the expiry date on your card.' })
-    if (wf.pending && /^\d{7}[A-Z]-\d{2}$/i.test(wf.card_number.trim()) && !window.confirm('That looks like a WWCC card number. If you already have your card, choose "I have a WWCC card" and add its expiry date instead. Keep it as "applied"?')) return
-    const row = { profile_id: user.id, card_number: wf.card_number.trim().toUpperCase(), expiry: wf.pending ? null : wf.expiry, card_type: wf.card_type, pending: wf.pending, file_path }
-    const { error } = w ? await supabase.from('wwcc').update(row).eq('profile_id', user.id) : await supabase.from('wwcc').insert(row)
-    if (error) return setMsg({ ok: false, text: error.message })
-    setFile(null); refresh(); load()
-    setMsg({ ok: true, text: wf.pending ? 'Saved. The executive will check your application. When your card arrives, untick "I\'ve applied" and add the card number and expiry.' : 'Saved. The executive committee will check your WWCC.' })
-  }
-
-  async function apply(e) {
-    e.preventDefault(); setMsg(null)
-    if (!req.kind) return setMsg({ ok: false, text: 'Choose a role first.' })
-    const { error } = await supabase.from('volunteer_roles').insert({ profile_id: user.id, season: REG_SEASON, kind: req.kind, detail: req.detail, team_id: req.kind === 'coach' && req.team_id ? req.team_id : null })
-    if (error) return setMsg({ ok: false, text: /duplicate|unique/i.test(error.message) ? "You've already applied for that role." : /already covers/i.test(error.message) ? 'Your executive role already covers committee and volunteer work – no need to apply separately.' : error.message })
-    setReq({ kind: '', detail: '', team_id: '' }); load()
-    setMsg({ ok: true, text: 'Thanks! Your application is with the executive committee.' })
-  }
-  async function withdraw(id) { await supabase.from('volunteer_roles').update({ status: 'withdrawn' }).eq('id', id); load() }
-
-  const [cls, label] = wwccState(w)
-  const taken = new Set(apps.filter((a) => ['pending', 'approved'].includes(a.status) && a.season === REG_SEASON).map((a) => a.kind))
+  const current = apps.filter((a) => a.season === REG_SEASON && ['pending', 'approved'].includes(a.status))
+  const past = apps.filter((a) => !current.includes(a))
+  const taken = new Set(current.map((a) => a.kind))
   const open = KINDS.filter(([k]) => !taken.has(k) && !(taken.has('executive') && ['committee', 'volunteer'].includes(k)))
+  const [cls, label] = wwccState(w)
+  const cardOk = w && (w.pending || (w.expiry && new Date(w.expiry) >= new Date()))
+  if (!loaded) return <div className="wrap"><p className="muted">Loading…</p></div>
+
   return (
-    <div className="wrap">
-      <h1>Volunteer with MBFC</h1>
+    <div className="wrap vol">
+      <h1>Apply to Volunteer</h1>
       <p className="lead">The club runs on volunteers. Every coach, committee member and volunteer – including casual gala-day helpers – needs a current Working With Children Check and sign-off from the executive committee before they start.</p>
       {msg && <p className={'card ' + (msg.ok ? 'ok' : 'err')}>{msg.text}</p>}
 
-      <div className="grid2">
-        <section>
-          <h2>1. Your details & WWCC</h2>
-          {(!w || (w.expiry && new Date(w.expiry) < new Date())) && <ApplyWWCC />}
-          {w?.pending && <p className="card small">You've applied for your WWCC – thanks. When the card arrives (3 to 12 weeks), untick "I've applied" below and add the card number, expiry and a photo.</p>}
-          <form className="card form" onSubmit={saveAll}>
-            <p className="row"><span className={'pill ' + cls}>{label}</span></p>
-            <label>Full name<input value={me.full_name} onChange={(e) => setMe({ ...me, full_name: e.target.value })} required /></label>
-            <div className="grid2 tight">
-              <label>Mobile<input value={me.phone} onChange={(e) => setMe({ ...me, phone: e.target.value })} inputMode="tel" required /></label>
-              <label>Email<input value={profile?.email || ''} disabled /></label>
+      {(current.length > 0 || w) && (
+        <section className="card vol-status">
+          <h2>Where you're at</h2>
+          <div className="vs-grid">
+            <div>
+              <h3>Your roles for {REG_SEASON}</h3>
+              {current.length === 0 ? <p className="muted small">No applications yet.</p> : current.map((a) => (
+                <div key={a.id} className="vs-row">
+                  <span><b>{roleName(a.kind)}</b>{a.teams?.name ? ` – ${a.teams.name}` : ''}{a.detail ? <span className="small muted"> · {a.detail}</span> : null}</span>
+                  <span className="vs-right"><span className={'pill ' + (a.status === 'approved' ? 'good' : 'wait')}>{a.status === 'approved' ? 'Approved' : 'Awaiting sign-off'}</span>{a.status === 'pending' && <button className="link small" onClick={() => withdraw(a.id)}>Withdraw</button>}</span>
+                </div>
+              ))}
             </div>
-            <label>Home address<input value={me.address} onChange={(e) => setMe({ ...me, address: e.target.value })} required /></label>
-            <fieldset className="choice">
-              <legend>Your Working With Children Check</legend>
-              <label className="check"><input type="radio" name="wwcc-kind" checked={!wf.pending} onChange={() => setWf({ ...wf, pending: false })} /><span><b>I have a WWCC card</b> <span className="small muted">(physical or digital, with an expiry date)</span></span></label>
-              <label className="check"><input type="radio" name="wwcc-kind" checked={wf.pending} onChange={() => setWf({ ...wf, pending: true })} /><span><b>I've applied and I'm still waiting for my card</b> <span className="small muted">(you have an application number, no card yet)</span></span></label>
-            </fieldset>
-            <div className="grid2 tight">
-              <label>{wf.pending ? 'Application number' : 'WWCC card number'}<input value={wf.card_number} onChange={(e) => setWf({ ...wf, card_number: e.target.value })} required placeholder={wf.pending ? 'From your Service Victoria receipt' : 'e.g. 01234567A-01'} /></label>
-              {!wf.pending && <label>Expiry date<input type="date" value={wf.expiry} onChange={(e) => setWf({ ...wf, expiry: e.target.value })} required /></label>}
-              <label>Check type<select value={wf.card_type} onChange={(e) => setWf({ ...wf, card_type: e.target.value })}><option>Volunteer</option><option>Employee</option></select></label>
-              <label>{wf.pending ? 'Screenshot of your application receipt' : 'Photo or PDF of card'}<input type="file" accept="image/*,application/pdf" onChange={(e) => setFile(e.target.files?.[0] || null)} /></label>
+            <div>
+              <h3>Working With Children Check</h3>
+              <div className="vs-row"><span className={'pill ' + cls}>{label}</span>{(w || open.length === 0) && !updatingCard && <button className="link small" onClick={() => setUpdatingCard(true)}>{w ? 'Update my WWCC' : 'Add my WWCC'}</button>}</div>
+              {w?.pending && <p className="small muted">When your card arrives (3 to 12 weeks), choose "Update my WWCC" and add the card number, expiry and a photo.</p>}
             </div>
-            {w?.file_path && !file && <p className="small muted">Card image on file. Upload a new one only if your card has changed.</p>}
-            <button className="btn">Save details & WWCC</button>
-            <p className="small muted">Your card image is private: only you and the executive committee can see it. Changing your card details means it has to be re-checked.</p>
-          </form>
+          </div>
+          {past.length > 0 && <details className="small vs-past"><summary>Past applications ({past.length})</summary>{past.map((a) => <p key={a.id}>{a.season} · {roleName(a.kind)}{a.teams?.name ? ` – ${a.teams.name}` : ''} · {a.status}{a.decision_note ? ` – ${a.decision_note}` : ''}</p>)}</details>}
         </section>
+      )}
 
-        <section>
-          <h2>2. {taken.size ? 'Your roles' : 'What are you applying for?'}</h2>
-          {taken.size > 0 && <p className="small muted">You've already applied for the roles below. Only add another if you're taking on something extra.</p>}
-          {open.length > 0 && <form className="card form" onSubmit={apply}>
-            <label>{taken.size ? 'Add another role' : 'Role'}<select value={req.kind} onChange={(e) => setReq({ ...req, kind: e.target.value })} required><option value="">Choose…</option>{open.map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select></label>
-            {req.kind === 'coach' && <label>Team (if you know)<select value={req.team_id} onChange={(e) => setReq({ ...req, team_id: e.target.value })}><option value="">Not sure yet</option>{teams.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}</select></label>}
-            <label>{['committee', 'executive'].includes(req.kind) ? 'Which role? (see About us for open roles)' : 'Anything we should know?'}<input value={req.detail} onChange={(e) => setReq({ ...req, detail: e.target.value })} /></label>
-            <button className="btn">Apply</button>
-          </form>}
-          <h3>{taken.size ? 'Applications' : 'My applications'}</h3>
-          {apps.length === 0 && <p className="muted">None yet.</p>}
-          {apps.map((a) => (
-            <div key={a.id} className="card">
-              <div className="row between"><b>{KINDS.find((k) => k[0] === a.kind)?.[1].split(' (')[0]}{a.teams?.name ? ` – ${a.teams.name}` : ''}</b>
-                <span className={'pill ' + ({ approved: 'good', pending: 'wait', declined: 'bad' }[a.status] || '')}>{a.status === 'pending' ? 'Awaiting executive sign-off' : a.status}</span></div>
-              {a.detail && <p className="small">{a.detail}</p>}
-              {a.decision_note && <p className="small muted">Note: {a.decision_note}</p>}
-              {a.status === 'pending' && <button className="link" onClick={() => withdraw(a.id)}>Withdraw</button>}
-            </div>
-          ))}
-          <p className="small muted">Questions? See <Link to="/about">About us</Link> for who's on the committee.</p>
-        </section>
-      </div>
+      {updatingCard && <WWCCUpdate w={w} onDone={(m) => { setUpdatingCard(false); if (m) setMsg(m); refresh(); load() }} />}
+
+      {open.length > 0 ? (
+        <ApplicationForm key={apps.length} open={open} teams={teams} profile={profile} needCard={!cardOk} hasAny={current.length > 0} onDone={(m) => { setMsg(m); refresh(); load(); window.scrollTo({ top: 0, behavior: 'smooth' }) }} />
+      ) : (
+        <p className="card muted">You've applied for every role that applies to you. Thanks for helping out!</p>
+      )}
+      <p className="small muted">Questions? See <Link to="/about">About us</Link> for who's on the committee.</p>
     </div>
+  )
+}
+
+// One form for a new application – always starts blank.
+function ApplicationForm({ open, teams, profile, needCard, hasAny, onDone }) {
+  const { user } = useAuth()
+  const [req, setReq] = useState(BLANK_REQ)
+  const detailsOnFile = !!(profile?.full_name && profile?.phone && profile?.address)
+  const [me, setMe] = useState({ full_name: '', phone: '', address: '' })
+  const [wf, setWf] = useState(BLANK_W)
+  const [file, setFile] = useState(null)
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState(null)
+  async function submit(e) {
+    e.preventDefault(); setErr(null)
+    if (!req.kind) return setErr('Choose a role.')
+    if (!detailsOnFile && (!me.full_name || !me.phone || !me.address)) return setErr('Please fill in your full name, mobile and home address – the club needs these to link you in WWC Connect.')
+    setBusy(true)
+    if (!detailsOnFile) { const { error } = await supabase.from('profiles').update(me).eq('id', user.id); if (error) { setBusy(false); return setErr(error.message) } }
+    if (needCard) {
+      const e2 = await saveCard(user.id, null, wf, file)
+      if (e2) { setBusy(false); return setErr(e2) }
+    }
+    const { error } = await supabase.from('volunteer_roles').insert({ profile_id: user.id, season: REG_SEASON, kind: req.kind, detail: req.detail.trim() || null, team_id: req.kind === 'coach' && req.team_id ? req.team_id : null })
+    setBusy(false)
+    if (error) return setErr(/duplicate|unique/i.test(error.message) ? "You've already applied for that role." : /already covers/i.test(error.message) ? 'Your executive role already covers committee and volunteer work – no need to apply separately.' : error.message)
+    setReq(BLANK_REQ); setWf(BLANK_W); setFile(null)
+    onDone({ ok: true, text: `Thanks! Your application to be a ${roleName(req.kind).toLowerCase()} is with the executive committee. You'll get an email when it's approved.` })
+  }
+  return (
+    <form className="card form vol-form" onSubmit={submit}>
+      <h2>{hasAny ? 'Apply for another role' : 'Your application'}</h2>
+      <fieldset className="vol-step"><legend><span className="n">1</span> What would you like to do?</legend>
+        <label>Role<select value={req.kind} onChange={(e) => setReq({ ...req, kind: e.target.value })} required><option value="">Choose a role…</option>{open.map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select></label>
+        {req.kind === 'coach' && <label>Team (if you know)<select value={req.team_id} onChange={(e) => setReq({ ...req, team_id: e.target.value })}><option value="">Not sure yet</option>{teams.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}</select></label>}
+        <label>{['committee', 'executive'].includes(req.kind) ? 'Which role? (see About us for open roles)' : 'Anything we should know? (optional)'}<input value={req.detail} onChange={(e) => setReq({ ...req, detail: e.target.value })} /></label>
+      </fieldset>
+      <fieldset className="vol-step"><legend><span className="n">2</span> Your details</legend>
+        {detailsOnFile ? <p className="on-file">✓ Using the name, mobile and address on your account. <Link to="/account">Change them</Link></p> : <>
+          <label>Full name<input value={me.full_name} onChange={(e) => setMe({ ...me, full_name: e.target.value })} required /></label>
+          <div className="grid2 tight"><label>Mobile<input value={me.phone} onChange={(e) => setMe({ ...me, phone: e.target.value })} inputMode="tel" required /></label><label>Email<input value={profile?.email || ''} disabled /></label></div>
+          <label>Home address<input value={me.address} onChange={(e) => setMe({ ...me, address: e.target.value })} required /></label>
+        </>}
+      </fieldset>
+      <fieldset className="vol-step"><legend><span className="n">3</span> Working With Children Check</legend>
+        {needCard ? <><ApplyWWCC /><CardFields wf={wf} setWf={setWf} setFile={setFile} /></> : <p className="on-file">✓ Using the WWCC already on file. If it has changed, use "Update my WWCC" above.</p>}
+      </fieldset>
+      {err && <p className="err">{err}</p>}
+      <button className="btn big" disabled={busy}>{busy ? 'Sending…' : 'Send application'}</button>
+      <p className="small muted">Your card image is private: only you and the executive committee can see it.</p>
+    </form>
+  )
+}
+
+function CardFields({ wf, setWf, setFile }) {
+  return (
+    <>
+      <div className="choice">
+        <label className="check"><input type="radio" name="wwcc-kind" checked={!wf.pending} onChange={() => setWf({ ...wf, pending: false })} /><span><b>I have a WWCC card</b> <span className="small muted">(physical or digital, with an expiry date)</span></span></label>
+        <label className="check"><input type="radio" name="wwcc-kind" checked={wf.pending} onChange={() => setWf({ ...wf, pending: true })} /><span><b>I've applied and I'm still waiting for my card</b> <span className="small muted">(you have an application number)</span></span></label>
+      </div>
+      <div className="grid2 tight">
+        <label>{wf.pending ? 'Application number' : 'WWCC card number'}<input value={wf.card_number} onChange={(e) => setWf({ ...wf, card_number: e.target.value })} required placeholder={wf.pending ? 'From your Service Victoria receipt' : 'e.g. 01234567A-01'} /></label>
+        {!wf.pending && <label>Expiry date<input type="date" value={wf.expiry} onChange={(e) => setWf({ ...wf, expiry: e.target.value })} required /></label>}
+        <label>Check type<select value={wf.card_type} onChange={(e) => setWf({ ...wf, card_type: e.target.value })}><option>Volunteer</option><option>Employee</option></select></label>
+        <label>{wf.pending ? 'Screenshot of your application receipt' : 'Photo or PDF of card'}<input type="file" accept="image/*,application/pdf" onChange={(e) => setFile(e.target.files?.[0] || null)} required /></label>
+      </div>
+    </>
+  )
+}
+
+async function saveCard(uid, existing, wf, file) {
+  if (!file) return wf.pending ? 'Please upload a screenshot of your application receipt email from Service Victoria.' : 'Please upload a photo or PDF of your WWCC card (front), or a screenshot of your digital card.'
+  if (!wf.pending && !wf.expiry) return 'Please enter the expiry date on your card.'
+  if (wf.pending && /^\d{7}[A-Z]-\d{2}$/i.test(wf.card_number.trim()) && !window.confirm('That looks like a WWCC card number. If you already have your card, choose "I have a WWCC card" and add its expiry date instead. Keep it as "applied"?')) return 'Cancelled.'
+  const ext = (file.name.split('.').pop() || 'jpg').toLowerCase()
+  const file_path = `${uid}/wwcc-${Date.now()}.${ext}`
+  const { error: ue } = await supabase.storage.from('wwcc').upload(file_path, file, { upsert: true })
+  if (ue) return 'Upload failed: ' + ue.message
+  const row = { profile_id: uid, card_number: wf.card_number.trim().toUpperCase(), expiry: wf.pending ? null : wf.expiry, card_type: wf.card_type, pending: wf.pending, file_path }
+  const { error } = existing ? await supabase.from('wwcc').update(row).eq('profile_id', uid) : await supabase.from('wwcc').upsert(row)
+  return error ? error.message : null
+}
+
+// Update an existing card – blank form, nothing prefilled.
+function WWCCUpdate({ w, onDone }) {
+  const { user } = useAuth()
+  const [wf, setWf] = useState(BLANK_W)
+  const [file, setFile] = useState(null)
+  const [err, setErr] = useState(null)
+  const [busy, setBusy] = useState(false)
+  async function submit(e) {
+    e.preventDefault(); setBusy(true); setErr(null)
+    const e2 = await saveCard(user.id, w, wf, file)
+    setBusy(false)
+    if (e2) return setErr(e2)
+    onDone({ ok: true, text: wf.pending ? 'Saved. The executive will check your application.' : 'Saved. The executive committee will check your new card.' })
+  }
+  return (
+    <form className="card form vol-form" onSubmit={submit}>
+      <div className="row between"><h2>Update my WWCC</h2><button type="button" className="link" onClick={() => onDone(null)}>Cancel</button></div>
+      <p className="small muted">Enter your new card or application details. Changing them means the executive re-checks your card.</p>
+      <CardFields wf={wf} setWf={setWf} setFile={setFile} />
+      {err && <p className="err">{err}</p>}
+      <button className="btn" disabled={busy}>{busy ? 'Saving…' : 'Save my WWCC'}</button>
+    </form>
   )
 }

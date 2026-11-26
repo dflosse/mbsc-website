@@ -88,7 +88,9 @@ class Query {
   or(expr) { const parts = expr.split(',').map((x) => x.split('.')); this.filters.push((r) => parts.some(([k, , v]) => (v === 'null' ? r[k] == null : String(r[k]) === v))); return this }
   not(k, op, v) { this.filters.push((r) => (op === 'is' && v === null ? r[k] != null : r[k] !== v)); return this }
   limit(n) { this.lim = n; return this }
-  maybeSingle() { this.single = true; return this }
+  maybeSingle() { this._one = true; return this }
+  single() { this._one = true; return this }
+  contains() { return this }
   insert(row) { this.op = 'insert'; this.payload = row; return this }
   update(row) { this.op = 'update'; this.payload = row; return this }
   upsert(row) { this.op = 'upsert'; this.payload = row; return this }
@@ -133,7 +135,7 @@ class Query {
     for (const [k, asc] of [...this.orders].reverse()) rs = [...rs].sort((a, b) => ((a[k] ?? '') > (b[k] ?? '') ? 1 : (a[k] ?? '') < (b[k] ?? '') ? -1 : 0) * (asc ? 1 : -1))
     if (this.lim) rs = rs.slice(0, this.lim)
     rs = rs.map((r) => embed(t, r, this.sel))
-    if (this.single) return { data: rs[0] || null, error: null }
+    if (this._one) return { data: rs[0] || null, error: null }
     return { data: rs, error: null }
   }
 }
@@ -141,6 +143,8 @@ class Query {
 export const mockSupabase = {
   from: (t) => new Query(t),
   rpc: async (fn, a) => {
+    if (fn === 'is_moderator') return { data: exec(), error: null }
+    if (fn === 'forum_unread') return { data: me() ? 2 : 0, error: null }
     if (fn === 'child_maybe_registered') return { data: db.players.some((x) => x.season === a.p_season && x.first_name.toLowerCase() === a.p_first.toLowerCase() && x.last_name.toLowerCase() === a.p_last.toLowerCase()), error: null }
     if (fn === 'merge_players') {
       if (!exec()) return { error: { message: 'Executive only' } }

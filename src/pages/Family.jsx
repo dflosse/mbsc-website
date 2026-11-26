@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react'
 import { supabase, fmtDate, REG_SEASON, ageGroupFor } from '../supabase'
+import { ForumLatest } from './Forum'
 import { useAuth } from '../auth'
 import useSettings from '../useSettings'
 import { FeesCard } from './About'
@@ -76,6 +77,7 @@ export default function Family() {
   return (
     <div className="wrap">
       <h1>My family</h1>
+      <ForumLatest limit={3} />
       {justPaid && <p className="callout">Thanks – your payment went through. It can take a minute to show as paid below; refresh if it hasn't updated.</p>}
       {msg && <p className={msg.ok ? 'ok card' : 'err card'}>{msg.text}</p>}
 

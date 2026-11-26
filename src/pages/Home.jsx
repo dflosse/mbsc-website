@@ -4,6 +4,7 @@ import { supabase, fmtDate, REG_SEASON } from '../supabase'
 import { useAuth } from '../auth'
 import useSettings, { useKeyDates } from '../useSettings'
 import Contours from '../components/Contours'
+import { ForumLatest } from './Forum'
 
 // Family-first home page. Everything here comes from data the committee already edits:
 // fees/training/contact → Fees & settings; dates → Preseason key dates; galas → Galas; news → Messages.
@@ -51,6 +52,7 @@ export default function Home() {
           </Link>
         </section>
 
+        {user && <ForumLatest limit={3} />}
         {shown.length > 0 && (
           <section className="home-dates" aria-labelledby="kd">
             <h2 id="kd">Key dates</h2>

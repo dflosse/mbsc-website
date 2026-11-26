@@ -15,7 +15,7 @@ import Login from './pages/Login'
 import Family from './pages/Family'
 import Coach from './pages/Coach'
 import Committee from './pages/Committee'
-import Board from './pages/Board'
+import Forum, { ForumNavLink } from './pages/Forum'
 import Account from './pages/Account'
 import Volunteer from './pages/Volunteer'
 import Security from './pages/Security'
@@ -91,8 +91,8 @@ export default function App() {
             <NavLink to="/privacy">Privacy</NavLink>
             {user && <SetupLink />}
             {user && <NavLink to="/family">My family</NavLink>}
-            {user && <NavLink to="/board">Messages</NavLink>}
-            {user && <NavLink to="/volunteer">Volunteer</NavLink>}
+            {user && <ForumNavLink NavLink={NavLink} />}
+            {user && <NavLink to="/volunteer">Apply to Volunteer</NavLink>}
             {user && showCoach && <NavLink to="/coach">Coaches</NavLink>}
             {user && showCommittee && <NavLink to="/committee" className="nav-staff">Committee</NavLink>}
             {user ? (
@@ -117,7 +117,8 @@ export default function App() {
           <Route path="/football-victoria" element={<FV />} />
           <Route path="/login" element={<Login />} />
           <Route path="/family" element={<Guard><Family /></Guard>} />
-          <Route path="/board" element={<Guard><Board /></Guard>} />
+          <Route path="/board" element={<Guard><Forum /></Guard>} />
+          <Route path="/board/:id" element={<Guard><Forum /></Guard>} />
           <Route path="/account" element={<Guard><Account /></Guard>} />
           <Route path="/volunteer" element={<Guard><Volunteer /></Guard>} />
           <Route path="/coach" element={<Guard elevated ok={isCoach || isStaff}><Coach /></Guard>} />

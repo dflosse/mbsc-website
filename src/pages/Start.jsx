@@ -25,8 +25,8 @@ export function useSetup() {
       const steps = []
       if (helper) {
         steps.push({ key: 'mfa', done: mfaEnrolled, title: 'Turn on two-factor sign-in', why: 'Anyone who can see children\'s details signs in with a code from their phone. About 2 minutes.', to: '/security', cta: 'Set it up' })
-        steps.push({ key: 'details', done: !!(profile?.phone && profile?.address), title: 'Add your mobile and home address', why: 'The club must give these to the Regulator when it connects you in WWC Connect.', to: '/volunteer', cta: 'Add details' })
-        steps.push({ key: 'wwcc', done: !!w, title: w?.pending ? 'WWCC applied for – add the card when it arrives' : 'Add your Working With Children Check', why: w?.pending ? 'You\'re covered while it\'s processed. When the card arrives, update it on the Volunteer page.' : 'Upload your card, or tick "I\'ve applied" and add your application number. Volunteer checks are free.', to: '/volunteer', cta: w ? 'Update' : 'Add WWCC' })
+        steps.push({ key: 'details', done: !!(profile?.phone && profile?.address), title: 'Add your mobile and home address', why: 'The club must give these to the Regulator when it connects you in WWC Connect.', to: '/account', cta: 'Add details' })
+        steps.push({ key: 'wwcc', done: !!w, title: w?.pending ? 'WWCC applied for – add the card when it arrives' : 'Add your Working With Children Check', why: w?.pending ? 'You\'re covered while it\'s processed. When the card arrives, update it on the Apply to Volunteer page.' : 'Upload your card, or tick "I\'ve applied" and add your application number. Volunteer checks are free.', to: '/volunteer', cta: w ? 'Update' : 'Add WWCC' })
         const pend = (apps || []).filter((a) => a.status === 'pending')
         const appr = (apps || []).filter((a) => a.status === 'approved')
         steps.push({ key: 'approve', done: pend.length === 0 && appr.length > 0, wait: true,

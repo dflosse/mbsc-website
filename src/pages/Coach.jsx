@@ -1,6 +1,7 @@
 import { KitTags } from './kitInfo'
 import { useEffect, useState } from 'react'
 import { supabase, fmtDate, ROSTER_SEASON } from '../supabase'
+import { ForumLatest } from './Forum'
 import { useAuth } from '../auth'
 import { GameEditor } from './GalaGames'
 
@@ -48,6 +49,7 @@ export default function Coach() {
   return (
     <div className="wrap">
       <h1>Coaches</h1>
+      <ForumLatest limit={3} title="Latest in the forum" />
       {teams.length === 0 ? <div className="card"><p>You're not linked to a team yet. Ask the committee to add you as a coach.</p></div> : (
         <>
           <div className="tabs">{teams.map((t) => <button key={t.id} className={t.id === teamId ? 'on' : ''} onClick={() => setTeamId(t.id)}>{t.name}</button>)}</div>

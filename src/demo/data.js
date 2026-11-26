@@ -76,6 +76,9 @@ export const posts = [
   P('c1', 'coaches', 'Pre-gala reminder – Mini-Roos rules', 'Reminder of the rough-play protocol agreed at the Alpine region meeting: send off for a short time, then back on in the spirit of the game; second time off for the match.', { created_at: '2027-05-01T09:00:00Z' }),
   P('k1', 'committee', 'FV renewal submitted', 'Football Victoria 2027 club renewal is in. Next: book Les Peart Oval for Come n Try.', { created_at: '2026-12-20T09:00:00Z' }),
 ]
+posts.forEach((p) => { p.reply_count = p.reply_count ?? 0; p.last_activity_at = p.last_activity_at || p.created_at; p.author_name = p.author_name || 'Dan Florisson' })
+posts.find((p) => p.id === 'm1').reply_count = 2
+posts.find((p) => p.id === 'm1').last_activity_at = '2027-04-21T10:00:00Z'
 export const replies = [
   { id: 'r1', post_id: 'm1', author_name: 'Jo Kiewa', body: 'I can do the BBQ 9–11.', created_at: '2027-04-21T09:00:00Z' },
   { id: 'r2', post_id: 'm1', author_name: 'Alex Bogong', body: 'Happy to help pack up.', created_at: '2027-04-21T10:00:00Z' },
@@ -259,3 +262,6 @@ export const email_events = [
   { resend_id: 'e4', sent_at: '2026-11-26T21:05:00Z', to_addr: 'old.address@example.com', subject: 'Confirm your email', kind: 'Sign-up confirmation', last_event: 'bounced' },
   { resend_id: 'e5', sent_at: '2026-11-26T20:30:00Z', to_addr: 'volunteer@example.com', subject: "You're approved – Mount Beauty Football Club", kind: 'Approval email', last_event: 'delivered' },
 ]
+export const thread_reads = []
+export const forum_reactions = [{ id: 'fr1', post_id: 'm1', reply_id: null, profile_id: 'u-parent', emoji: '👍' }]
+export const forum_prefs = []

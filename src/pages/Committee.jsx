@@ -10,6 +10,7 @@ import Treasurer from './Treasurer'
 import Assets from './Assets'
 import Preseason, { STAGES, GROUPS } from './Preseason'
 import Email from './Email'
+import { ForumLatest } from './Forum'
 import { bondInfo } from './bond'
 import { sortPlayers, TEAM_SEL } from './sortPlayers'
 
@@ -175,6 +176,7 @@ function Overview() {
             <ul>{att.map((a) => <li key={a.text}><Link to={'/committee/' + a.to} className={a.urgent ? 'urgent' : ''}><b>{a.n}</b> {a.text}<span aria-hidden>→</span></Link></li>)}</ul>
           )}
         </section>
+        <ForumLatest limit={4} title="Latest in the forum" />
         <PreseasonBanner />
         <div className="stats">
           {isExec && <Stat n={s.reg} l={`${REG_SEASON} players registered`} to="players" />}
