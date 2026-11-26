@@ -251,3 +251,11 @@ export const gala_goals = [
   { id: 'gl3', game_id: 'gg2', player_id: 'p18', goals: 1 },
   { id: 'gl4', game_id: 'gg2', player_id: 'kid1', goals: 1 },
 ]
+
+export const email_events = [
+  { resend_id: 'e1', sent_at: '2026-11-27T09:12:00Z', to_addr: 'sample.parent@example.com', subject: '2027 registrations are open', kind: 'Club email', last_event: 'delivered' },
+  { resend_id: 'e2', sent_at: '2026-11-27T09:12:00Z', to_addr: 'another.parent@example.com', subject: '2027 registrations are open', kind: 'Club email', last_event: 'sent' },
+  { resend_id: 'e3', sent_at: '2026-11-26T22:40:00Z', to_addr: 'new.coach@example.com', subject: "You're invited to join Mount Beauty Football Club", kind: 'Invitation', last_event: 'opened' },
+  { resend_id: 'e4', sent_at: '2026-11-26T21:05:00Z', to_addr: 'old.address@example.com', subject: 'Confirm your email', kind: 'Sign-up confirmation', last_event: 'bounced' },
+  { resend_id: 'e5', sent_at: '2026-11-26T20:30:00Z', to_addr: 'volunteer@example.com', subject: "You're approved – Mount Beauty Football Club", kind: 'Approval email', last_event: 'delivered' },
+]

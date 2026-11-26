@@ -150,14 +150,65 @@ export default function Email() {
         </section>
       </div>
 
-      <section className="mail-log">
-        <h3>Sent emails</h3>
-        {log.length === 0 ? <p className="muted small">Nothing sent yet.</p> : (
-          <div className="table-wrap"><table><thead><tr><th>Sent</th><th>Subject</th><th>To</th><th>By</th></tr></thead><tbody>
-            {log.map((l) => <tr key={l.id}><td className="nowrap">{fmtDate(l.sent_at.slice(0, 10), { day: 'numeric', month: 'short', year: 'numeric' })}</td><td>{l.subject}</td><td>{l.sent_count} {l.audience ? <span className="small muted">({l.audience})</span> : null}{l.failed?.length ? <span className="pill bad">{l.failed.length} failed</span> : null}</td><td>{l.sent_by_name}</td></tr>)}
-          </tbody></table></div>
-        )}
-      </section>
+      <EmailLog clubLog={log} />
     </div>
+  )
+}
+
+const STATUS = {
+  delivered: ['good', 'Delivered ✓'], opened: ['good', 'Delivered ✓ · opened'], clicked: ['good', 'Delivered ✓ · link clicked'],
+  sent: ['wait', 'Sent – delivery not confirmed yet'], queued: ['wait', 'Queued – not sent yet'], scheduled: ['wait', 'Scheduled'],
+  delivery_delayed: ['wait', 'Delayed – still trying'], bounced: ['bad', 'Bounced – not delivered'], complained: ['bad', 'Delivered – marked as spam'],
+  failed: ['bad', 'Failed – not sent'], canceled: ['bad', 'Cancelled – not sent'],
+}
+const statusOf = (e) => STATUS[e] || ['wait', e ? e.replace(/_/g, ' ') : 'Sent – delivery not confirmed yet']
+
+// Every email the club has sent through Resend – club emails, approvals, invitations,
+// sign-up confirmations and password resets – with whether delivery was confirmed.
+function EmailLog({ clubLog }) {
+  const [rows, setRows] = useState(null)
+  const [kind, setKind] = useState('')
+  const [q, setQ] = useState('')
+  const [sync, setSync] = useState({ busy: false, msg: null })
+  const load = useCallback(async () => {
+    const { data } = await supabase.from('email_events').select('*').order('sent_at', { ascending: false }).limit(500)
+    setRows(data || [])
+  }, [])
+  const refresh = useCallback(async () => {
+    setSync({ busy: true, msg: null })
+    const { data, error } = await supabase.functions.invoke('email-sync', { body: {} })
+    let err = data?.error
+    if (error && !err) { try { err = (await error.context.json()).error } catch { err = error.message } }
+    setSync({ busy: false, msg: err ? { ok: false, text: /restricted|permission|401|403/i.test(err) ? 'Couldn\'t read the delivery list – the Resend key needs "Full access" (not "Sending access only"). ' + err : err } : { ok: true, text: `Updated ${new Date().toLocaleTimeString('en-AU', { hour: 'numeric', minute: '2-digit' })}` } })
+    load()
+  }, [load])
+  useEffect(() => { load(); refresh() }, [load, refresh])
+  const kinds = [...new Set((rows || []).map((r) => r.kind).filter(Boolean))].sort()
+  const shown = (rows || []).filter((r) => (!kind || r.kind === kind) && (!q.trim() || `${r.to_addr} ${r.subject}`.toLowerCase().includes(q.trim().toLowerCase())))
+  const unconfirmed = shown.filter((r) => statusOf(r.last_event)[0] !== 'good').length
+  return (
+    <section className="mail-log">
+      <div className="row between"><h3>Email log – everything the club has sent</h3><button className="btn small ghost" disabled={sync.busy} onClick={refresh}>{sync.busy ? 'Checking…' : 'Check for updates'}</button></div>
+      <p className="small muted">Club emails, approval emails, invitations, sign-up confirmations and password resets, with whether each one was delivered. "Delivery not confirmed yet" usually changes to Delivered within a minute or two.{sync.msg && <span className={sync.msg.ok ? '' : 'err'}> {sync.msg.text}</span>}</p>
+      <div className="row log-tools">
+        <select value={kind} onChange={(e) => setKind(e.target.value)} aria-label="Type of email"><option value="">All types</option>{kinds.map((k) => <option key={k}>{k}</option>)}</select>
+        <input placeholder="Search by email or subject" value={q} onChange={(e) => setQ(e.target.value)} />
+        {rows && <span className="small muted">{shown.length} emails{unconfirmed ? ` · ${unconfirmed} not confirmed delivered` : ''}</span>}
+      </div>
+      {rows === null ? <p className="muted small">Loading…</p> : shown.length === 0 ? <p className="muted small">No emails yet.</p> : (
+        <div className="table-wrap"><table className="stack auto-label"><thead><tr><th>Sent</th><th>To</th><th>Subject</th><th>Type</th><th>Delivery</th></tr></thead><tbody>
+          {shown.map((r) => { const [c, l] = statusOf(r.last_event); return (
+            <tr key={r.resend_id}><td className="nowrap">{r.sent_at ? new Date(r.sent_at).toLocaleString('en-AU', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' }) : ''}</td><td>{r.to_addr}</td><td>{r.subject}</td><td className="small">{r.kind}</td><td><span className={'pill ' + c}>{l}</span></td></tr>
+          ) })}
+        </tbody></table></div>
+      )}
+      {clubLog.length > 0 && (
+        <details className="club-log"><summary>Club emails sent from this page – who sent them and to which groups ({clubLog.length})</summary>
+          <div className="table-wrap"><table className="stack auto-label"><thead><tr><th>Sent</th><th>Subject</th><th>To</th><th>By</th></tr></thead><tbody>
+            {clubLog.map((l) => <tr key={l.id}><td className="nowrap">{fmtDate(l.sent_at.slice(0, 10), { day: 'numeric', month: 'short', year: 'numeric' })}</td><td>{l.subject}</td><td>{l.sent_count} {l.audience ? <span className="small muted">({l.audience})</span> : null}{l.failed?.length ? <span className="pill bad">{l.failed.length} failed</span> : null}</td><td>{l.sent_by_name}</td></tr>)}
+          </tbody></table></div>
+        </details>
+      )}
+    </section>
   )
 }

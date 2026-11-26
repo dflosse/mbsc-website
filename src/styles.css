@@ -789,3 +789,9 @@ table.stack td .pill, table.stack td .btn, table.stack td button.link { justify-
   table.stack td:not([data-label]):not(.lead-cell) { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; }
   table.edit.stack td[data-label] input:not([type=checkbox]), table.edit.stack td[data-label] select, table.edit.stack td[data-label] textarea { width: 100%; }
 }
+.log-tools { gap: 10px; margin: 6px 0 10px; flex-wrap: wrap; align-items: center; }
+.log-tools select { width: auto; min-width: 160px; margin: 0; }
+.log-tools input { flex: 1 1 220px; margin: 0; }
+.club-log { margin-top: 12px; }
+.club-log summary { cursor: pointer; font-weight: 700; padding: 6px 0; }
+.mail-log .row.between h3 { margin: 0; }

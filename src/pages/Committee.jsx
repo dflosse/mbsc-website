@@ -26,7 +26,7 @@ const PAGES = {
   people: ['People & access', 'Who has an account and what they can see. Invite new people here.'],
   kit: ['Uniforms', 'Uniforms for this season, and jerseys still out from last season.'],
   registers: ['Keys & assets', 'Who holds which key, and the club\'s equipment and assets.'],
-  email: ['Send email', 'Email families, coaches, the committee or key contacts from the club address.'],
+  email: ['Send email', 'Email families, coaches, the committee or key contacts – and see every email the club has sent and whether it was delivered.'],
   contacts: ['Contacts & handover', 'Key contacts (Shire, Football Victoria, suppliers) and handover notes.'],
   docs: ['Documents', 'Club documents and useful links.'],
   roles: ['Committee roles', 'Who holds each committee and Football Victoria role. Shown on About the club.'],
