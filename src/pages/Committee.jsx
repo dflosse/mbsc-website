@@ -479,8 +479,8 @@ function Approvals() {
               <div className="wwccbox">
                 <p><span className={'pill ' + cls}>{label}</span></p>
                 {w ? <>
-                  <p className="small">Card <b>{w.card_number}</b> ({w.card_type}) · expires {fmtDate(w.expiry)}</p>
-                  {w.file_path && <button className="link" onClick={() => viewCard(w.file_path)}>View card image</button>}
+                  <p className="small">{w.pending ? <>Applied – application no. <b>{w.card_number}</b> ({w.card_type}). Check it in the status checker using the application number.</> : <>Card <b>{w.card_number}</b> ({w.card_type}) · expires {fmtDate(w.expiry)}</>}</p>
+                  {w.file_path && <button className="link" onClick={() => viewCard(w.file_path)}>{w.pending ? 'View application receipt' : 'View card image'}</button>}
                   <ul className="ticks">
                     <li className={w.status_checked_at ? 'done' : ''}>Status checked {w.status_checked_at ? fmtDate(w.status_checked_at.slice(0, 10)) : isExec && <button className="btn small ghost" onClick={() => mark(a.profile_id, 'status')}>Mark checked</button>}</li>
                     <li className={w.wwc_connected_at ? 'done' : ''}>Connected in WWC Connect {w.wwc_connected_at ? fmtDate(w.wwc_connected_at.slice(0, 10)) : isExec && <button className="btn small ghost" onClick={() => mark(a.profile_id, 'connect')}>Mark connected</button>}</li>
@@ -570,7 +570,8 @@ function WWCCRegister() {
   for (const { p, w, active } of rows) {
     const n = p.full_name || p.email
     if (!w) continue
-    if (active && !w.status_checked_at) todo.push(`${n}: check their card in the status checker`)
+    if (active && !w.status_checked_at) todo.push(`${n}: check their ${w.pending ? 'application' : 'card'} in the status checker`)
+    if (active && w.pending && daysSince(w.updated_at) > 84) todo.push(`${n}: applied over 12 weeks ago – ask whether their card has arrived`)
     if (active && w.status_checked_at && !w.wwc_connected_at) todo.push(`${n}: connect in WWC Connect (within 21 days of starting)`)
     if (w.details_changed_at && w.wwc_connected_at && !w.disconnected_at) todo.push(`${n}: contact details changed – update WWC Connect within 21 days (changed ${fmtDate(w.details_changed_at.slice(0, 10))})`)
     if (!active && w.wwc_connected_at && !w.disconnected_at) todo.push(`${n}: no longer active – disconnect in WWC Connect within 21 days`)
@@ -599,7 +600,7 @@ function WWCCRegister() {
       <h2>People with a site account</h2>
       <p className="muted small">Sorted by expiry, so problems are at the top. <b>Retention:</b> delete a WWCC record once someone stops volunteering, no later than 12 months after their last role (WWC Connect keeps the 7-year history).</p>
       <div className="table-wrap"><table><thead><tr><th>Name</th><th>Access</th><th>Card</th><th>Expiry</th><th>Status</th><th>Checked</th><th>WWC Connect</th><th>Active?</th><th /></tr></thead>
-        <tbody>{sorted.map(({ p, w, active }) => { const [cls, label] = wwccState(w); return <tr key={p.id}><td>{p.full_name || p.email}<br /><span className="small muted">{p.phone || 'no phone'} · {p.address ? 'address ✓' : 'no address'}</span></td><td>{p.role}{p.is_executive ? ' · exec' : ''}</td><td>{w?.card_number || '—'}<br /><span className="small muted">{w?.card_type}</span></td><td>{w ? fmtDate(w.expiry) : '—'}</td><td><span className={'pill ' + cls}>{label}</span></td>
+        <tbody>{sorted.map(({ p, w, active }) => { const [cls, label] = wwccState(w); return <tr key={p.id}><td>{p.full_name || p.email}<br /><span className="small muted">{p.phone || 'no phone'} · {p.address ? 'address ✓' : 'no address'}</span></td><td>{p.role}{p.is_executive ? ' · exec' : ''}</td><td>{w?.card_number || '—'}<br /><span className="small muted">{w?.card_type}</span></td><td>{w ? (w.pending ? <span className="small">Application no.</span> : fmtDate(w.expiry)) : '—'}</td><td><span className={'pill ' + cls}>{label}</span></td>
           <td className="small">{w ? (w.status_checked_at ? fmtDate(w.status_checked_at.slice(0, 10)) : <button className="btn small ghost" onClick={() => act(p, 'check')}>Mark checked</button>) : '—'}</td>
           <td className="small">{!w ? '—' : w.disconnected_at ? <>Disconnected {fmtDate(w.disconnected_at.slice(0, 10))}</> : w.wwc_connected_at ? <>Connected {fmtDate(w.wwc_connected_at.slice(0, 10))}
             {w.details_changed_at && <><br /><span className="pill wait">Details changed</span> <button className="link" onClick={() => act(p, 'updated')}>Updated ✓</button></>}
@@ -610,7 +611,7 @@ function WWCCRegister() {
       <p className="muted small">Brought across from the old Operations Doc. Once a person signs up on the site and uploads their card, delete their row here. Dates are the day you did each step.</p>
       <EditTable table="wwcc_offline" order={[['season', false], ['last_name']]} search={['last_name', 'first_name', 'club_role', 'notes']} defaults={{ season: REG_SEASON }}
         cols={[{ key: 'season', label: 'Season', type: 'number', width: 70 }, { key: 'last_name', label: 'Family name', width: 110 }, { key: 'first_name', label: 'Given name', width: 100 },
-          { key: 'club_role', label: 'Role', width: 90 }, { key: 'card_number', label: 'Card no.', width: 110 }, { key: 'card_type', label: 'Type', type: 'select', options: [['Volunteer', 'Volunteer'], ['Employee', 'Employee'], ['VIT', 'VIT teacher']], width: 100 },
+          { key: 'club_role', label: 'Role', width: 90 }, { key: 'card_number', label: 'Card no.', width: 110 }, { key: 'card_type', label: 'Type', type: 'select', options: [['Volunteer', 'Volunteer'], ['Employee', 'Employee'], ['VIT', 'VIT teacher'], ['Applied', 'Applied – awaiting card']], width: 100 },
           { key: 'expiry', label: 'Expiry', type: 'date' }, { key: 'email', label: 'Email', width: 140 }, { key: 'phone', label: 'Phone', width: 100 }, { key: 'address', label: 'Address', width: 160 },
           { key: 'status_checked_at', label: 'Checked', type: 'date' }, { key: 'wwc_connected_at', label: 'Connected', type: 'date' }, { key: 'confirmed_at', label: 'Yearly check', type: 'date' }, { key: 'disconnected_at', label: 'Disconnected', type: 'date' },
           { key: 'notes', label: 'Notes', type: 'textarea', width: 180 }]} />

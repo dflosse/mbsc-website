@@ -9,8 +9,27 @@ const KINDS = [
   ['committee', 'Committee role'],
   ['volunteer', 'General volunteer (gala days, canteen, BBQ, set-up, field marking…)'],
 ]
+export const WWCC_APPLY_URL = 'https://service.vic.gov.au/workingwithchildren'
+export const WWCC_RENEW_URL = 'https://service.vic.gov.au/renewwwcc'
+
+export function ApplyWWCC() {
+  return (
+    <div className="card callout">
+      <h3 style={{ marginTop: 0 }}>Need a Working With Children Check?</h3>
+      <ul className="small">
+        <li><b>Volunteer check: free.</b> Choose Volunteer – coaching and helping at the club is unpaid. (A paid "Employee" check costs $139.20 in 2026–27.)</li>
+        <li>About 15 minutes online with your licence or Medicare card, plus a 45-minute online child safety course that's now compulsory.</li>
+        <li>Cards take 3 to 12 weeks. You'll get an <b>application number</b> straight away – enter it below and tick "I've applied". In most cases you can start volunteering once you've applied.</li>
+        <li>Card expired less than 3 months ago? You can renew instead. More than 3 months? Apply for a new check.</li>
+      </ul>
+      <div className="row"><a className="btn small" href={WWCC_APPLY_URL} target="_blank" rel="noreferrer">Apply for a WWCC</a><a className="btn small ghost" href={WWCC_RENEW_URL} target="_blank" rel="noreferrer">Renew my WWCC</a></div>
+    </div>
+  )
+}
+
 export const wwccState = (w) => {
   if (!w) return ['bad', 'No WWCC on file']
+  if (w.pending) return [w.status_checked_at && w.wwc_connected_at ? 'wait' : 'wait', w.status_checked_at && w.wwc_connected_at ? 'Applied – card not issued yet' : 'Applied – awaiting executive check']
   const days = (new Date(w.expiry) - new Date()) / 86400000
   if (days < 0) return ['bad', 'Expired ' + fmtDate(w.expiry)]
   if (!w.status_checked_at || !w.wwc_connected_at) return ['wait', 'Awaiting executive check']
@@ -22,7 +41,7 @@ export default function Volunteer() {
   const { user, profile, refresh } = useAuth()
   const [me, setMe] = useState({ full_name: '', phone: '', address: '' })
   const [w, setW] = useState(null)
-  const [wf, setWf] = useState({ card_number: '', expiry: '', card_type: 'Volunteer' })
+  const [wf, setWf] = useState({ card_number: '', expiry: '', card_type: 'Volunteer', pending: false })
   const [file, setFile] = useState(null)
   const [apps, setApps] = useState([])
   const [teams, setTeams] = useState([])
@@ -31,7 +50,7 @@ export default function Volunteer() {
 
   const load = useCallback(async () => {
     const { data: ww } = await supabase.from('wwcc').select('*').eq('profile_id', user.id).maybeSingle()
-    setW(ww); if (ww) setWf({ card_number: ww.card_number, expiry: ww.expiry, card_type: ww.card_type || 'Volunteer' })
+    setW(ww); if (ww) setWf({ card_number: ww.card_number, expiry: ww.expiry || '', card_type: ww.card_type || 'Volunteer', pending: !!ww.pending })
     const { data: a } = await supabase.from('volunteer_roles').select('*, teams(name)').eq('profile_id', user.id).order('created_at', { ascending: false })
     setApps(a || [])
   }, [user.id])
@@ -51,12 +70,13 @@ export default function Volunteer() {
       const { error: ue } = await supabase.storage.from('wwcc').upload(file_path, file, { upsert: true })
       if (ue) return setMsg({ ok: false, text: 'Upload failed: ' + ue.message })
     }
-    if (!file_path) return setMsg({ ok: false, text: 'Please upload a photo or PDF of your WWCC card (front), or a screenshot of your digital card.' })
-    const row = { profile_id: user.id, card_number: wf.card_number.trim().toUpperCase(), expiry: wf.expiry, card_type: wf.card_type, file_path }
+    if (!file_path) return setMsg({ ok: false, text: wf.pending ? 'Please upload a screenshot of your application receipt email from Service Victoria.' : 'Please upload a photo or PDF of your WWCC card (front), or a screenshot of your digital card.' })
+    if (!wf.pending && !wf.expiry) return setMsg({ ok: false, text: 'Please enter the expiry date on your card.' })
+    const row = { profile_id: user.id, card_number: wf.card_number.trim().toUpperCase(), expiry: wf.pending ? null : wf.expiry, card_type: wf.card_type, pending: wf.pending, file_path }
     const { error } = w ? await supabase.from('wwcc').update(row).eq('profile_id', user.id) : await supabase.from('wwcc').insert(row)
     if (error) return setMsg({ ok: false, text: error.message })
     setFile(null); refresh(); load()
-    setMsg({ ok: true, text: 'Saved. The executive committee will check your WWCC.' })
+    setMsg({ ok: true, text: wf.pending ? 'Saved. The executive will check your application. When your card arrives, untick "I\'ve applied" and add the card number and expiry.' : 'Saved. The executive committee will check your WWCC.' })
   }
 
   async function apply(e) {
@@ -78,6 +98,7 @@ export default function Volunteer() {
       <div className="grid2">
         <section>
           <h2>1. Your details & WWCC</h2>
+          {(!w || w.pending || (w.expiry && new Date(w.expiry) < new Date())) && <ApplyWWCC />}
           <form className="card form" onSubmit={saveAll}>
             <p className="row"><span className={'pill ' + cls}>{label}</span></p>
             <label>Full name<input value={me.full_name} onChange={(e) => setMe({ ...me, full_name: e.target.value })} required /></label>
@@ -86,15 +107,16 @@ export default function Volunteer() {
               <label>Email<input value={profile?.email || ''} disabled /></label>
             </div>
             <label>Home address<input value={me.address} onChange={(e) => setMe({ ...me, address: e.target.value })} required /></label>
+            <label className="check"><input type="checkbox" checked={wf.pending} onChange={(e) => setWf({ ...wf, pending: e.target.checked })} /> I've applied for a WWCC and I'm waiting for my card</label>
             <div className="grid2 tight">
-              <label>WWCC card number<input value={wf.card_number} onChange={(e) => setWf({ ...wf, card_number: e.target.value })} required placeholder="e.g. 01234567A-01" /></label>
-              <label>Expiry date<input type="date" value={wf.expiry} onChange={(e) => setWf({ ...wf, expiry: e.target.value })} required /></label>
-              <label>Card type<select value={wf.card_type} onChange={(e) => setWf({ ...wf, card_type: e.target.value })}><option>Volunteer</option><option>Employee</option></select></label>
-              <label>Photo or PDF of card<input type="file" accept="image/*,application/pdf" onChange={(e) => setFile(e.target.files?.[0] || null)} /></label>
+              <label>{wf.pending ? 'Application number' : 'WWCC card number'}<input value={wf.card_number} onChange={(e) => setWf({ ...wf, card_number: e.target.value })} required placeholder={wf.pending ? 'From your Service Victoria receipt' : 'e.g. 01234567A-01'} /></label>
+              {!wf.pending && <label>Expiry date<input type="date" value={wf.expiry} onChange={(e) => setWf({ ...wf, expiry: e.target.value })} required /></label>}
+              <label>Check type<select value={wf.card_type} onChange={(e) => setWf({ ...wf, card_type: e.target.value })}><option>Volunteer</option><option>Employee</option></select></label>
+              <label>{wf.pending ? 'Screenshot of your application receipt' : 'Photo or PDF of card'}<input type="file" accept="image/*,application/pdf" onChange={(e) => setFile(e.target.files?.[0] || null)} /></label>
             </div>
             {w?.file_path && !file && <p className="small muted">Card image on file. Upload a new one only if your card has changed.</p>}
             <button className="btn">Save details & WWCC</button>
-            <p className="small muted">Your card image is private: only you and the executive committee can see it. Changing your card details means it has to be re-checked. Don't have a WWCC? Volunteer checks are free – apply at <a href="https://service.vic.gov.au/workchecks" target="_blank" rel="noreferrer">Service Victoria</a> and list Mount Beauty Football Club as your organisation.</p>
+            <p className="small muted">Your card image is private: only you and the executive committee can see it. Changing your card details means it has to be re-checked.</p>
           </form>
         </section>
 
