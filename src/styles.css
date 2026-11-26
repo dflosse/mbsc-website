@@ -402,8 +402,8 @@ dl.mini dd { margin: 0; }
 /* Alignment pass: table rows, compact in-table controls, invite form, header */
 th, td { vertical-align: middle; }
 td.c, th.c { text-align: center; }
-.table-wrap td select, .table-wrap td input:not([type=checkbox]):not([type=radio]) { width: auto; max-width: 100%; margin: 0; padding: 6px 30px 6px 10px; font-size: .9rem; min-height: 0; }
-.table-wrap td input:not([type=checkbox]):not([type=radio]) { padding-right: 10px; }
+.table-wrap table:not(.edit) td select, .table-wrap table:not(.edit) td input:not([type=checkbox]):not([type=radio]) { width: auto; max-width: 100%; margin: 0; padding: 6px 30px 6px 10px; font-size: .9rem; min-height: 0; }
+.table-wrap table:not(.edit) td input:not([type=checkbox]):not([type=radio]) { padding-right: 10px; }
 .table-wrap td input[type=checkbox] { width: 18px; height: 18px; margin: 0; vertical-align: middle; }
 .table-wrap td .pill { display: inline-flex; align-items: center; gap: 4px; margin: 2px 6px 2px 0; }
 table.people td:nth-child(2) { word-break: break-all; }
@@ -437,3 +437,7 @@ nav { row-gap: 0; }
 .progress-box.ready { border-left-color: var(--good, #2e7d32); }
 .progress-box .ticks { margin-top: 4px; }
 .progress-box .ticks li { justify-content: flex-start; }
+details.past { margin-top: 24px; }
+details.past > summary { cursor: pointer; font-weight: 700; padding: 10px 0; }
+
+table.edit td input:not([type=checkbox]), table.edit td select, table.edit td textarea { width: 100%; min-width: 0; }

@@ -301,14 +301,39 @@ function Kit() {
   )
 }
 
+const TEAM_COLS = [
+  { key: 'season', label: 'Season', type: 'number', width: 70 }, { key: 'name', label: 'Name', width: 120 }, { key: 'age_group', label: 'Age', width: 60 },
+  { key: 'format', label: 'Format', width: 150 }, { key: 'coach_names', label: 'Coaches (shown publicly)', width: 150 },
+  { key: 'training', label: 'Training', width: 170 }, { key: 'sort_order', label: 'Order', type: 'number', width: 60 },
+]
+const thisSeason = (q) => q.eq('season', REG_SEASON)
+const pastSeasons = (q) => q.lt('season', REG_SEASON)
+async function teamDeleteWarning(t) {
+  const c = async (tbl) => (await supabase.from(tbl).select('*', { count: 'exact', head: true }).eq('team_id', t.id)).count || 0
+  const [players, coaches, games] = await Promise.all([c('players'), c('team_coaches'), c('gala_games')])
+  const lines = [`Delete the team "${t.name}" (${t.season})?`, '']
+  if (players) lines.push(`• ${players} player${players > 1 ? 's' : ''} will be left without a team.`)
+  if (coaches) lines.push(`• ${coaches} coach${coaches > 1 ? 'es' : ''} will lose access to this team.`)
+  if (games) lines.push(`• ${games} gala game${games > 1 ? 's' : ''} and their goal scorers will be deleted.`)
+  if (!players && !coaches && !games) lines.push('Nothing is linked to this team yet.')
+  lines.push('', 'This can\'t be undone. Press OK only if you mean to delete it.')
+  return lines.join('\n')
+}
+
 function Teams() {
-  const order = useMemo(() => [['season', false], ['sort_order']], [])
-  return <EditTable table="teams" order={order} defaults={{ season: REG_SEASON, name: 'New team', age_group: 'U?' }}
-    cols={[
-      { key: 'season', label: 'Season', type: 'number', width: 70 }, { key: 'name', label: 'Name', width: 110 }, { key: 'age_group', label: 'Age', width: 60 },
-      { key: 'format', label: 'Format', width: 140 }, { key: 'coach_names', label: 'Coaches (shown publicly)', width: 140 },
-      { key: 'training', label: 'Training', width: 150 }, { key: 'sort_order', label: 'Order', type: 'number', width: 50 },
-    ]} />
+  const order = useMemo(() => [['sort_order'], ['name']], [])
+  const pastOrder = useMemo(() => [['season', false], ['sort_order']], [])
+  return (
+    <>
+      <h2>{REG_SEASON} teams</h2>
+      <p className="muted small">Add, rename or split teams here (e.g. "Under 9 Red" and "Under 9 Green"), then assign children under Edit players and coaches under People &amp; access. Coaches' names show on the public Teams page.</p>
+      <EditTable table="teams" filter={thisSeason} order={order} defaults={{ season: REG_SEASON, name: 'New team', age_group: 'U?', sort_order: 99 }} cols={TEAM_COLS} confirmDelete={teamDeleteWarning} deleteLabel="Delete" />
+      <details className="past">
+        <summary>Past seasons</summary>
+        <EditTable table="teams" filter={pastSeasons} order={pastOrder} cols={TEAM_COLS} noAdd confirmDelete={teamDeleteWarning} deleteLabel="Delete" />
+      </details>
+    </>
+  )
 }
 
 const ROLE_LABEL = { parent: 'Parent', volunteer: 'Volunteer', coach: 'Coach', committee: 'Committee', admin: 'Admin (full access)' }

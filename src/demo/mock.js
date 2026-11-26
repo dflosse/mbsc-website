@@ -78,6 +78,9 @@ class Query {
   eq(k, v) { this.filters.push((r) => r[k] === v); return this }
   neq(k, v) { this.filters.push((r) => r[k] !== v); return this }
   gte(k, v) { this.filters.push((r) => r[k] >= v); return this }
+  lt(k, v) { this.filters.push((r) => r[k] < v); return this }
+  lte(k, v) { this.filters.push((r) => r[k] <= v); return this }
+  gt(k, v) { this.filters.push((r) => r[k] > v); return this }
   in(k, a) { this.filters.push((r) => a.includes(r[k])); return this }
   is(k, v) { this.filters.push((r) => (r[k] ?? null) === v); return this }
   ilike(k, v) { this.filters.push((r) => String(r[k] || '').toLowerCase() === String(v).toLowerCase()); return this }

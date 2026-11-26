@@ -3,7 +3,7 @@ import { supabase } from '../supabase'
 
 // Generic editable table for committee data.
 // cols: [{ key, label, type: 'text'|'date'|'bool'|'select'|'textarea'|'number', options: [[value,label]], width }]
-export default function EditTable({ table, cols, order = [], filter, defaults = {}, select = '*', search = [], rowActions, sortRows }) {
+export default function EditTable({ table, cols, order = [], filter, defaults = {}, select = '*', search = [], rowActions, sortRows, confirmDelete, deleteLabel, noAdd }) {
   const [rows, setRows] = useState([])
   const [q, setQ] = useState('')
   const [err, setErr] = useState('')
@@ -30,7 +30,9 @@ export default function EditTable({ table, cols, order = [], filter, defaults = 
     if (error) setErr(error.message); else load()
   }
   async function remove(id) {
-    if (!confirm('Delete this row? This cannot be undone.')) return
+    const row = rows.find((r) => r.id === id)
+    const text = confirmDelete ? await confirmDelete(row) : 'Delete this row? This cannot be undone.'
+    if (!text || !confirm(text)) return
     const { error } = await supabase.from(table).delete().eq('id', id)
     if (error) setErr(error.message); else load()
   }
@@ -41,7 +43,7 @@ export default function EditTable({ table, cols, order = [], filter, defaults = 
       <div className="row between">
         {search.length > 0 ? <input className="search" placeholder="Search…" value={q} onChange={(e) => setQ(e.target.value)} /> : <span />}
         <span className="muted small">{shown.length} rows</span>
-        <button className="btn small" onClick={add}>+ Add row</button>
+        {noAdd ? <span /> : <button className="btn small" onClick={add}>+ Add row</button>}
       </div>
       {err && <p className="err">{err} <button className="link" onClick={() => setErr('')}>dismiss</button></p>}
       <div className="table-wrap"><table className="edit">
@@ -49,7 +51,7 @@ export default function EditTable({ table, cols, order = [], filter, defaults = 
         <tbody>{shown.map((r) => (
           <tr key={r.id} className={saving[r.id] ? 'saving' : ''}>
             {cols.map((c) => <td key={c.key}><Cell c={c} v={r[c.key]} onChange={(v) => update(r.id, c.key, v)} /></td>)}
-            <td className="nowrap">{rowActions && rowActions(r, load)}<button className="link danger" title="Delete" onClick={() => remove(r.id)}>✕</button></td>
+            <td className="nowrap">{rowActions && rowActions(r, load)}<button className="link danger" title="Delete" onClick={() => remove(r.id)}>{deleteLabel || '✕'}</button></td>
           </tr>))}</tbody>
       </table></div>
     </div>
