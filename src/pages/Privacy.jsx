@@ -1,7 +1,9 @@
 import { Link } from 'react-router-dom'
+import useSettings from '../useSettings'
 
 // DRAFT – to be reviewed and adopted by the MBFC committee.
 export default function Privacy() {
+  const st = useSettings()
   return (
     <div className="wrap narrow prose">
       <h1>Privacy statement</h1>
@@ -59,7 +61,7 @@ export default function Privacy() {
       </ul>
 
       <h2>Access, corrections and complaints</h2>
-      <p>Most details you can update yourself after <Link to="/login">signing in</Link>. For anything else – a copy of what we hold, a correction, deletion, or a concern about how we've handled your information – email the club secretary at mtbeautysoccerclub@gmail.com. If you're not satisfied with our response, you can contact the <a href="https://www.oaic.gov.au/privacy/privacy-complaints" target="_blank" rel="noreferrer">Office of the Australian Information Commissioner</a>.</p>
+      <p>Most details you can update yourself after <Link to="/login">signing in</Link>. For anything else – a copy of what we hold, a correction, deletion, or a concern about how we've handled your information – email the club secretary at {st.club_email}. If you're not satisfied with our response, you can contact the <a href="https://www.oaic.gov.au/privacy/privacy-complaints" target="_blank" rel="noreferrer">Office of the Australian Information Commissioner</a>.</p>
 
       <p>Child safety concerns should be raised with any executive committee member straight away, or directly with Football Victoria. If a child is in immediate danger, call 000.</p>
     </div>

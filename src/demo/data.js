@@ -140,7 +140,7 @@ tasks.push(
 )
 tasks.forEach((t) => { t.owner = /^coach/i.test(t.owner || '') ? 'Coaches' : ['Committee', 'Equipment', 'Uniforms'].includes(t.owner) ? 'Committee' : 'Exec' })
 export const key_dates = [
-  { id: 'kd1', season: 2027, label: 'AGM', on_date: '2027-02-24', sort: 1 },
+  { id: 'kd1', season: 2027, label: 'AGM', on_date: '2027-02-24', sort: 1, public: false },
   { id: 'kd2', season: 2027, label: 'Registrations open', on_date: '2027-02-01', sort: 2, notes: 'Website + PlayFootball' },
   { id: 'kd3', season: 2027, label: 'Come n Try day', on_date: '2027-03-10', sort: 3 },
   { id: 'kd4', season: 2027, label: 'Registrations close', on_date: null, sort: 4 },

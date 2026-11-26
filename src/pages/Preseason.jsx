@@ -191,7 +191,7 @@ function KeyDates() {
   const next = dates.filter((d) => d.on_date && d.on_date >= today()).sort((a, b) => a.on_date.localeCompare(b.on_date))[0]
   return (
     <section className="pre-dates">
-      <div className="row between"><h3>Key dates</h3><button className="link small" onClick={() => setEdit(!edit)}>{edit ? 'Done' : 'Edit dates'}</button></div>
+      <div className="row between"><h3>Key dates <span className="muted small" style={{ fontWeight: 400 }}>– also shown on the home page and About the club</span></h3><button className="link small" onClick={() => setEdit(!edit)}>{edit ? 'Done' : 'Edit dates'}</button></div>
       {edit ? (
         <div className="pre-dates-edit">
           {dates.map((d) => (
@@ -199,6 +199,7 @@ function KeyDates() {
               <input defaultValue={d.label} onBlur={(e) => e.target.value !== d.label && save(d, { label: e.target.value })} aria-label="Name" />
               <input type="date" value={d.on_date || ''} onChange={(e) => save(d, { on_date: e.target.value || null })} aria-label={`${d.label} date`} />
               <input defaultValue={d.notes || ''} placeholder="Note (optional)" onBlur={(e) => e.target.value !== (d.notes || '') && save(d, { notes: e.target.value || null })} aria-label="Note" />
+              <label className="check inline pub"><input type="checkbox" checked={d.public !== false} onChange={(e) => save(d, { public: e.target.checked })} /> On home page</label>
               <button className="link danger small" onClick={() => remove(d)}>Remove</button>
             </div>
           ))}
@@ -212,6 +213,7 @@ function KeyDates() {
               <span className="what">{d.label}</span>
               {d.on_date && d.on_date >= today() && <span className="small muted">{until(d.on_date)}</span>}
               {d.notes && <span className="small muted">{d.notes}</span>}
+              {d.public === false && <span className="small muted">Committee only</span>}
             </li>
           ))}
         </ol>

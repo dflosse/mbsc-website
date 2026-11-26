@@ -1,9 +1,9 @@
 import { bondInfo } from './bond'
 import Contours from '../components/Contours'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, Fragment } from 'react'
 import { Link, useLocation } from 'react-router-dom'
-import { supabase } from '../supabase'
-import useSettings from '../useSettings'
+import { supabase, fmtDate } from '../supabase'
+import useSettings, { useKeyDates } from '../useSettings'
 
 export const AGE_GROUPS = [
   ['U5', 'Turning 5', '4v4, no goalkeeper'],
@@ -32,6 +32,7 @@ export function FeesCard({ s, compact }) {
 
 export default function About() {
   const s = useSettings()
+  const dates = useKeyDates()
   const loc = useLocation()
   const [roles, setRoles] = useState([])
   useEffect(() => {
@@ -56,8 +57,8 @@ export default function About() {
       <div className="wrap">
         <div className="facts">
           <div><b>Who</b><span>Boys and girls aged 4–13 (born 2014–2022 for 2027)</span></div>
-          <div><b>When</b><span>School Term 2 (April–June), training Wednesdays 4–5pm</span></div>
-          <div><b>Where</b><span>Les Peart Oval, Pool Road, Mount Beauty</span></div>
+          <div><b>When</b><span>{s.training_term}, training {s.training}</span></div>
+          <div><b>Where</b><span>{s.ground}</span></div>
           <div><b>Games</b><span>Alpine Valleys gala days with Bright, Myrtleford and Yackandandah</span></div>
         </div>
 
@@ -80,9 +81,9 @@ export default function About() {
             <FeesCard s={s} />
             <div className="card soft">
               <h3>Key dates</h3>
-              <dl><dt>Come n Try</dt><dd>{s.come_n_try || 'TBA'}</dd><dt>Gala days</dt><dd><Link to="/galas">TBA – see Gala days</Link></dd></dl>
+              <dl>{(dates || []).filter((d) => d.public !== false).map((d) => <Fragment key={d.id}><dt>{d.label}</dt><dd>{d.on_date ? fmtDate(d.on_date, { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }) : 'TBA'}</dd></Fragment>)}<dt>Gala days</dt><dd><Link to="/galas">See Gala days</Link></dd></dl>
             </div>
-            <div className="card"><h3>Contact</h3><p>mtbeautysoccerclub@gmail.com</p><p className="muted small">Or message the committee once you've signed in.</p></div>
+            <div className="card"><h3>Contact</h3><p><a href={`mailto:${s.club_email}`}>{s.club_email}</a></p>{s.facebook_url && <p><a href={s.facebook_url} target="_blank" rel="noreferrer">Club Facebook page</a></p>}<p className="muted small">Or message the committee once you've signed in.</p></div>
           </aside>
         </div>
 

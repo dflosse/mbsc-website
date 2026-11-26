@@ -16,7 +16,7 @@ export default function Login() {
   const { user } = useAuth()
   const loc = useLocation()
   const navigate = useNavigate()
-  const [mode, setMode] = useState('signin')
+  const [mode, setMode] = useState(() => (new URLSearchParams(window.location.search).get('mode') === 'signup' ? 'signup' : 'signin'))
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [name, setName] = useState('')

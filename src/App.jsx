@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from './supabase'
 import { Routes, Route, NavLink, Link, Navigate, useLocation } from 'react-router-dom'
+import useSettings from './useSettings'
 import { useAuth } from './auth'
 import { DEMO } from './supabase'
 import crest from './assets/crest.png'
@@ -67,6 +68,7 @@ export default function App() {
   const { user, profile, coachTeams, isStaff, isCoach, signOut, recovering } = useAuth()
   const where = useLocation()
   useFreshVersion()
+  const st = useSettings()
   const showCoach = profile?.role === 'coach' || coachTeams.length > 0
   const showCommittee = ['committee', 'admin'].includes(profile?.role) || profile?.is_executive
   const [open, setOpen] = useState(false)
@@ -130,9 +132,9 @@ export default function App() {
       </main>
       <footer className="foot">
         <div className="wrap footgrid">
-          <div className="row"><img src={crest} alt="" className="crest lg" /><div><p><strong>{CLUB}</strong><br />Junior soccer in the Kiewa Valley since 2003</p><p className="muted">Les Peart Oval, Pool Road, Mount Beauty VIC 3699</p></div></div>
+          <div className="row"><img src={crest} alt="" className="crest lg" /><div><p><strong>{CLUB}</strong><br />Junior soccer in the Kiewa Valley since 2003</p><p className="muted">{st.ground}</p></div></div>
           <div><p><Link to="/about">About the club</Link><br /><Link to="/about#fees">Fees & registration</Link><br /><Link to="/football-victoria">Football Victoria</Link><br /><Link to="/galas">Gala days</Link><br /><Link to="/privacy">Privacy</Link></p></div>
-          <div><p>Training Wednesdays 4–5pm<br />mtbeautysoccerclub@gmail.com</p><p className="muted small">An incorporated, volunteer-run member club of Football Victoria.</p></div>
+          <div><p>Training {st.training}<br /><a href={`mailto:${st.club_email}`}>{st.club_email}</a></p><p className="muted small">An incorporated, volunteer-run member club of Football Victoria.</p></div>
         </div>
       </footer>
     </>

@@ -30,6 +30,8 @@ Deno.serve(async (req) => {
     const { data: me } = await db.from('profiles').select('is_executive, full_name').eq('id', user.id).single()
     if (!me?.is_executive) return json({ error: 'Only the executive can do this.' }, 403)
 
+    const { data: ce } = await db.from('settings').select('value').eq('key', 'club_email').maybeSingle()
+    const clubInbox = ce?.value?.trim() || 'mtbeautysoccerclub@gmail.com'
     const { id } = await req.json()
     const { data: app } = await db.from('volunteer_roles').select('kind, status, decision_note, profile_id, teams(name)').eq('id', id).single()
     if (!app || !['approved', 'declined'].includes(app.status)) return json({ error: 'No decision to send.' }, 400)
@@ -45,12 +47,12 @@ Deno.serve(async (req) => {
       ? `<p>Hi ${first},</p><p>Good news – you've been approved as a <b>${role}</b> at Mount Beauty Football Club.</p><p>${ACCESS[app.kind]}</p>${note}
          <p><a href="${SITE}/start" style="display:inline-block;background:#f08a3c;color:#1e3b2f;padding:12px 20px;border-radius:12px;text-decoration:none;font-weight:bold">Sign in</a></p>
          <p>Thanks for helping out.</p>`
-      : `<p>Hi ${first},</p><p>Thanks for offering to help as a <b>${role}</b>. The executive committee hasn't approved this application.</p>${note}<p>If you have questions, reply to the club at mtbeautysoccerclub@gmail.com.</p>`
+      : `<p>Hi ${first},</p><p>Thanks for offering to help as a <b>${role}</b>. The executive committee hasn't approved this application.</p>${note}<p>If you have questions, reply to the club at ${clubInbox}.</p>`
     const html = `<div style="font-family:Arial,sans-serif;color:#1e3b2f;max-width:520px">${body}<p style="color:#666;font-size:13px">Mount Beauty Football Club · mountbeautyfc.org.au</p></div>`
 
     const r = await fetch('https://api.resend.com/emails', {
       method: 'POST', headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ from: 'Mount Beauty Football Club <noreply@mountbeautyfc.org.au>', to: [p.email], reply_to: 'mtbeautysoccerclub@gmail.com', subject, html }),
+      body: JSON.stringify({ from: 'Mount Beauty Football Club <noreply@mountbeautyfc.org.au>', to: [p.email], reply_to: clubInbox, subject, html }),
     })
     if (!r.ok) return json({ error: 'Email could not be sent: ' + (await r.text()).slice(0, 200) }, 502)
     return json({ ok: true, to: p.email })

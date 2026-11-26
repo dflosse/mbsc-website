@@ -45,7 +45,9 @@ Deno.serve(async (req) => {
     }
     if (!to.length) return json({ error: 'Choose at least one person to send to.' }, 400)
     if (to.length > MAX) return json({ error: `That's ${to.length} people – the limit is ${MAX} per email.` }, 400)
-    const replyTo = b.reply_to === 'me' && me.email ? me.email : CLUB_INBOX
+    const { data: ce } = await db.from('settings').select('value').eq('key', 'club_email').maybeSingle()
+    const clubInbox = ce?.value?.trim() || CLUB_INBOX
+    const replyTo = b.reply_to === 'me' && me.email ? me.email : clubInbox
 
     const failed: string[] = []
     let sent = 0

@@ -2,11 +2,13 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { supabase, REG_SEASON, fmtDate } from '../supabase'
 import { useAuth } from '../auth'
+import useSettings from '../useSettings'
 
 const isEmail = (e) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)
 
 export default function Email() {
   const { isExec } = useAuth()
+  const st = useSettings()
   const [d, setD] = useState(null)
   const [to, setTo] = useState(new Map()) // email -> { email, name, from }
   const [subject, setSubject] = useState('')
@@ -131,7 +133,7 @@ export default function Email() {
           <label>Subject<input value={subject} onChange={(e) => setSubject(e.target.value)} maxLength={200} placeholder="e.g. 2027 registrations are open" /></label>
           <label>Message<textarea rows={12} value={body} onChange={(e) => setBody(e.target.value)} placeholder={'Hi {first_name},\n\n…'} /></label>
           <p className="small muted">Type <code>{'{first_name}'}</code> to greet each person by name. Leave a blank line between paragraphs. Web links become clickable.</p>
-          <label>Replies go to<select value={replyTo} onChange={(e) => setReplyTo(e.target.value)}><option value="club">Club Gmail (mtbeautysoccerclub@gmail.com)</option><option value="me">My own email</option></select></label>
+          <label>Replies go to<select value={replyTo} onChange={(e) => setReplyTo(e.target.value)}><option value="club">Club email ({st.club_email})</option><option value="me">My own email</option></select></label>
           {preview && body && (
             <div className="mail-preview">
               <p className="small muted">Preview for {list[0]?.name || 'the first person'}:</p>

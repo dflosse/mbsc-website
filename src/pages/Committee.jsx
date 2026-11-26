@@ -1,9 +1,9 @@
 import { useEffect, useState, useCallback, useMemo, Fragment } from 'react'
-import { NavLink, Routes, Route, Navigate } from 'react-router-dom'
+import { NavLink, Routes, Route, Navigate, useLocation, Link } from 'react-router-dom'
 import { supabase, REG_SEASON, PREV_SEASON, fmtDate, ageGroupFor } from '../supabase'
 import { useAuth } from '../auth'
 import EditTable, { useLive } from './EditTable'
-import useSettings from '../useSettings'
+import useSettings, { refreshSettings } from '../useSettings'
 import { KitTags, kitText } from './kitInfo'
 import { wwccState } from './Volunteer'
 import Treasurer from './Treasurer'
@@ -13,16 +13,58 @@ import Email from './Email'
 import { bondInfo } from './bond'
 import { sortPlayers, TEAM_SEL } from './sortPlayers'
 
+// Committee pages grouped into sections. Each page has a one-line "what this is for".
+const PAGES = {
+  overview: ['Home', 'What needs doing now, at a glance.'],
+  preseason: [`${REG_SEASON} Preseason`, 'Everything to get the season ready: key dates, where we\'re at, and the checklist.'],
+  galas: ['Galas', 'Gala dates, team entries, gala-day jobs and results.'],
+  teams: ['Teams', 'This season\'s teams, coaches and squads. Move players between teams here.'],
+  tasks: ['Action list', 'Every club job in one list, including the preseason checklist.'],
+  approvals: ['Approve applications', 'Approve new player registrations and volunteer, coach and committee applications.'],
+  players: ['Players', 'All registered players: edit details, link parents, check PlayFootball and fees.'],
+  wwcc: ['WWCC register', 'Working With Children Checks: check, connect in WWC Connect, and track expiry.'],
+  people: ['People & access', 'Who has an account and what they can see. Invite new people here.'],
+  kit: ['Uniforms', 'Uniforms for this season, and jerseys still out from last season.'],
+  registers: ['Keys & assets', 'Who holds which key, and the club\'s equipment and assets.'],
+  email: ['Send email', 'Email families, coaches, the committee or key contacts from the club address.'],
+  contacts: ['Contacts & handover', 'Key contacts (Shire, Football Victoria, suppliers) and handover notes.'],
+  docs: ['Documents', 'Club documents and useful links.'],
+  roles: ['Committee roles', 'Who holds each committee and Football Victoria role. Shown on About the club.'],
+  treasurer: ['Treasurer', 'Money in and out, grants and bonds.'],
+  settings: ['Fees & settings', 'Fees, training times and contact details shown across the public site.'],
+  audit: ['Change log', 'A record of every change made on the site.'],
+  start: ['Start here', 'How the committee pages work. Start here if you\'re new.'],
+}
+const SECTIONS = [
+  { key: 'home', label: 'Home', pages: ['overview'] },
+  { key: 'season', label: 'This season', pages: ['preseason', 'galas', 'teams', 'tasks'] },
+  { key: 'people', label: 'People', pages: ['approvals', 'players', 'wwcc', 'people'], exec: true },
+  { key: 'gear', label: 'Gear', pages: ['kit', 'registers'] },
+  { key: 'admin', label: 'Club admin', pages: ['email', 'contacts', 'docs', 'roles', 'treasurer', 'settings', 'audit'] },
+  { key: 'start', label: 'Start here', pages: ['start'] },
+]
+const EXEC_ONLY = ['approvals', 'wwcc', 'players', 'people', 'email', 'audit']
+
 export default function Committee() {
   const { isExec } = useAuth()
-  const EXEC_ONLY = ['approvals', 'wwcc', 'players', 'email', 'audit']
+  const loc = useLocation()
+  const page = loc.pathname.split('/')[2] || 'overview'
+  const can = (p) => isExec || !EXEC_ONLY.includes(p)
+  const sections = SECTIONS.map((x) => ({ ...x, pages: x.pages.filter(can) })).filter((x) => x.pages.length && (!x.exec || isExec))
+  const current = sections.find((x) => x.pages.includes(page)) || sections[0]
   return (
     <div className="wrap wide">
       <h1>Committee</h1>
-      <div className="tabs">
-        {[['overview', 'Overview'], ['preseason', 'Preseason'], ['approvals', 'Approve applications'], ['players', 'Players'], ['wwcc', 'WWCC register'], ['galas', 'Galas'], ['tasks', 'Action list'], ['email', 'Send email'], ['kit', 'Uniforms'], ['registers', 'Keys & assets'], ['contacts', 'Contacts & handover'], ['teams', 'Teams'], ['people', 'People & access'], ['docs', 'Documents'], ['roles', 'Committee roles'], ['treasurer', 'Treasurer'], ['settings', 'Fees & settings'], ['audit', 'Change log']].filter(([p]) => isExec || !EXEC_ONLY.includes(p)).map(([p, l]) => <NavLink key={p} to={'/committee/' + p} className={(EXEC_ONLY.includes(p) ? 'exec' : '') + (p === 'preseason' ? ' feature' : '')}>{p === 'preseason' ? <><span aria-hidden>✓</span> {REG_SEASON} Preseason</> : l}</NavLink>)}
-      </div>
-      {!isExec && <p className="muted small">Children's details, approvals and the WWCC register are visible to the executive committee only.</p>}
+      <nav className="sections" aria-label="Committee sections">
+        {sections.map((x) => <NavLink key={x.key} to={'/committee/' + x.pages[0]} className={'section-btn ' + x.key + (x === current ? ' on' : '')}>{x.key === 'season' ? <><span className="sec-dot" aria-hidden>✓</span>{x.label}</> : x.label}</NavLink>)}
+      </nav>
+      {current.pages.length > 1 && (
+        <div className="tabs sub">
+          {current.pages.map((p) => <NavLink key={p} to={'/committee/' + p} className={(EXEC_ONLY.includes(p) ? 'exec' : '') + (p === 'preseason' ? ' feature' : '')}>{p === 'preseason' ? <><span aria-hidden>✓</span> {PAGES[p][0]}</> : PAGES[p][0]}</NavLink>)}
+        </div>
+      )}
+      {PAGES[page] && page !== 'overview' && <p className="page-desc">{PAGES[page][1]}{EXEC_ONLY.includes(page) && <span className="pill">Executive only</span>}</p>}
+      {!isExec && page === 'overview' && <p className="muted small">Children's details, approvals and the WWCC register are visible to the executive committee only.</p>}
       <Routes>
         <Route index element={<Navigate to="overview" replace />} />
         <Route path="overview" element={<Overview />} />
@@ -44,55 +86,134 @@ export default function Committee() {
         <Route path="treasurer" element={<Treasurer />} />
         <Route path="settings" element={<Settings />} />
         <Route path="audit" element={<Audit />} />
+        <Route path="start" element={<CommitteeStart />} />
       </Routes>
     </div>
   )
 }
 
 function Overview() {
+  const { isExec } = useAuth()
   const [s, setS] = useState(null)
-  useEffect(() => {
-    (async () => {
-      const c = async (t, f) => { let q = supabase.from(t).select('*', { count: 'exact', head: true }); if (f) q = f(q); return (await q).count }
-      setS({
-        pending: await c('players', (q) => q.eq('status', 'pending')),
-        reg: await c('players', (q) => q.eq('season', REG_SEASON)),
-        roster: await c('players', (q) => q.eq('season', PREV_SEASON).neq('status', 'withdrawn')),
-        unpaid: await c('players', (q) => q.eq('season', REG_SEASON).eq('fees_paid', false)),
-        tasks: await c('tasks', (q) => q.neq('status', 'done')),
-        vols: await c('volunteer_roles', (q) => q.eq('status', 'pending')),
-        uniReq: await c('players', (q) => q.eq('season', REG_SEASON).neq('status', 'withdrawn').eq('needs_uniform', true)),
-        bootReq: await c('players', (q) => q.eq('season', REG_SEASON).neq('status', 'withdrawn').eq('needs_boots', true).in('boots_status', ['requested', 'waitlist'])),
-        kitOut: await c('kit', (q) => q.in('status', ['Loaned Out', 'Outstanding'])),
-        users: await c('profiles'),
-      })
-    })()
-  }, [])
-  const [due, setDue] = useState([])
-  useEffect(() => { supabase.from('tasks').select('*').neq('status', 'done').order('due', { nullsFirst: false }).limit(6).then(({ data }) => setDue(data || [])) }, [])
-  const st = useSettings()
+  const [att, setAtt] = useState(null)
+  const [dates, setDates] = useState([])
+  const load = useCallback(async () => {
+    const c = async (t, f) => { let q = supabase.from(t).select('*', { count: 'exact', head: true }); if (f) q = f(q); return (await q).count ?? 0 }
+    const today = new Date().toISOString().slice(0, 10)
+    const soon = new Date(Date.now() + 14 * 86400000).toISOString().slice(0, 10)
+    const [{ data: tasks }, { data: teams }, { data: roles }, { data: kd }] = await Promise.all([
+      supabase.from('tasks').select('id, due, status').eq('season', REG_SEASON).neq('status', 'done'),
+      supabase.from('teams').select('coach_names').eq('season', REG_SEASON).or('active.is.null,active.eq.true'),
+      supabase.from('committee_roles').select('grp, role, person').eq('season', REG_SEASON).in('grp', ['Executive', 'Football Victoria contacts']),
+      supabase.from('key_dates').select('*').eq('season', REG_SEASON).order('on_date', { nullsFirst: false }),
+    ])
+    setDates((kd || []).filter((d) => d.on_date && d.on_date >= today).slice(0, 4))
+    const items = []
+    const add = (n, text, to, urgent) => n > 0 && items.push({ n, text, to, urgent })
+    if (isExec) {
+      add(await c('players', (q) => q.eq('status', 'pending')), 'player registrations waiting for approval', 'approvals', true)
+      add(await c('volunteer_roles', (q) => q.eq('status', 'pending')), 'volunteer, coach or committee applications waiting', 'approvals', true)
+      const { data: w } = await supabase.from('wwcc').select('*')
+      const { data: active } = await supabase.from('volunteer_roles').select('profile_id').in('status', ['approved', 'pending'])
+      const ids = new Set((active || []).map((x) => x.profile_id))
+      const mine = (w || []).filter((x) => ids.has(x.profile_id))
+      add(mine.filter((x) => !x.status_checked_at || !x.wwc_connected_at).length, 'WWCCs to check or connect in WWC Connect', 'wwcc', true)
+      add(mine.filter((x) => x.expiry && x.expiry < today).length, 'WWCCs expired', 'wwcc', true)
+      add(mine.filter((x) => x.expiry && x.expiry >= today && x.expiry <= new Date(Date.now() + 60 * 86400000).toISOString().slice(0, 10)).length, 'WWCCs expiring in the next 2 months', 'wwcc')
+    }
+    add((tasks || []).filter((t) => t.due && t.due < today).length, 'jobs overdue', 'preseason', true)
+    add((tasks || []).filter((t) => t.due && t.due >= today && t.due <= soon).length, 'jobs due in the next 2 weeks', 'preseason')
+    add((teams || []).filter((t) => !t.coach_names?.trim()).length, `${REG_SEASON} teams without a coach`, 'teams')
+    const vac = (roles || []).filter((r) => !r.person?.trim())
+    add(vac.filter((r) => r.grp === 'Executive').length, 'executive roles vacant', 'roles')
+    add(vac.filter((r) => r.grp !== 'Executive').length, 'Football Victoria contact roles to fill', 'roles')
+    setAtt(items)
+    setS({
+      reg: isExec ? await c('players', (q) => q.eq('season', REG_SEASON).neq('status', 'withdrawn')) : null,
+      unpaid: isExec ? await c('players', (q) => q.eq('season', REG_SEASON).neq('status', 'withdrawn').eq('fees_paid', false)) : null,
+      open: (tasks || []).length,
+      uniReq: isExec ? await c('players', (q) => q.eq('season', REG_SEASON).neq('status', 'withdrawn').eq('needs_uniform', true)) : null,
+      kitOut: await c('kit', (q) => q.eq('season', PREV_SEASON).in('status', ['Loaned Out', 'Outstanding'])),
+      users: isExec ? await c('profiles') : null,
+    })
+  }, [isExec])
+  useEffect(() => { load() }, [load])
+  useLive(isExec ? ['players', 'volunteer_roles', 'wwcc', 'tasks', 'teams', 'committee_roles', 'key_dates'] : ['tasks', 'teams', 'committee_roles', 'key_dates'], load)
   if (!s) return <p className="muted">Loading…</p>
   return (
-    <>
-      <PreseasonBanner />
-      <p><b>Next AGM:</b> {st.agm || 'TBA'} <span className="muted small">(committee and executive only – not shown on the public site; set it in Fees & settings)</span></p>
-      <div className="stats">
-        <Stat n={s.pending} l="player registrations awaiting sign-off" to="approvals" warn={s.pending > 0} />
-        <Stat n={s.vols} l="volunteer / coach applications awaiting sign-off" to="approvals" warn={s.vols > 0} />
-        <Stat n={s.reg} l={`${REG_SEASON} registrations`} to="players" />
-        <Stat n={s.unpaid} l={`${REG_SEASON} payments outstanding`} to="players" warn={s.unpaid > 0} />
-        <Stat n={s.roster} l={`${PREV_SEASON} players (last season)`} to="players" />
-        <Stat n={s.tasks} l="open actions" to="tasks" />
-        <Stat n={s.uniReq} l={`${REG_SEASON} children needing a uniform`} to="kit" />
-        <Stat n={s.bootReq} l="families interested in loan boots" to="kit" />
-        <Stat n={s.kitOut} l={`${PREV_SEASON} jerseys still to come back`} to="kit" />
-        <Stat n={s.users} l="site accounts" to="people" />
+    <div className="dash">
+      <div className="dash-main">
+        <section className="card attention">
+          <h2>Needs your attention</h2>
+          {att.length === 0 ? <p className="ok-line">✓ Nothing urgent right now.</p> : (
+            <ul>{att.map((a) => <li key={a.text}><Link to={'/committee/' + a.to} className={a.urgent ? 'urgent' : ''}><b>{a.n}</b> {a.text}<span aria-hidden>→</span></Link></li>)}</ul>
+          )}
+        </section>
+        <PreseasonBanner />
+        <div className="stats">
+          {isExec && <Stat n={s.reg} l={`${REG_SEASON} players registered`} to="players" />}
+          {isExec && <Stat n={s.unpaid} l={`${REG_SEASON} fees not yet paid`} to="players" warn={s.unpaid > 0} />}
+          <Stat n={s.open} l="open jobs" to="tasks" />
+          {isExec && <Stat n={s.uniReq} l="children needing a uniform" to="kit" />}
+          <Stat n={s.kitOut} l={`${PREV_SEASON} jerseys still out`} to="kit" />
+          {isExec && <Stat n={s.users} l="site accounts" to="people" />}
+        </div>
       </div>
-      <h2>Next actions</h2>
-      <div className="table-wrap"><table><tbody>{due.map((t) => <tr key={t.id}><td><b>{t.title}</b><br /><span className="muted small">{t.notes}</span></td><td>{t.owner}</td><td className="nowrap">{t.due ? fmtDate(t.due) : ''}</td></tr>)}</tbody></table></div>
-    </>
+      <aside className="dash-side">
+        <section className="card">
+          <h3>Coming up</h3>
+          {dates.length === 0 ? <p className="muted small">No dates set yet. <Link to="/committee/preseason">Add key dates</Link></p> : (
+            <ul className="plain upcoming">{dates.map((d) => <li key={d.id}><b>{fmtDate(d.on_date, { weekday: 'short', day: 'numeric', month: 'short' })}</b><span>{d.label}{d.public === false && <span className="muted small"> · committee only</span>}</span></li>)}</ul>
+          )}
+          <Link to="/committee/preseason" className="small">All key dates →</Link>
+        </section>
+        <Link to="/committee/start" className="card start-card"><b>New to the committee?</b><span>Start here: how these pages work, and where to go for each job.</span></Link>
+      </aside>
+    </div>
   )
 }
+
+function CommitteeStart() {
+  const { isExec } = useAuth()
+  const jobs = [
+    ['Approve a new family or volunteer', 'approvals', true],
+    ['Check a coach\'s Working With Children Check', 'wwcc', true],
+    ['Find a player, fix their details or link a second parent', 'players', true],
+    ['Put players into teams, or add a coach to a team', 'teams'],
+    ['See what needs doing before the season, and tick jobs off', 'preseason'],
+    ['Set or change the key dates (AGM, Come n Try, first training)', 'preseason'],
+    ['Email families, coaches or the committee', 'email', true],
+    ['Hand out or record a uniform', 'kit'],
+    ['Record who has a key, or update the equipment list', 'registers'],
+    ['Change fees, training times or the club email shown on the site', 'settings'],
+    ['Update who holds a committee role', 'roles'],
+    ['Add a gala, or record gala-day jobs', 'galas'],
+    ['Find a phone number (Shire, Football Victoria, suppliers)', 'contacts'],
+    ['See who changed something', 'audit', true],
+  ]
+  return (
+    <div className="start-guide">
+      <section className="card">
+        <h2>How these pages work</h2>
+        <ul>
+          <li><b>The website is the one place club information is kept.</b> Change things here, not in old spreadsheets – Google Drive copies are read-only.</li>
+          <li><b>Changes save straight away</b> and show for everyone, everywhere on the site. For example, change the fee in Fees & settings and it updates on the home page, About the club and the registration form.</li>
+          <li><b>Every change is logged</b> with who made it, so nothing can go missing.</li>
+          <li><b>Children's details are protected.</b> Only the executive sees them, and everyone with access signs in with two-factor (Face ID or a 6-digit code).</li>
+          <li>The buttons at the top group the pages: <b>This season</b>, <b>People</b> (exec only), <b>Gear</b> and <b>Club admin</b>. Each page says what it's for at the top.</li>
+        </ul>
+      </section>
+      <section className="card">
+        <h2>I want to…</h2>
+        <ul className="plain jobs">
+          {jobs.filter(([, , ex]) => isExec || !ex).map(([t, to]) => <li key={t}><Link to={'/committee/' + to}>{t}<span aria-hidden>→</span></Link></li>)}
+        </ul>
+        {!isExec && <p className="muted small">Some jobs (approvals, players, WWCC, emails) are for the executive only. Ask the President or Secretary.</p>}
+      </section>
+    </div>
+  )
+}
+
 function PreseasonBanner() {
   const [c, setC] = useState(null)
   useEffect(() => { supabase.from('tasks').select('status').eq('season', REG_SEASON).not('stage', 'is', null).then(({ data }) => setC({ done: (data || []).filter((t) => t.status === 'done').length, total: (data || []).length })) }, [])
@@ -647,9 +768,10 @@ function Roles() {
 
 function Settings() {
   const order = useMemo(() => [['key']], [])
+  useEffect(() => () => { refreshSettings() }, [])
   return (
     <>
-      <p className="muted small">These show on the public site (About us, home page and the registration form). Football Victoria requires the club to publish all fees and charges.</p>
+      <p className="muted small">Change something here and it updates everywhere it's shown – the home page, About the club, the footer, the privacy statement and the registration form. Football Victoria requires the club to publish all fees and charges. Key dates (AGM, Come n Try, first training) are set on the <Link to="/committee/preseason">Preseason</Link> page.</p>
       <EditTable table="settings" order={order} defaults={{ key: 'new_' + Date.now(), label: 'New setting' }}
         cols={[{ key: 'label', label: 'Setting', width: 160 }, { key: 'value', label: 'Text shown on the site', type: 'textarea', width: 520 }]} />
     </>
