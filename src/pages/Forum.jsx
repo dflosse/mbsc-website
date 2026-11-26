@@ -214,10 +214,11 @@ function Thread({ id }) {
   const [t, setT] = useState(undefined)
   const [replies, setReplies] = useState([])
   const [reacts, setReacts] = useState([])
-  const [body, setBody] = useState('')
-  const [quote, setQuote] = useState(null)
-  const [busy, setBusy] = useState(false)
+  const [replyTo, setReplyTo] = useState(null) // reply id being answered inline
   const [editing, setEditing] = useState(null)
+  const [collapsed, setCollapsed] = useState({})
+  const [sort, setSort] = useState('old')
+  const [flash, setFlash] = useState(null)
   const [err, setErr] = useState(null)
   const load = useCallback(async () => {
     const { data } = await supabase.from('posts').select('*, teams(name)').eq('id', id).maybeSingle()
@@ -233,20 +234,29 @@ function Thread({ id }) {
   useEffect(() => { load() }, [load])
   useLive(['posts', 'replies', 'forum_reactions'], load)
   const byId = useMemo(() => Object.fromEntries(replies.map((r) => [r.id, r])), [replies])
+  const kids = useMemo(() => {
+    const m = {}
+    for (const r of replies) { const p = r.parent_id && byId[r.parent_id] ? r.parent_id : 'root'; (m[p] = m[p] || []).push(r) }
+    if (sort === 'new' && m.root) m.root = [...m.root].reverse()
+    return m
+  }, [replies, byId, sort])
+  const count = (rid) => (kids[rid] || []).reduce((n, c) => n + 1 + count(c.id), 0)
   if (t === undefined || !ch) return <div className="wrap"><p className="muted">Loading…</p></div>
   if (!t) return <div className="wrap"><h1>Thread not found</h1><p>It may have been removed, or it's in a channel you can't see. <Link to="/board">Back to the forum</Link></p></div>
   const c = ch.list.find((x) => x.key === chanKey(t)) || { icon: CHANNELS[t.audience].icon, name: t.audience === 'team' ? t.teams?.name : CHANNELS[t.audience].name }
   const mod = ch.mod
   const mine = (a) => a === user?.id
+  const canReply = !t.locked || mod
 
-  async function send(e) {
-    e.preventDefault(); if (!body.trim()) return
-    setBusy(true); setErr(null)
-    const { data, error } = await supabase.from('replies').insert({ post_id: id, body: body.trim(), quote_id: quote?.id || null }).select('id').single()
-    setBusy(false)
-    if (error) return setErr(/row-level/.test(error.message) ? (t.locked ? 'This thread is locked.' : "You can't reply here.") : error.message)
-    setBody(''); setQuote(null); load()
-    supabase.functions.invoke('forum-notify', { body: { post_id: id, reply_id: Array.isArray(data) ? data[0]?.id : data?.id } })
+  async function send(body, parent) {
+    setErr(null)
+    const { data, error } = await supabase.from('replies').insert({ post_id: id, body, parent_id: parent || null }).select('id').single()
+    if (error) { setErr(/row-level/.test(error.message) ? (t.locked ? 'This thread is locked.' : "You can't reply here.") : error.message); return false }
+    const newId = Array.isArray(data) ? data[0]?.id : data?.id
+    setReplyTo(null); if (parent) setCollapsed((x) => ({ ...x, [parent]: false }))
+    await load(); setFlash(newId); setTimeout(() => document.getElementById(`r-${newId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 80); setTimeout(() => setFlash(null), 2200)
+    supabase.functions.invoke('forum-notify', { body: { post_id: id, reply_id: newId } })
+    return true
   }
   async function react(emoji, replyId) {
     const have = reacts.find((r) => r.emoji === emoji && r.profile_id === user.id && (r.reply_id || null) === (replyId || null))
@@ -256,19 +266,56 @@ function Thread({ id }) {
   }
   async function modSet(patch) { const { error } = await supabase.from('posts').update(patch).eq('id', id); if (error) setErr(error.message); load() }
   async function delThread() { if (!window.confirm('Delete this whole thread and its replies?')) return; await supabase.from('posts').delete().eq('id', id); nav('/board') }
-  async function delReply(r) { if (!window.confirm('Delete this reply?')) return; await supabase.from('replies').delete().eq('id', r.id); load() }
+  async function delReply(r) { if (!window.confirm(count(r.id) ? 'Delete this reply? Replies to it will stay, marked as answering a deleted comment.' : 'Delete this reply?')) return; await supabase.from('replies').delete().eq('id', r.id); load() }
   async function saveEdit(kind, rid, patch) {
     const { error } = kind === 'post' ? await supabase.from('posts').update(patch).eq('id', rid) : await supabase.from('replies').update(patch).eq('id', rid)
     if (error) setErr(error.message); setEditing(null); load()
   }
-  const Reacts = ({ replyId }) => {
-    const mineR = reacts.filter((r) => (r.reply_id || null) === (replyId || null))
+  const Reacts = ({ replyId }) => { // eslint-disable-line react/no-unstable-nested-components
+    const here = reacts.filter((r) => (r.reply_id || null) === (replyId || null))
     return (
-      <div className="reacts">
-        {REACTS.map((e) => { const n = mineR.filter((r) => r.emoji === e).length; const me = mineR.some((r) => r.emoji === e && r.profile_id === user.id); return (n > 0 || true) && <button key={e} className={'react' + (me ? ' me' : '') + (n ? '' : ' zero')} onClick={() => react(e, replyId)} aria-label={`React ${e}`}>{e}{n > 0 && <span>{n}</span>}</button> })}
+      <span className="reacts">
+        {REACTS.map((e) => { const n = here.filter((r) => r.emoji === e).length; const me = here.some((r) => r.emoji === e && r.profile_id === user.id); return <button key={e} className={'react' + (me ? ' me' : '') + (n ? '' : ' zero')} onClick={() => react(e, replyId)} aria-label={`React ${e}`}>{e}{n > 0 && <span>{n}</span>}</button> })}
+      </span>
+    )
+  }
+
+  // One comment and everything under it. Indent stops at 4 levels so it stays readable on a phone.
+  const renderComment = (r, depth) => {
+    const children = kids[r.id] || []
+    const isCollapsed = collapsed[r.id]
+    const parent = r.parent_id ? byId[r.parent_id] : null
+    const orphan = r.parent_id && !parent
+    return (
+      <div key={r.id} className={'cmt' + (depth > 0 ? ' nested' : '') + (flash === r.id ? ' flash' : '')} id={`r-${r.id}`}>
+        <div className="cmt-card">
+          <div className="cmt-head">
+            <Avatar name={r.author_name} size={30} />
+            <b>{r.author_name}</b>
+            {r.author_id && r.author_id === t.author_id && <span className="op-tag">Started thread</span>}
+            <span className="cmt-time" title={new Date(r.created_at).toLocaleString('en-AU')}>{ago(r.created_at)}{r.edited_at ? ' · edited' : ''}</span>
+          </div>
+          {(depth >= 4 && parent) || orphan ? <p className="replying-to">↳ replying to {orphan ? 'a deleted comment' : <a href={`#r-${parent.id}`}>{parent.author_name}</a>}</p> : null}
+          {editing === r.id ? <EditBox body={r.body} onCancel={() => setEditing(null)} onSave={(v) => saveEdit('reply', r.id, v)} /> : <div className="msg-text">{r.body}</div>}
+          <div className="msg-actions">
+            <Reacts replyId={r.id} />
+            {canReply && <button className="link small act" onClick={() => setReplyTo(replyTo === r.id ? null : r.id)}>↩ Reply</button>}
+            {mine(r.author_id) && editing !== r.id && <button className="link small act" onClick={() => setEditing(r.id)}>Edit</button>}
+            {(mine(r.author_id) || mod) && <button className="link small act danger" onClick={() => delReply(r)}>Delete</button>}
+            {children.length > 0 && <button className="link small act" onClick={() => setCollapsed((x) => ({ ...x, [r.id]: !isCollapsed }))}>{isCollapsed ? `Show ${count(r.id)} ${count(r.id) === 1 ? 'reply' : 'replies'}` : 'Hide replies'}</button>}
+          </div>
+          {replyTo === r.id && <Composer key={r.id} inline to={r.author_name} onCancel={() => setReplyTo(null)} onSend={(b) => send(b, r.id)} />}
+        </div>
+        {children.length > 0 && !isCollapsed && (
+          <div className={'cmt-children' + (depth >= 3 ? ' flat' : '')}>
+            <button className="thread-line" aria-label={`Hide replies to ${r.author_name}`} onClick={() => setCollapsed((x) => ({ ...x, [r.id]: true }))} />
+            <div className="cmt-kids">{children.map((k) => renderComment(k, depth + 1))}</div>
+          </div>
+        )}
       </div>
     )
   }
+
   return (
     <div className="wrap forum thread-page">
       <p className="crumb"><Link to="/board">Club forum</Link> <span aria-hidden>›</span> {c.icon} {c.name}</p>
@@ -282,28 +329,33 @@ function Thread({ id }) {
         <div className="msg-body">
           <div className="msg-meta"><b>{t.author_name}</b><span>{ago(t.created_at)}{t.edited_at ? ' · edited' : ''}</span></div>
           {editing === 'post' ? <EditBox title={t.title} body={t.body} onCancel={() => setEditing(null)} onSave={(v) => saveEdit('post', t.id, v)} /> : <div className="msg-text">{t.body}</div>}
-          <div className="msg-actions"><Reacts />{(mine(t.author_id) || mod) && editing !== 'post' && <>{mine(t.author_id) && <button className="link small" onClick={() => setEditing('post')}>Edit</button>}{!mod && mine(t.author_id) && <button className="link small danger" onClick={delThread}>Delete</button>}</>}</div>
+          <div className="msg-actions"><Reacts />{canReply && <button className="link small act" onClick={() => document.getElementById('reply-box')?.focus()}>↩ Reply</button>}{mine(t.author_id) && editing !== 'post' && <button className="link small act" onClick={() => setEditing('post')}>Edit</button>}{!mod && mine(t.author_id) && <button className="link small act danger" onClick={delThread}>Delete</button>}</div>
         </div>
       </article>
-      <h2 className="replies-head">{replies.length} {replies.length === 1 ? 'reply' : 'replies'}</h2>
-      {replies.map((r) => { const q = r.quote_id && byId[r.quote_id]; return (
-        <article key={r.id} className="msg" id={`r-${r.id}`}>
-          <Avatar name={r.author_name} />
-          <div className="msg-body">
-            <div className="msg-meta"><b>{r.author_name}</b>{r.author_id && r.author_id === t.author_id && <span className="op-tag">Started thread</span>}<span>{ago(r.created_at)}{r.edited_at ? ' · edited' : ''}</span></div>
-            {q && <a href={`#r-${q.id}`} className="quote"><b>{q.author_name}</b> {q.body.slice(0, 180)}{q.body.length > 180 ? '…' : ''}</a>}
-            {editing === r.id ? <EditBox body={r.body} onCancel={() => setEditing(null)} onSave={(v) => saveEdit('reply', r.id, v)} /> : <div className="msg-text">{r.body}</div>}
-            <div className="msg-actions"><Reacts replyId={r.id} />{!t.locked && <button className="link small" onClick={() => { setQuote(r); document.getElementById('reply-box')?.focus() }}>Quote</button>}{mine(r.author_id) && editing !== r.id && <button className="link small" onClick={() => setEditing(r.id)}>Edit</button>}{(mine(r.author_id) || mod) && <button className="link small danger" onClick={() => delReply(r)}>Delete</button>}</div>
-          </div>
-        </article>) })}
-      {t.locked && !mod ? <p className="locked-note">🔒 This thread is locked – no new replies.</p> : (
-        <form className="composer" onSubmit={send}>
-          {quote && <div className="quote composing"><span><b>Replying to {quote.author_name}:</b> {quote.body.slice(0, 120)}{quote.body.length > 120 ? '…' : ''}</span><button type="button" className="link small" onClick={() => setQuote(null)}>✕</button></div>}
-          <textarea id="reply-box" rows={3} value={body} onChange={(e) => setBody(e.target.value)} placeholder="Write a reply…" onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) send(e) }} />
-          <div className="row between"><span className="small muted">Everyone in {c.name} can see your reply.</span><button className="btn" disabled={busy || !body.trim()}>{busy ? 'Posting…' : 'Reply'}</button></div>
-        </form>
-      )}
+      <div className="row between replies-bar">
+        <h2 className="replies-head">{replies.length} {replies.length === 1 ? 'reply' : 'replies'}</h2>
+        {replies.length > 1 && <div className="seg small-seg"><button className={sort === 'old' ? 'on' : ''} onClick={() => setSort('old')}>Oldest first</button><button className={sort === 'new' ? 'on' : ''} onClick={() => setSort('new')}>Newest first</button></div>}
+      </div>
+      <div className="cmts">{(kids.root || []).map((r) => renderComment(r, 0))}</div>
+      {canReply ? <Composer bottom to={t.author_name} onSend={(b) => send(b, null)} channel={c.name} /> : <p className="locked-note">🔒 This thread is locked – no new replies.</p>}
     </div>
+  )
+}
+
+function Composer({ inline, bottom, to, channel, onSend, onCancel }) {
+  const [body, setBody] = useState('')
+  const [busy, setBusy] = useState(false)
+  async function go(e) {
+    e.preventDefault(); if (!body.trim()) return
+    setBusy(true); const ok = await onSend(body.trim()); setBusy(false)
+    if (ok) setBody('')
+  }
+  return (
+    <form className={'composer' + (inline ? ' inline' : '') + (bottom ? ' bottom' : '')} onSubmit={go}>
+      <p className="composer-to">{inline ? <>↩ Replying to <b>{to}</b></> : <>Reply to the thread{to ? <> started by <b>{to}</b></> : null}</>}</p>
+      <textarea id={bottom ? 'reply-box' : undefined} rows={inline ? 2 : 3} value={body} onChange={(e) => setBody(e.target.value)} placeholder={inline ? `Reply to ${to}…` : 'Write a reply…'} autoFocus={inline} onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) go(e); if (e.key === 'Escape' && onCancel) onCancel() }} />
+      <div className="row between"><span className="small muted">{channel ? `Everyone in ${channel} can see your reply.` : ''}</span><span className="row">{onCancel && <button type="button" className="btn small ghost" onClick={onCancel}>Cancel</button>}<button className="btn small" disabled={busy || !body.trim()}>{busy ? 'Posting…' : 'Reply'}</button></span></div>
+    </form>
   )
 }
 

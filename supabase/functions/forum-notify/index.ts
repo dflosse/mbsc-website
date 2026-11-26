@@ -33,7 +33,7 @@ Deno.serve(async (req) => {
     let ids: string[] = []
     let subject = '', intro = '', text = '', by = ''
     if (b.reply_id) {
-      const { data: r } = await asUser.from('replies').select('id, body, author_id, author_name').eq('id', b.reply_id).maybeSingle()
+      const { data: r } = await asUser.from('replies').select('id, body, author_id, author_name, parent_id').eq('id', b.reply_id).maybeSingle()
       if (!r || r.author_id !== user.id) return json({ error: 'Reply not found.' }, 404)
       const { data: rs } = await db.from('replies').select('author_id').eq('post_id', post.id)
       ids = [post.author_id, ...(rs || []).map((x) => x.author_id)].filter((x) => x && x !== user.id)
@@ -41,8 +41,10 @@ Deno.serve(async (req) => {
       const offSet = new Set((off || []).map((o) => o.profile_id))
       ids = ids.filter((x) => !offSet.has(x))
       by = r.author_name; text = r.body
-      subject = `${r.author_name} replied: ${post.title}`
-      intro = `<b>${esc(r.author_name)}</b> replied in <b>${esc(post.title)}</b> (${esc(channel)}):`
+      let parentName = ''
+      if (r.parent_id) { const { data: pr } = await db.from('replies').select('author_name, author_id').eq('id', r.parent_id).maybeSingle(); parentName = pr?.author_name || ''; if (pr?.author_id && pr.author_id !== user.id && !offSet.has(pr.author_id)) ids.push(pr.author_id) }
+      subject = parentName ? `${r.author_name} replied to ${parentName}: ${post.title}` : `${r.author_name} replied: ${post.title}`
+      intro = parentName ? `<b>${esc(r.author_name)}</b> replied to <b>${esc(parentName)}</b>'s comment in <b>${esc(post.title)}</b> (${esc(channel)}):` : `<b>${esc(r.author_name)}</b> replied in <b>${esc(post.title)}</b> (${esc(channel)}):`
     } else {
       if (post.author_id !== user.id) return json({ error: 'Only the person who started the thread can send its notice.' }, 403)
       const { data: mod } = await asUser.rpc('is_moderator')

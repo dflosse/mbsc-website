@@ -82,6 +82,8 @@ posts.find((p) => p.id === 'm1').last_activity_at = '2027-04-21T10:00:00Z'
 export const replies = [
   { id: 'r1', post_id: 'm1', author_name: 'Jo Kiewa', body: 'I can do the BBQ 9–11.', created_at: '2027-04-21T09:00:00Z' },
   { id: 'r2', post_id: 'm1', author_name: 'Alex Bogong', body: 'Happy to help pack up.', created_at: '2027-04-21T10:00:00Z' },
+  { id: 'r3', post_id: 'm1', parent_id: 'r1', author_name: 'Club Secretary', body: 'Thanks Jo – you are on the BBQ roster. Can you bring tongs?', created_at: '2027-04-21T11:00:00Z' },
+  { id: 'r4', post_id: 'm1', parent_id: 'r3', author_name: 'Jo Kiewa', body: 'Yep, will bring two pairs.', created_at: '2027-04-21T12:00:00Z' },
 ]
 
 const D = (i, title, url, category, audience, notes = null) => ({ id: 'd' + i, title, url, category, audience, notes })
