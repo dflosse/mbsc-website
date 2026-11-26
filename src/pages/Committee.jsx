@@ -9,17 +9,18 @@ import { wwccState } from './Volunteer'
 import Treasurer from './Treasurer'
 import Assets from './Assets'
 import Preseason, { STAGES, GROUPS } from './Preseason'
+import Email from './Email'
 import { bondInfo } from './bond'
 import { sortPlayers, TEAM_SEL } from './sortPlayers'
 
 export default function Committee() {
   const { isExec } = useAuth()
-  const EXEC_ONLY = ['approvals', 'wwcc', 'players', 'audit']
+  const EXEC_ONLY = ['approvals', 'wwcc', 'players', 'email', 'audit']
   return (
     <div className="wrap wide">
       <h1>Committee</h1>
       <div className="tabs">
-        {[['overview', 'Overview'], ['preseason', 'Preseason'], ['approvals', 'Approve applications'], ['players', 'Players'], ['wwcc', 'WWCC register'], ['galas', 'Galas'], ['tasks', 'Action list'], ['kit', 'Uniforms'], ['registers', 'Keys & assets'], ['contacts', 'Contacts & handover'], ['teams', 'Teams'], ['people', 'People & access'], ['docs', 'Documents'], ['roles', 'Committee roles'], ['treasurer', 'Treasurer'], ['settings', 'Fees & settings'], ['audit', 'Change log']].filter(([p]) => isExec || !EXEC_ONLY.includes(p)).map(([p, l]) => <NavLink key={p} to={'/committee/' + p} className={(EXEC_ONLY.includes(p) ? 'exec' : '') + (p === 'preseason' ? ' feature' : '')}>{p === 'preseason' ? <><span aria-hidden>✓</span> {REG_SEASON} Preseason</> : l}</NavLink>)}
+        {[['overview', 'Overview'], ['preseason', 'Preseason'], ['approvals', 'Approve applications'], ['players', 'Players'], ['wwcc', 'WWCC register'], ['galas', 'Galas'], ['tasks', 'Action list'], ['email', 'Send email'], ['kit', 'Uniforms'], ['registers', 'Keys & assets'], ['contacts', 'Contacts & handover'], ['teams', 'Teams'], ['people', 'People & access'], ['docs', 'Documents'], ['roles', 'Committee roles'], ['treasurer', 'Treasurer'], ['settings', 'Fees & settings'], ['audit', 'Change log']].filter(([p]) => isExec || !EXEC_ONLY.includes(p)).map(([p, l]) => <NavLink key={p} to={'/committee/' + p} className={(EXEC_ONLY.includes(p) ? 'exec' : '') + (p === 'preseason' ? ' feature' : '')}>{p === 'preseason' ? <><span aria-hidden>✓</span> {REG_SEASON} Preseason</> : l}</NavLink>)}
       </div>
       {!isExec && <p className="muted small">Children's details, approvals and the WWCC register are visible to the executive committee only.</p>}
       <Routes>
@@ -32,6 +33,7 @@ export default function Committee() {
         <Route path="players" element={<PlayersTab />} />
         <Route path="galas" element={<Galas />} />
         <Route path="tasks" element={<Tasks />} />
+        <Route path="email" element={<Email />} />
         <Route path="kit" element={<Kit />} />
         <Route path="registers" element={<Registers />} />
         <Route path="contacts" element={<Contacts />} />
