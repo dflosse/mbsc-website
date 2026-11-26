@@ -588,3 +588,8 @@ ul.picks { margin-top: -4px; }
 .pre-meta .tag.grp-coaches { background: #dde8f2; color: #24507a; font-weight: 700; }
 .pre-tools label.check.inline { width: auto; display: inline-flex; gap: 8px; align-items: center; justify-content: flex-start; }
 .pre-tools > .row { gap: 14px; align-items: center; }
+.tabs a.feature { background: var(--marker); border-color: var(--marker); color: var(--forest); font-weight: 800; padding-left: 16px; padding-right: 18px; box-shadow: 0 2px 0 var(--marker-dk); }
+.tabs a.feature span { display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; background: var(--forest); color: #fff; font-size: .72rem; margin-right: 6px; }
+.tabs a.feature:hover { background: var(--marker-dk); border-color: var(--marker-dk); color: #fff; }
+.tabs a.feature.active { background: var(--forest); border-color: var(--forest); color: #fff; box-shadow: 0 2px 0 #12261d; }
+.tabs a.feature.active span { background: var(--marker); color: var(--forest); }

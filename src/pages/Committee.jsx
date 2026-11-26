@@ -19,7 +19,7 @@ export default function Committee() {
     <div className="wrap wide">
       <h1>Committee</h1>
       <div className="tabs">
-        {[['overview', 'Overview'], ['preseason', 'Preseason'], ['approvals', 'Approve applications'], ['players', 'Players'], ['wwcc', 'WWCC register'], ['galas', 'Galas'], ['tasks', 'Action list'], ['kit', 'Uniforms'], ['registers', 'Keys & assets'], ['contacts', 'Contacts & handover'], ['teams', 'Teams'], ['people', 'People & access'], ['docs', 'Documents'], ['roles', 'Committee roles'], ['treasurer', 'Treasurer'], ['settings', 'Fees & settings'], ['audit', 'Change log']].filter(([p]) => isExec || !EXEC_ONLY.includes(p)).map(([p, l]) => <NavLink key={p} to={'/committee/' + p} className={EXEC_ONLY.includes(p) ? 'exec' : ''}>{l}</NavLink>)}
+        {[['overview', 'Overview'], ['preseason', 'Preseason'], ['approvals', 'Approve applications'], ['players', 'Players'], ['wwcc', 'WWCC register'], ['galas', 'Galas'], ['tasks', 'Action list'], ['kit', 'Uniforms'], ['registers', 'Keys & assets'], ['contacts', 'Contacts & handover'], ['teams', 'Teams'], ['people', 'People & access'], ['docs', 'Documents'], ['roles', 'Committee roles'], ['treasurer', 'Treasurer'], ['settings', 'Fees & settings'], ['audit', 'Change log']].filter(([p]) => isExec || !EXEC_ONLY.includes(p)).map(([p, l]) => <NavLink key={p} to={'/committee/' + p} className={(EXEC_ONLY.includes(p) ? 'exec' : '') + (p === 'preseason' ? ' feature' : '')}>{p === 'preseason' ? <><span aria-hidden>✓</span> {REG_SEASON} Preseason</> : l}</NavLink>)}
       </div>
       {!isExec && <p className="muted small">Children's details, approvals and the WWCC register are visible to the executive committee only.</p>}
       <Routes>
