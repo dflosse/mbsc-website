@@ -80,7 +80,7 @@ function Overview() {
         <Stat n={s.tasks} l="open actions" to="tasks" />
         <Stat n={s.uniReq} l={`${REG_SEASON} children needing a uniform`} to="kit" />
         <Stat n={s.bootReq} l="families interested in loan boots" to="kit" />
-        <Stat n={s.kitOut} l="jerseys out / outstanding" to="kit" />
+        <Stat n={s.kitOut} l={`${PREV_SEASON} jerseys still to come back`} to="kit" />
         <Stat n={s.users} l="site accounts" to="people" />
       </div>
       <h2>Next actions</h2>
@@ -336,25 +336,54 @@ function KitRequests() {
   )
 }
 
+const OUT = ['Loaned Out', 'Outstanding']
+const kitNow = (q) => q.eq('season', REG_SEASON)
+const kitPrevOut = (q) => q.eq('season', PREV_SEASON).in('status', OUT)
+const kitPrevAll = (q) => q.eq('season', PREV_SEASON)
+const KIT_STATUS = [['Shed Tub', 'In the shed'], ['Loaned Out', 'Still out'], ['Outstanding', 'Overdue'], ['Returned', 'Returned'], ['Written off', 'Written off']]
+
 function Kit() {
-  const order = useMemo(() => [['sort_order']], [])
+  const order = useMemo(() => [['sort_order'], ['jersey_label']], [])
   const { isExec } = useAuth()
   const [players, setPlayers] = useState([])
+  const [showAll, setShowAll] = useState(false)
+  const [outCount, setOutCount] = useState(null)
+  const countOut = useCallback(() => { supabase.from('kit').select('*', { count: 'exact', head: true }).eq('season', PREV_SEASON).in('status', OUT).then(({ count }) => setOutCount(count ?? 0)) }, [])
+  useEffect(() => { countOut() }, [countOut])
+  useLive(['kit'], countOut)
   useEffect(() => { supabase.from('players').select('id, first_name, last_name, season, dob, ' + TEAM_SEL).gte('season', PREV_SEASON).neq('status', 'withdrawn').then(({ data }) => setPlayers(sortPlayers(data))) }, [])
   const popts = players.map((p) => [p.id, `${p.first_name} ${p.last_name} (${p.season})`])
+  const markReturned = (r, reload) => r.status !== 'Returned' && <button className="btn small ghost" onClick={async () => { await supabase.from('kit').update({ status: 'Returned', returned_on: new Date().toISOString().slice(0, 10) }).eq('id', r.id); reload() }}>Returned</button>
   return (
     <>
+      <h2>{REG_SEASON} uniforms</h2>
+      <div className="card callout"><p style={{ margin: 0 }}><b>New uniforms for {REG_SEASON}.</b> Numbers and sizes are still to be confirmed. Once they arrive, add each jersey below (+ Add row) and link it to a child so their family sees it under My family.</p></div>
       <KitRequests />
-      <p className="muted small">{isExec ? 'Link a jersey to a child so their family sees it under My family. ' : ''}Jersey numbers repeat across print runs: plain numbers are the first run (1–55), R = repeated run, N = newer size-14 run.</p>
-      <EditTable table="kit" order={order} search={['holder_name', 'jersey_label', 'notes', 'status']} defaults={{ jersey_label: 'New', status: 'Shed Tub', sort_order: 999 }}
+      <h3>{REG_SEASON} jerseys</h3>
+      <EditTable live table="kit" filter={kitNow} order={order} search={['holder_name', 'jersey_label', 'notes']} defaults={{ season: REG_SEASON, jersey_label: 'TBA', size: 'TBA', status: 'Shed Tub', sort_order: 999 }}
         cols={[
-          { key: 'jersey_label', label: '#', width: 50 }, { key: 'size', label: 'Size', width: 60 }, { key: 'kit_bag', label: 'Bag', width: 50 },
-          ...(isExec ? [{ key: 'player_id', label: 'Linked child', type: 'select', options: popts, width: 170 }] : []),
-          { key: 'holder_name', label: 'Holder (text)', width: 140 },
-          { key: 'status', label: 'Status', type: 'select', options: [['Shed Tub', 'Shed Tub'], ['Loaned Out', 'Loaned Out'], ['Outstanding', 'Outstanding'], ['Returned', 'Returned'], ['Written off', 'Written off']] },
-          { key: 'shin_guard', label: 'Shin', width: 50 }, { key: 'boots_on_loan', label: 'Boots', type: 'bool' }, { key: 'registration_paid', label: 'Paid', type: 'bool' },
+          { key: 'jersey_label', label: '#', width: 60 }, { key: 'size', label: 'Size', width: 70 },
+          ...(isExec ? [{ key: 'player_id', label: 'Child', type: 'select', options: popts.filter(([, l]) => l.endsWith(`(${REG_SEASON})`)), width: 180 }] : []),
+          { key: 'status', label: 'Where it is', type: 'select', options: KIT_STATUS, width: 120 },
+          { key: 'bond_paid', label: 'Bond paid', type: 'bool' }, { key: 'bond_refunded', label: 'Bond refunded', type: 'bool' },
           { key: 'notes', label: 'Notes', width: 180 },
         ]} />
+
+      <details className="past">
+        <summary>{PREV_SEASON} jerseys – {outCount === null ? '…' : outCount === 0 ? 'all returned' : `${outCount} still to come back`}</summary>
+        <p className="muted small">{showAll ? `Every ${PREV_SEASON} jersey.` : `Only jerseys that haven't come back yet.`} Click <b>Returned</b> when one comes back – it drops off this list. Tick <b>Bond refunded</b> once the family's bond has been paid back. <button className="link" onClick={() => setShowAll(!showAll)}>{showAll ? 'Show only outstanding' : `Show all ${PREV_SEASON} jerseys`}</button></p>
+        <EditTable live key={showAll ? 'all' : 'out'} table="kit" filter={showAll ? kitPrevAll : kitPrevOut} order={order} search={['holder_name', 'jersey_label', 'notes']} noAdd
+          cols={[
+            { key: 'jersey_label', label: '#', width: 50 }, { key: 'size', label: 'Size', width: 60 },
+            { key: 'holder_name', label: 'Who has it', width: 160 },
+            { key: 'status', label: 'Returned?', type: 'select', options: KIT_STATUS, width: 120 },
+            { key: 'returned_on', label: 'Returned on', type: 'date', width: 140 },
+            { key: 'bond_paid', label: 'Bond paid', type: 'bool' }, { key: 'bond_refunded', label: 'Bond refunded', type: 'bool' },
+            { key: 'notes', label: 'Notes', width: 160 },
+          ]}
+          rowActions={markReturned} />
+        <p className="small muted">Jersey numbers repeat across print runs: plain numbers are the first run (1–55), R = repeated run, N = newer size-14 run.</p>
+      </details>
     </>
   )
 }

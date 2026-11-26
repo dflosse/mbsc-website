@@ -129,10 +129,10 @@ export const tasks = [
 ]
 
 export const kit = Array.from({ length: 40 }, (_, i) => {
-  if (i === 39) return { id: 'k39', jersey_label: 'R12', jersey_number: 12, size: '10', kit_bag: '43', holder_name: 'Mia Parker', player_id: 'kid1', status: 'Loaned Out', shin_guard: 'S', boots_on_loan: false, registration_paid: true, notes: '', sort_order: 39 }
+  if (i === 39) return { id: 'k39', jersey_label: 'R12', jersey_number: 12, size: '10', kit_bag: '43', holder_name: 'Mia Parker', player_id: 'kid1', status: 'Loaned Out', shin_guard: 'S', boots_on_loan: false, registration_paid: true, notes: '', sort_order: 39, season: 2027, bond_paid: true, bond_refunded: false }
   const p = players[(i * 2) % players.length]
   const out = i % 3 !== 0
-  return { id: 'k' + i, jersey_label: String(i + 1), jersey_number: i + 1, size: ['6', '8', '10', '12', '14'][Math.floor(i / 8)], kit_bag: out ? String(10 + i) : '', holder_name: out ? `${p.first_name} ${p.last_name}` : '', status: out ? 'Loaned Out' : 'Shed Tub', shin_guard: out ? 'S' : '', boots_on_loan: i % 5 === 0, registration_paid: out && i % 4 !== 1, notes: '', sort_order: i }
+  return { id: 'k' + i, jersey_label: String(i + 1), jersey_number: i + 1, size: ['6', '8', '10', '12', '14'][Math.floor(i / 8)], kit_bag: out ? String(10 + i) : '', holder_name: out ? `${p.first_name} ${p.last_name}` : '', status: out ? 'Loaned Out' : 'Shed Tub', shin_guard: out ? 'S' : '', boots_on_loan: i % 5 === 0, registration_paid: out && i % 4 !== 1, notes: '', sort_order: i, season: 2026, bond_paid: out && i % 4 !== 1, bond_refunded: false }
 })
 
 // Sample WWCC records and volunteer applications (made up)
