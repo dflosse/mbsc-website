@@ -420,6 +420,7 @@ function Approvals() {
   const [open, setOpen] = useState(null)
   const [gInv, setGInv] = useState([])
   const [dupes, setDupes] = useState({})
+  const [acct, setAcct] = useState({})
   const load = useCallback(async () => {
     const { data: p0 } = await supabase.from('players').select('*, ' + TEAM_SEL + ', player_guardians(profile_id)').eq('status', 'pending')
     const p = sortPlayers(p0)
@@ -439,8 +440,17 @@ function Approvals() {
       setPeople(Object.fromEntries((pr || []).map((x) => [x.id, x])))
       const { data: w } = await supabase.from('wwcc').select('*').in('profile_id', ids)
       setWwcc(Object.fromEntries((w || []).map((x) => [x.profile_id, x])))
+      const { data: st } = await supabase.rpc('account_status', { p_ids: (a || []).map((x) => x.profile_id) })
+      setAcct(Object.fromEntries((st || []).map((x) => [x.id, x])))
     }
   }, [])
+  async function resend(p) {
+    setMsg('')
+    const { data, error } = await supabase.functions.invoke('invite-member', { body: { email: p.email, full_name: p.full_name, resend: true } })
+    let text = data?.error
+    if (error && !text) { try { text = (await error.context.json()).error } catch { text = error.message } }
+    setMsg(text || `Invitation sent again to ${p.email}.`)
+  }
   useEffect(() => { load() }, [load])
 
   async function decidePlayer(p, ok) {
@@ -478,7 +488,24 @@ function Approvals() {
               <div className="row between"><b>{p.full_name || p.email}</b><span className="tag">{kindLabel[a.kind]}{a.teams?.name ? ' – ' + a.teams.name : ''}</span></div>
               {a.detail && <p className="small">"{a.detail}"</p>}
               <p className="small">{p.email} · {p.phone || 'no phone'}<br />{p.address || 'no address'}</p>
-              <div className="wwccbox">
+              {(() => {
+                const st = acct[a.profile_id]
+                const steps = [
+                  [!!st?.confirmed_at, st?.confirmed_at ? `Account set up ${fmtDate(st.confirmed_at.slice(0, 10), { day: 'numeric', month: 'short' })}` : st?.invited_at ? `Invited ${fmtDate(st.invited_at.slice(0, 10), { day: 'numeric', month: 'short' })} – hasn't accepted yet` : 'Email not confirmed yet'],
+                  [!!st?.has_mfa, st?.has_mfa ? 'Two-factor on' : 'Two-factor not set up'],
+                  [!!(p.phone && p.address), p.phone && p.address ? 'Mobile and address added' : 'Mobile / address missing'],
+                  [!!w, w ? (w.pending ? 'WWCC applied for' : 'WWCC uploaded') : 'No WWCC yet'],
+                ]
+                const ready = steps.every(([ok]) => ok)
+                return (
+                  <div className={'progress-box' + (ready ? ' ready' : '')}>
+                    <b className="small">{ready ? 'Ready for you to check and approve' : 'Still setting up – nothing to do yet'}</b>
+                    <ul className="ticks">{steps.map(([ok, t]) => <li key={t} className={ok ? 'done' : ''}>{t}</li>)}</ul>
+                    {st && !st.confirmed_at && <button className="link small" onClick={() => resend(p)}>Resend invitation</button>}
+                  </div>
+                )
+              })()}
+              {w && <div className="wwccbox">
                 <p><span className={'pill ' + cls}>{label}</span></p>
                 {w ? <>
                   <p className="small">{w.pending ? <>Applied – application no. <b>{w.card_number}</b> ({w.card_type}). Check it in the status checker using the application number.</> : <>Card <b>{w.card_number}</b> ({w.card_type}) · expires {fmtDate(w.expiry)}</>}</p>
@@ -487,8 +514,8 @@ function Approvals() {
                     <li className={w.status_checked_at ? 'done' : ''}>Status checked {w.status_checked_at ? fmtDate(w.status_checked_at.slice(0, 10)) : isExec && <button className="btn small ghost" onClick={() => mark(a.profile_id, 'status')}>Mark checked</button>}</li>
                     <li className={w.wwc_connected_at ? 'done' : ''}>Connected in WWC Connect {w.wwc_connected_at ? fmtDate(w.wwc_connected_at.slice(0, 10)) : isExec && <button className="btn small ghost" onClick={() => mark(a.profile_id, 'connect')}>Mark connected</button>}</li>
                   </ul>
-                </> : <p className="small err">They haven't uploaded a WWCC yet.</p>}
-              </div>
+                </> : null}
+              </div>}
               {isExec && <div className="row"><button className="btn small" onClick={() => decideVol(a, true)}>Approve</button><button className="btn small ghost" onClick={() => decideVol(a, false)}>Decline</button></div>}
             </div>
           )

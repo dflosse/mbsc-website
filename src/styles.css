@@ -433,3 +433,7 @@ nav { row-gap: 0; }
   .galacard .date span { margin-top: 0; }
   .gamelist .resgroup { margin-left: 0; padding-left: 0; }
 }
+.progress-box { background: #f7f8f4; border-radius: 10px; padding: 10px 12px; margin: 8px 0; border-left: 4px solid var(--marker, #f08a3c); }
+.progress-box.ready { border-left-color: var(--good, #2e7d32); }
+.progress-box .ticks { margin-top: 4px; }
+.progress-box .ticks li { justify-content: flex-start; }

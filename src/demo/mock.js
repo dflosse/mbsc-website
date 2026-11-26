@@ -159,6 +159,7 @@ export const mockSupabase = {
       return { error: null }
     }
     if (fn === 'claim_invites') return { data: 0, error: null }
+    if (fn === 'account_status') return { data: (a.p_ids || []).map((id) => ({ id, invited_at: '2026-11-26T03:30:00Z', confirmed_at: id === 'u-p2' ? '2026-11-26T04:00:00Z' : null, last_sign_in_at: null, has_mfa: id === 'u-p2' })), error: null }
     if (fn === 'gala_scorers') {
       if (!me()) return { data: [], error: null }
       const games = new Set(db.gala_games.filter((g) => g.gala_id === a.p_gala).map((g) => g.id))

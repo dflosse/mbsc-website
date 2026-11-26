@@ -28,7 +28,15 @@ Deno.serve(async (req) => {
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return json({ error: 'That email address doesn\'t look right.' }, 400)
 
     const { data: existing } = await db.from('profiles').select('id').ilike('email', email).maybeSingle()
-    if (existing) return json({ error: 'That person already has an account. Ask them to sign in and apply on the Volunteer page.' }, 409)
+    if (existing) {
+      const { data: au } = await db.auth.admin.getUserById(existing.id)
+      const pendingInvite = au?.user && !au.user.email_confirmed_at
+      if (!body.resend || !pendingInvite) return json({ error: pendingInvite ? 'Already invited – use "Resend invitation" on Approve applications.' : 'That person already has an account. Ask them to sign in and apply on the Volunteer page.' }, 409)
+      // Re-send: a fresh invite link to someone who hasn't accepted yet.
+      const { error: re } = await db.auth.admin.inviteUserByEmail(email, { redirectTo: `${SITE}/welcome?for=${au.user.user_metadata?.invited_for || 'volunteer'}` })
+      if (re) return json({ error: re.message }, 400)
+      return json({ ok: true, resent: true })
+    }
 
     const { error } = await db.auth.admin.inviteUserByEmail(email, {
       data: { full_name, invited_for: kind, invited_by: me.full_name || user.email, roles: kind === 'parent' ? [] : [kind] },
