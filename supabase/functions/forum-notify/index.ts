@@ -61,36 +61,51 @@ Deno.serve(async (req) => {
       subject = `${post.audience === 'public' ? 'Club news' : 'New in ' + channel}: ${post.title}`
       intro = `<b>${esc(post.author_name)}</b> started a new thread in <b>${esc(channel)}</b>:`
     }
-    ids = [...new Set(ids)]
-    if (!ids.length) return json({ ok: true, sent: 0 })
-
-    // Only people allowed to see this channel.
-    const allowed: string[] = []
-    for (const id of ids) {
-      const { data: ok } = await db.rpc('can_see_as_public', { uid: id, a: post.audience, t: post.team_id })
-      if (ok) allowed.push(id)
+    // @mentions: only ones the caller actually saved for this post/reply.
+    let mentionIds: string[] = []
+    if (Array.isArray(b.mentions) && b.mentions.length) {
+      let mq = db.from('forum_mentions').select('mentioned_id').eq('post_id', post.id).eq('by_id', user.id).in('mentioned_id', b.mentions)
+      mq = b.reply_id ? mq.eq('reply_id', b.reply_id) : mq.is('reply_id', null)
+      const { data: ms } = await mq
+      mentionIds = [...new Set((ms || []).map((m) => m.mentioned_id))].filter((x) => x !== user.id)
+      if (mentionIds.length) {
+        const { data: off } = await db.from('forum_prefs').select('profile_id').in('profile_id', mentionIds).eq('mention_emails', false)
+        const offSet = new Set((off || []).map((o) => o.profile_id))
+        mentionIds = mentionIds.filter((x) => !offSet.has(x))
+      }
     }
-    if (!allowed.length) return json({ ok: true, sent: 0 })
-    const { data: people } = await db.from('profiles').select('email, full_name').in('id', allowed)
-    const to = (people || []).filter((p) => p.email)
+    ids = [...new Set(ids)].filter((x) => !mentionIds.includes(x))
+
+    const visible = async (list: string[]) => {
+      const out: string[] = []
+      for (const id of list) { const { data: ok } = await db.rpc('can_see_as_public', { uid: id, a: post.audience, t: post.team_id }); if (ok) out.push(id) }
+      if (!out.length) return []
+      const { data: people } = await db.from('profiles').select('email, full_name').in('id', out)
+      return (people || []).filter((p) => p.email)
+    }
     const { data: ce } = await db.from('settings').select('value').eq('key', 'club_email').maybeSingle()
     const replyTo = ce?.value?.trim() || 'mtbeautysoccerclub@gmail.com'
     const excerpt = esc(text.length > 600 ? text.slice(0, 600) + '…' : text).replace(/\n/g, '<br>')
-    const html = (first: string) => `<div style="font-family:Arial,sans-serif;color:#1e3b2f;max-width:560px;font-size:15px;line-height:1.5">
-      <p>Hi ${esc(first || 'there')},</p><p>${intro}</p>
+    const html = (first: string, lead: string) => `<div style="font-family:Arial,sans-serif;color:#1e3b2f;max-width:560px;font-size:15px;line-height:1.5">
+      <p>Hi ${esc(first || 'there')},</p><p>${lead}</p>
       <blockquote style="margin:0 0 16px;padding:10px 14px;border-left:3px solid #f08a3c;background:#f4f6f3">${excerpt}</blockquote>
       <p><a href="${link}" style="display:inline-block;background:#f08a3c;color:#1e3b2f;padding:11px 18px;border-radius:10px;text-decoration:none;font-weight:bold">Open the thread</a></p>
       <p style="color:#666;font-size:13px;border-top:1px solid #ddd;padding-top:10px">Please reply on the club forum, not to this email. Change which emails you get in the forum under "Email settings".<br>Mount Beauty Football Club · mountbeautyfc.org.au</p></div>`
-
-    let sent = 0
-    for (let i = 0; i < to.length; i += 100) {
-      const chunk = to.slice(i, i + 100)
-      const r = await fetch('https://api.resend.com/emails/batch', {
-        method: 'POST', headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify(chunk.map((p) => ({ from: 'Mount Beauty Football Club <noreply@mountbeautyfc.org.au>', to: [p.email], reply_to: replyTo, subject, html: html((p.full_name || '').split(' ')[0]) }))),
-      })
-      if (r.ok) sent += chunk.length
+    const sendAll = async (to: { email: string; full_name: string }[], subj: string, lead: string) => {
+      let n = 0
+      for (let i = 0; i < to.length; i += 100) {
+        const chunk = to.slice(i, i + 100)
+        const r = await fetch('https://api.resend.com/emails/batch', {
+          method: 'POST', headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify(chunk.map((p) => ({ from: 'Mount Beauty Football Club <noreply@mountbeautyfc.org.au>', to: [p.email], reply_to: replyTo, subject: subj, html: html((p.full_name || '').split(' ')[0], lead) }))),
+        })
+        if (r.ok) n += chunk.length
+      }
+      return n
     }
+    let sent = 0
+    if (mentionIds.length) sent += await sendAll(await visible(mentionIds), `${by} mentioned you: ${post.title}`, `<b>${esc(by)}</b> mentioned you in <b>${esc(post.title)}</b> (${esc(channel)}):`)
+    if (ids.length) sent += await sendAll(await visible(ids), subject, intro)
     return json({ ok: true, sent, by })
   } catch (e) {
     return json({ error: String((e as Error)?.message ?? e) }, 500)

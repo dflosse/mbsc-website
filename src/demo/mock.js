@@ -145,6 +145,8 @@ export const mockSupabase = {
   rpc: async (fn, a) => {
     if (fn === 'is_moderator') return { data: exec(), error: null }
     if (fn === 'forum_unread') return { data: me() ? 2 : 0, error: null }
+    if (fn === 'forum_mentions_unseen') return { data: db.forum_mentions.filter((m) => m.mentioned_id === me() && !m.seen_at).length, error: null }
+    if (fn === 'forum_mentionable') return { data: db.profiles.filter((p) => p.full_name).map((p) => ({ id: p.id, full_name: p.full_name, role_label: p.is_executive ? 'President' : p.role === 'coach' ? 'Coach – Under 9 Red' : p.role === 'committee' ? 'Committee' : 'Parent' })), error: null }
     if (fn === 'child_maybe_registered') return { data: db.players.some((x) => x.season === a.p_season && x.first_name.toLowerCase() === a.p_first.toLowerCase() && x.last_name.toLowerCase() === a.p_last.toLowerCase()), error: null }
     if (fn === 'merge_players') {
       if (!exec()) return { error: { message: 'Executive only' } }

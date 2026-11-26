@@ -1,6 +1,6 @@
 // Club forum: channels → threads → replies. Channel visibility is enforced by the database
 // (who can see/post is the same rule everywhere); this page just reflects it.
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { supabase, REG_SEASON } from '../supabase'
 import { useAuth } from '../auth'
@@ -27,6 +27,81 @@ const initials = (n) => (n || '?').split(/\s+/).map((x) => x[0]).slice(0, 2).joi
 const hue = (n) => [...(n || '')].reduce((a, c) => a + c.charCodeAt(0), 0) % 360
 export const Avatar = ({ name, size = 36 }) => <span className="av" style={{ width: size, height: size, fontSize: size * 0.38, background: `hsl(${hue(name)} 32% 88%)`, color: `hsl(${hue(name)} 40% 26%)` }} aria-hidden>{initials(name)}</span>
 const chanKey = (p) => (p.audience === 'team' ? `team:${p.team_id}` : p.audience)
+
+// People who can be @mentioned in a channel (only those who can see it). Cached per channel.
+const mentionCache = {}
+export function useMentionable(audience, teamId) {
+  const k = `${audience}:${teamId || ''}`
+  const [list, setList] = useState(mentionCache[k] || null)
+  useEffect(() => {
+    if (!audience) return
+    if (mentionCache[k]) { setList(mentionCache[k]); return }
+    supabase.rpc('forum_mentionable', { a: audience, t: teamId || null }).then(({ data }) => { mentionCache[k] = data || []; setList(mentionCache[k]) })
+  }, [k, audience, teamId])
+  return list || []
+}
+const escRe = (x) => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+// Show @Full Name as a highlighted tag (red if it's you).
+export function RichText({ text, people, me }) {
+  const names = (people || []).map((p) => p.full_name).filter(Boolean).sort((a, b) => b.length - a.length)
+  if (!names.length || !text.includes('@')) return <div className="msg-text">{text}</div>
+  const re = new RegExp(`@(${names.map(escRe).join('|')})`, 'g')
+  const out = []; let last = 0; let m
+  while ((m = re.exec(text))) {
+    if (m.index > last) out.push(text.slice(last, m.index))
+    const who = people.find((p) => p.full_name === m[1])
+    out.push(<span key={m.index} className={'mention' + (who?.id === me ? ' me' : '')} title={who?.role_label}>@{m[1]}</span>)
+    last = m.index + m[0].length
+  }
+  out.push(text.slice(last))
+  return <div className="msg-text">{out}</div>
+}
+export const mentionedIds = (text, people) => (people || []).filter((p) => text.includes('@' + p.full_name)).map((p) => p.id)
+
+// Textarea that suggests people when you type @ – name and role only.
+export function MentionArea({ value, onChange, people, me, ...rest }) {
+  const [q, setQ] = useState(null)
+  const [hi, setHi] = useState(0)
+  const ref = useRef(null)
+  const matches = q === null ? [] : (people || []).filter((p) => p.id !== me && p.full_name.toLowerCase().split(' ').some((w) => w.startsWith(q.toLowerCase())) || (q && p.full_name.toLowerCase().startsWith(q.toLowerCase()))).filter((p) => p.id !== me).slice(0, 6)
+  function onText(e) {
+    onChange(e.target.value)
+    const before = e.target.value.slice(0, e.target.selectionStart)
+    const m = before.match(/(?:^|\s)@([A-Za-z'’-]{0,20}(?: [A-Za-z'’-]{0,20})?)$/)
+    setQ(m ? m[1] : null); setHi(0)
+  }
+  function pick(p) {
+    const el = ref.current; const pos = el.selectionStart
+    const before = value.slice(0, pos).replace(/@([A-Za-z'’-]{0,20}(?: [A-Za-z'’-]{0,20})?)$/, `@${p.full_name} `)
+    const next = before + value.slice(pos)
+    onChange(next); setQ(null)
+    requestAnimationFrame(() => { el.focus(); el.setSelectionRange(before.length, before.length) })
+  }
+  function onKey(e) {
+    if (matches.length && q !== null) {
+      if (e.key === 'ArrowDown') { e.preventDefault(); setHi((hi + 1) % matches.length); return }
+      if (e.key === 'ArrowUp') { e.preventDefault(); setHi((hi - 1 + matches.length) % matches.length); return }
+      if (e.key === 'Enter' || e.key === 'Tab') { e.preventDefault(); pick(matches[hi]); return }
+      if (e.key === 'Escape') { setQ(null); return }
+    }
+    rest.onKeyDown?.(e)
+  }
+  return (
+    <div className="mention-wrap">
+      <textarea ref={ref} {...rest} value={value} onChange={onText} onKeyDown={onKey} onBlur={() => setTimeout(() => setQ(null), 150)} />
+      {q !== null && matches.length > 0 && (
+        <ul className="mention-menu" role="listbox">
+          {matches.map((p, i) => <li key={p.id} role="option" aria-selected={i === hi} className={i === hi ? 'hi' : ''} onMouseDown={(e) => { e.preventDefault(); pick(p) }}><Avatar name={p.full_name} size={26} /><span><b>{p.full_name}</b><em>{p.role_label}</em></span></li>)}
+        </ul>
+      )}
+      {q !== null && matches.length === 0 && q.length > 0 && <div className="mention-menu none">No one called "{q}" can see this channel.</div>}
+    </div>
+  )
+}
+async function saveMentions(postId, replyId, ids) {
+  if (!ids.length) return
+  await supabase.from('forum_mentions').insert(ids.map((m) => ({ post_id: postId, reply_id: replyId || null, mentioned_id: m })))
+}
 
 // Which channels this person can see and post in.
 function useChannels() {
@@ -87,13 +162,17 @@ function ForumHome() {
   const [writing, setWriting] = useState(false)
   const [prefs, setPrefs] = useState(false)
   const { isUnread, reload: reloadReads } = useReads(user?.id)
+  const [mentions, setMentions] = useState([])
   const load = useCallback(async () => {
     const { data } = await supabase.from('posts').select('id, title, body, audience, team_id, author_id, author_name, pinned, locked, created_at, last_activity_at, reply_count').order('pinned', { ascending: false }).order('last_activity_at', { ascending: false }).limit(300)
     setThreads(data || [])
-  }, [])
+    const { data: m } = await supabase.from('forum_mentions').select('post_id, by_name, created_at').eq('mentioned_id', user.id).is('seen_at', null).order('created_at', { ascending: false })
+    setMentions(m || [])
+  }, [user.id])
   useEffect(() => { load() }, [load])
-  useLive(['posts'], load)
+  useLive(['posts', 'forum_mentions'], load)
   if (!ch || !threads) return <div className="wrap"><p className="muted">Loading the forum…</p></div>
+  const mentionedIn = new Set(mentions.map((m) => m.post_id))
   const channel = ch.list.find((c) => c.key === sel)
   const visible = threads.filter((t) => ch.list.some((c) => c.key === chanKey(t)))
   const shown = visible.filter((t) => (sel === 'all' || chanKey(t) === sel) && (!q.trim() || `${t.title} ${t.body} ${t.author_name}`.toLowerCase().includes(q.trim().toLowerCase())))
@@ -110,6 +189,12 @@ function ForumHome() {
         <div><h1>Club forum</h1><p className="muted">Ask questions, share news and organise your team. Only people in a channel can see it.</p></div>
         <button className="btn big" onClick={() => setWriting(true)}>+ Start a thread</button>
       </header>
+      {mentions.length > 0 && (
+        <div className="mention-banner">
+          <span className="mb-dot">@</span>
+          <span><b>You've been mentioned</b> in {[...mentionedIn].length} {mentionedIn.size === 1 ? 'thread' : 'threads'}: {[...mentionedIn].slice(0, 3).map((pid, i) => { const th = threads.find((x) => x.id === pid); return th ? <Fragment key={pid}>{i ? ', ' : ''}<Link to={`/board/${pid}`}>{th.title}</Link></Fragment> : null })}</span>
+        </div>
+      )}
       <div className="forum-grid">
         <aside className="channels" aria-label="Channels">
           <button className={'chan' + (sel === 'all' ? ' on' : '')} onClick={() => setSel('all')}><span className="ci">🗂️</span><span className="cn">All discussions</span>{unreadIn('all') > 0 && <span className="cu">{unreadIn('all')}</span>}</button>
@@ -133,10 +218,10 @@ function ForumHome() {
             <ul className="thread-list">
               {shown.map((t) => { const c = nameOf(t); const un = isUnread(t); return (
                 <li key={t.id}>
-                  <Link to={`/board/${t.id}`} className={'thread-row' + (un ? ' unread' : '')}>
+                  <Link to={`/board/${t.id}`} className={'thread-row' + (un ? ' unread' : '') + (mentionedIn.has(t.id) ? ' at' : '')}>
                     <Avatar name={t.author_name} />
                     <span className="tr-main">
-                      <span className="tr-title">{t.pinned && <span className="pin" title="Pinned">📌</span>}{t.locked && <span title="Locked">🔒</span>}{t.title}{un && <span className="new-dot">New</span>}</span>
+                      <span className="tr-title">{t.pinned && <span className="pin" title="Pinned">📌</span>}{t.locked && <span title="Locked">🔒</span>}{t.title}{un && <span className="new-dot">New</span>}{mentionedIn.has(t.id) && <span className="at-dot">@ you</span>}</span>
                       <span className="tr-meta">{t.author_name} · {sel === 'all' && c ? <span className="tr-chan">{c.icon} {c.name}</span> : null}{sel === 'all' && c ? ' · ' : ''}{ago(t.created_at)}</span>
                       <span className="tr-excerpt">{t.body.slice(0, 140)}{t.body.length > 140 ? '…' : ''}</span>
                     </span>
@@ -154,17 +239,21 @@ function ForumHome() {
 }
 
 function NewThread({ channels, mod, start, onClose, onDone }) {
+  const { user } = useAuth()
   const [f, setF] = useState({ chan: start, title: '', body: '', everyone: false })
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState(null)
   const c = channels.find((x) => x.key === f.chan) || channels[0]
+  const people = useMentionable(c.audience, c.team_id)
   async function submit(e) {
     e.preventDefault(); setBusy(true); setErr(null)
     const { data, error } = await supabase.from('posts').insert({ audience: c.audience, team_id: c.team_id || null, title: f.title.trim(), body: f.body.trim() }).select('id').single()
     if (error) { setBusy(false); return setErr(/row-level/.test(error.message) ? "You can't post in that channel." : error.message) }
     const newId = Array.isArray(data) ? data[0]?.id : data?.id
     await supabase.from('thread_reads').upsert({ post_id: newId, read_at: new Date().toISOString() })
-    supabase.functions.invoke('forum-notify', { body: { post_id: newId, everyone: mod && f.everyone } })
+    const ids = mentionedIds(f.body, people)
+    await saveMentions(newId, null, ids)
+    supabase.functions.invoke('forum-notify', { body: { post_id: newId, everyone: mod && f.everyone, mentions: ids } })
     onDone(newId)
   }
   return (
@@ -174,7 +263,7 @@ function NewThread({ channels, mod, start, onClose, onDone }) {
         <label>Channel<select value={c.key} onChange={(e) => setF({ ...f, chan: e.target.value })}>{channels.map((x) => <option key={x.key} value={x.key}>{x.icon} {x.name}</option>)}</select></label>
         <p className="small muted chan-note">{c.blurb}</p>
         <label>Title<input value={f.title} onChange={(e) => setF({ ...f, title: e.target.value })} required maxLength={140} placeholder="e.g. Carpool to Bright on Sunday?" autoFocus /></label>
-        <label>Message<textarea rows={7} value={f.body} onChange={(e) => setF({ ...f, body: e.target.value })} required /></label>
+        <label>Message<MentionArea rows={7} value={f.body} onChange={(v) => setF({ ...f, body: v })} people={people} me={user?.id} required placeholder="Type @ to mention someone" /></label>
         {mod && <label className="check"><input type="checkbox" checked={f.everyone} onChange={(e) => setF({ ...f, everyone: e.target.checked })} /> Also email everyone who can see this channel <span className="muted small">(moderators only – use for important news)</span></label>}
         {err && <p className="err small">{err}</p>}
         <div className="row"><button className="btn" disabled={busy}>{busy ? 'Posting…' : 'Post thread'}</button><button type="button" className="btn ghost" onClick={onClose}>Cancel</button></div>
@@ -186,10 +275,10 @@ function NewThread({ channels, mod, start, onClose, onDone }) {
 function EmailPrefs({ channels, onClose }) {
   const [p, setP] = useState(null)
   const [saved, setSaved] = useState(false)
-  useEffect(() => { supabase.from('forum_prefs').select('*').maybeSingle().then(({ data }) => setP(data || { reply_emails: true, channels: [] })) }, [])
+  useEffect(() => { supabase.from('forum_prefs').select('*').maybeSingle().then(({ data }) => setP(data || { reply_emails: true, mention_emails: true, channels: [] })) }, [])
   async function save(next) {
     setP(next); setSaved(false)
-    const { error } = await supabase.from('forum_prefs').upsert({ reply_emails: next.reply_emails, channels: next.channels, updated_at: new Date().toISOString() })
+    const { error } = await supabase.from('forum_prefs').upsert({ reply_emails: next.reply_emails, mention_emails: next.mention_emails !== false, channels: next.channels, updated_at: new Date().toISOString() })
     if (!error) setSaved(true)
   }
   if (!p) return null
@@ -198,6 +287,7 @@ function EmailPrefs({ channels, onClose }) {
       <div className="card form prefs" onClick={(e) => e.stopPropagation()}>
         <div className="row between"><h3>Email settings</h3><button className="link" onClick={onClose} aria-label="Close">✕</button></div>
         <label className="check"><input type="checkbox" checked={p.reply_emails} onChange={(e) => save({ ...p, reply_emails: e.target.checked })} /> Email me when someone replies to a thread I started or replied to</label>
+        <label className="check"><input type="checkbox" checked={p.mention_emails !== false} onChange={(e) => save({ ...p, mention_emails: e.target.checked })} /> Email me when someone @mentions me</label>
         <p className="small"><b>Email me every new thread in:</b></p>
         {channels.map((c) => <label key={c.key} className="check"><input type="checkbox" checked={p.channels.includes(c.key)} onChange={(e) => save({ ...p, channels: e.target.checked ? [...p.channels, c.key] : p.channels.filter((x) => x !== c.key) })} /> {c.icon} {c.name}</label>)}
         <p className="small muted">{saved ? '✓ Saved' : 'Changes save straight away.'} Important club news may still be emailed to everyone.</p>
@@ -233,6 +323,11 @@ function Thread({ id }) {
   }, [id])
   useEffect(() => { load() }, [load])
   useLive(['posts', 'replies', 'forum_reactions'], load)
+  const people = useMentionable(t?.audience, t?.team_id)
+  useEffect(() => {
+    if (!user) return
+    supabase.from('forum_mentions').update({ seen_at: new Date().toISOString() }).eq('post_id', id).eq('mentioned_id', user.id).is('seen_at', null).then(() => window.dispatchEvent(new Event('forum-read')))
+  }, [id, user, replies.length])
   const byId = useMemo(() => Object.fromEntries(replies.map((r) => [r.id, r])), [replies])
   const kids = useMemo(() => {
     const m = {}
@@ -253,9 +348,11 @@ function Thread({ id }) {
     const { data, error } = await supabase.from('replies').insert({ post_id: id, body, parent_id: parent || null }).select('id').single()
     if (error) { setErr(/row-level/.test(error.message) ? (t.locked ? 'This thread is locked.' : "You can't reply here.") : error.message); return false }
     const newId = Array.isArray(data) ? data[0]?.id : data?.id
+    const ids = mentionedIds(body, people)
+    await saveMentions(id, newId, ids)
     setReplyTo(null); if (parent) setCollapsed((x) => ({ ...x, [parent]: false }))
     await load(); setFlash(newId); setTimeout(() => document.getElementById(`r-${newId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 80); setTimeout(() => setFlash(null), 2200)
-    supabase.functions.invoke('forum-notify', { body: { post_id: id, reply_id: newId } })
+    supabase.functions.invoke('forum-notify', { body: { post_id: id, reply_id: newId, mentions: ids } })
     return true
   }
   async function react(emoji, replyId) {
@@ -296,7 +393,7 @@ function Thread({ id }) {
             <span className="cmt-time" title={new Date(r.created_at).toLocaleString('en-AU')}>{ago(r.created_at)}{r.edited_at ? ' · edited' : ''}</span>
           </div>
           {(depth >= 4 && parent) || orphan ? <p className="replying-to">↳ replying to {orphan ? 'a deleted comment' : <a href={`#r-${parent.id}`}>{parent.author_name}</a>}</p> : null}
-          {editing === r.id ? <EditBox body={r.body} onCancel={() => setEditing(null)} onSave={(v) => saveEdit('reply', r.id, v)} /> : <div className="msg-text">{r.body}</div>}
+          {editing === r.id ? <EditBox body={r.body} onCancel={() => setEditing(null)} onSave={(v) => saveEdit('reply', r.id, v)} /> : <RichText text={r.body} people={people} me={user?.id} />}
           <div className="msg-actions">
             <Reacts replyId={r.id} />
             {canReply && <button className="link small act" onClick={() => setReplyTo(replyTo === r.id ? null : r.id)}>↩ Reply</button>}
@@ -304,7 +401,7 @@ function Thread({ id }) {
             {(mine(r.author_id) || mod) && <button className="link small act danger" onClick={() => delReply(r)}>Delete</button>}
             {children.length > 0 && <button className="link small act" onClick={() => setCollapsed((x) => ({ ...x, [r.id]: !isCollapsed }))}>{isCollapsed ? `Show ${count(r.id)} ${count(r.id) === 1 ? 'reply' : 'replies'}` : 'Hide replies'}</button>}
           </div>
-          {replyTo === r.id && <Composer key={r.id} inline to={r.author_name} onCancel={() => setReplyTo(null)} onSend={(b) => send(b, r.id)} />}
+          {replyTo === r.id && <Composer key={r.id} inline to={r.author_name} people={people} me={user?.id} onCancel={() => setReplyTo(null)} onSend={(b) => send(b, r.id)} />}
         </div>
         {children.length > 0 && !isCollapsed && (
           <div className={'cmt-children' + (depth >= 3 ? ' flat' : '')}>
@@ -328,7 +425,7 @@ function Thread({ id }) {
         <Avatar name={t.author_name} size={44} />
         <div className="msg-body">
           <div className="msg-meta"><b>{t.author_name}</b><span>{ago(t.created_at)}{t.edited_at ? ' · edited' : ''}</span></div>
-          {editing === 'post' ? <EditBox title={t.title} body={t.body} onCancel={() => setEditing(null)} onSave={(v) => saveEdit('post', t.id, v)} /> : <div className="msg-text">{t.body}</div>}
+          {editing === 'post' ? <EditBox title={t.title} body={t.body} onCancel={() => setEditing(null)} onSave={(v) => saveEdit('post', t.id, v)} /> : <RichText text={t.body} people={people} me={user?.id} />}
           <div className="msg-actions"><Reacts />{canReply && <button className="link small act" onClick={() => document.getElementById('reply-box')?.focus()}>↩ Reply</button>}{mine(t.author_id) && editing !== 'post' && <button className="link small act" onClick={() => setEditing('post')}>Edit</button>}{!mod && mine(t.author_id) && <button className="link small act danger" onClick={delThread}>Delete</button>}</div>
         </div>
       </article>
@@ -337,12 +434,12 @@ function Thread({ id }) {
         {replies.length > 1 && <div className="seg small-seg"><button className={sort === 'old' ? 'on' : ''} onClick={() => setSort('old')}>Oldest first</button><button className={sort === 'new' ? 'on' : ''} onClick={() => setSort('new')}>Newest first</button></div>}
       </div>
       <div className="cmts">{(kids.root || []).map((r) => renderComment(r, 0))}</div>
-      {canReply ? <Composer bottom to={t.author_name} onSend={(b) => send(b, null)} channel={c.name} /> : <p className="locked-note">🔒 This thread is locked – no new replies.</p>}
+      {canReply ? <Composer bottom to={t.author_name} people={people} me={user?.id} onSend={(b) => send(b, null)} channel={c.name} /> : <p className="locked-note">🔒 This thread is locked – no new replies.</p>}
     </div>
   )
 }
 
-function Composer({ inline, bottom, to, channel, onSend, onCancel }) {
+function Composer({ inline, bottom, to, channel, people, me, onSend, onCancel }) {
   const [body, setBody] = useState('')
   const [busy, setBusy] = useState(false)
   async function go(e) {
@@ -353,7 +450,7 @@ function Composer({ inline, bottom, to, channel, onSend, onCancel }) {
   return (
     <form className={'composer' + (inline ? ' inline' : '') + (bottom ? ' bottom' : '')} onSubmit={go}>
       <p className="composer-to">{inline ? <>↩ Replying to <b>{to}</b></> : <>Reply to the thread{to ? <> started by <b>{to}</b></> : null}</>}</p>
-      <textarea id={bottom ? 'reply-box' : undefined} rows={inline ? 2 : 3} value={body} onChange={(e) => setBody(e.target.value)} placeholder={inline ? `Reply to ${to}…` : 'Write a reply…'} autoFocus={inline} onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) go(e); if (e.key === 'Escape' && onCancel) onCancel() }} />
+      <MentionArea id={bottom ? 'reply-box' : undefined} rows={inline ? 2 : 3} value={body} onChange={setBody} people={people} me={me} placeholder={inline ? `Reply to ${to}… (type @ to mention someone)` : 'Write a reply… (type @ to mention someone)'} autoFocus={inline} onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) go(e); if (e.key === 'Escape' && onCancel) onCancel() }} />
       <div className="row between"><span className="small muted">{channel ? `Everyone in ${channel} can see your reply.` : ''}</span><span className="row">{onCancel && <button type="button" className="btn small ghost" onClick={onCancel}>Cancel</button>}<button className="btn small" disabled={busy || !body.trim()}>{busy ? 'Posting…' : 'Reply'}</button></span></div>
     </form>
   )
@@ -397,14 +494,22 @@ export function ForumLatest({ limit = 4, title = 'Latest in the club forum' }) {
 // Menu link with a count of threads that have new activity.
 export function ForumNavLink({ NavLink }) {
   const { user } = useAuth()
-  const [n, setN] = useState(0)
-  const load = useCallback(async () => { const { data } = await supabase.rpc('forum_unread'); setN(data || 0) }, [])
+  const [n, setN] = useState({ unread: 0, at: 0 })
+  const load = useCallback(async () => {
+    const [{ data: u }, { data: m }] = await Promise.all([supabase.rpc('forum_unread'), supabase.rpc('forum_mentions_unseen')])
+    setN({ unread: u || 0, at: m || 0 })
+  }, [])
   useEffect(() => {
     if (!user) return
     load(); const t = setInterval(load, 60000)
     window.addEventListener('forum-read', load)
     return () => { clearInterval(t); window.removeEventListener('forum-read', load) }
   }, [user, load])
-  useLive(user ? ['posts', 'replies'] : [], load)
-  return <NavLink to="/board" className="nav-forum">Club forum{n > 0 && <span className="badge">{n > 99 ? '99+' : n}</span>}</NavLink>
+  useLive(user ? ['posts', 'replies', 'forum_mentions'] : [], load)
+  const cap = (x) => (x > 99 ? '99+' : x)
+  return (
+    <NavLink to="/board" className="nav-forum" title={[n.unread && `${n.unread} with new activity`, n.at && `${n.at} mention${n.at === 1 ? '' : 's'} of you`].filter(Boolean).join(' · ') || undefined}>
+      Club forum{n.unread > 0 && <span className="badge">{cap(n.unread)}</span>}{n.at > 0 && <span className="badge at">@{cap(n.at)}</span>}
+    </NavLink>
+  )
 }
