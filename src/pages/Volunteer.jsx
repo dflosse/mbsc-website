@@ -84,7 +84,7 @@ export default function Volunteer() {
     e.preventDefault(); setMsg(null)
     if (!req.kind) return setMsg({ ok: false, text: 'Choose a role first.' })
     const { error } = await supabase.from('volunteer_roles').insert({ profile_id: user.id, season: REG_SEASON, kind: req.kind, detail: req.detail, team_id: req.kind === 'coach' && req.team_id ? req.team_id : null })
-    if (error) return setMsg({ ok: false, text: /duplicate|unique/i.test(error.message) ? "You've already applied for that role." : error.message })
+    if (error) return setMsg({ ok: false, text: /duplicate|unique/i.test(error.message) ? "You've already applied for that role." : /already covers/i.test(error.message) ? 'Your executive role already covers committee and volunteer work – no need to apply separately.' : error.message })
     setReq({ kind: '', detail: '', team_id: '' }); load()
     setMsg({ ok: true, text: 'Thanks! Your application is with the executive committee.' })
   }
@@ -92,7 +92,7 @@ export default function Volunteer() {
 
   const [cls, label] = wwccState(w)
   const taken = new Set(apps.filter((a) => ['pending', 'approved'].includes(a.status) && a.season === REG_SEASON).map((a) => a.kind))
-  const open = KINDS.filter(([k]) => !taken.has(k))
+  const open = KINDS.filter(([k]) => !taken.has(k) && !(taken.has('executive') && ['committee', 'volunteer'].includes(k)))
   return (
     <div className="wrap">
       <h1>Volunteer with MBFC</h1>

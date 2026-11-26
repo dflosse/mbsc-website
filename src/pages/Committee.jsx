@@ -758,7 +758,9 @@ function DecideModal({ a, ok, person, onClose }) {
   async function go() {
     const { error } = await supabase.rpc('decide_volunteer', { p_id: a.id, p_approve: ok, p_note: note || null, p_team: team || null, p_committee_role: role || null })
     if (error) return setErr(error.message)
-    onClose(`${person.full_name || person.email} ${ok ? 'approved – access is now active' : 'declined'}.`)
+    const { data: n } = await supabase.functions.invoke('notify-decision', { body: { id: a.id } })
+    const mailed = n?.ok ? ` They've been emailed at ${n.to}.` : n?.skipped ? ' (Approval emails switch on once the email key is added.)' : ' The email to them didn\'t send – let them know directly.'
+    onClose(`${person.full_name || person.email} ${ok ? 'approved – access is now active' : 'declined'}.${mailed}`)
   }
   const label = { coach: 'Coach', executive: 'Executive committee', committee: 'Committee', volunteer: 'Volunteer' }[a.kind]
   return (
