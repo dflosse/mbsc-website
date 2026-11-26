@@ -952,7 +952,7 @@ function Contacts() {
       <h2>Handover notes</h2>
       <p className="muted small">How the club works – the things a new President, Secretary or committee member needs to know.</p>
       <EditTable table="club_notes" order={[['sort'], ['category']]} search={['category', 'title', 'body']} defaults={{ title: 'New note' }}
-        cols={[{ key: 'category', label: 'Area', width: 100 }, { key: 'title', label: 'Topic', width: 170 }, { key: 'body', label: 'Notes', type: 'textarea', width: 520 }, { key: 'sort', label: 'Order', type: 'number', width: 50 }]} />
+        cols={[{ key: 'category', label: 'Area', width: 100 }, { key: 'title', label: 'Topic', width: 170 }, { key: 'body', label: 'Notes', type: 'textarea', width: 480 }, { key: 'created_at', label: 'Added', readOnly: true, width: 80, render: (v) => v ? fmtDate(v.slice(0, 10), { day: 'numeric', month: 'short', year: 'numeric' }) : '' }, { key: 'updated_at', label: 'Updated', readOnly: true, width: 80, render: (v) => v ? fmtDate(v.slice(0, 10), { day: 'numeric', month: 'short', year: 'numeric' }) : '' }, { key: 'sort', label: 'Order', type: 'number', width: 50 }]} />
     </>
   )
 }

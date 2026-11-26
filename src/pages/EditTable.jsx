@@ -37,6 +37,7 @@ export default function EditTable({ table, cols, order = [], filter, defaults = 
     const { error } = await supabase.from(table).update({ [key]: value === '' ? null : value }).eq('id', id)
     setSaving((s) => ({ ...s, [id]: false }))
     if (error) { setErr(error.message); load() }
+    else if (cols.some((c) => c.key === 'updated_at')) setRows((rs) => rs.map((r) => (r.id === id ? { ...r, updated_at: new Date().toISOString() } : r)))
   }
   async function add() {
     const { error } = await supabase.from(table).insert(defaults)
