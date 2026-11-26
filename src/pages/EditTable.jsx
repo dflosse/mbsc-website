@@ -1,9 +1,21 @@
 import { useEffect, useState, useCallback } from 'react'
 import { supabase } from '../supabase'
 
+// Re-load whenever any of these tables change in the database (another tab, another person, another page).
+export function useLive(tables, reload) {
+  const key = tables.join(',')
+  useEffect(() => {
+    if (!key || !supabase.channel) return
+    const ch = supabase.channel('live-' + key + '-' + Math.random().toString(36).slice(2))
+    for (const t of key.split(',')) ch.on('postgres_changes', { event: '*', schema: 'public', table: t }, () => reload())
+    ch.subscribe()
+    return () => { supabase.removeChannel(ch) }
+  }, [key, reload])
+}
+
 // Generic editable table for committee data.
 // cols: [{ key, label, type: 'text'|'date'|'bool'|'select'|'textarea'|'number', options: [[value,label]], width }]
-export default function EditTable({ table, cols, order = [], filter, defaults = {}, select = '*', search = [], rowActions, sortRows, confirmDelete, deleteLabel, noAdd }) {
+export default function EditTable({ table, cols, order = [], filter, defaults = {}, select = '*', search = [], rowActions, sortRows, confirmDelete, deleteLabel, noAdd, live }) {
   const [rows, setRows] = useState([])
   const [q, setQ] = useState('')
   const [err, setErr] = useState('')
@@ -17,6 +29,7 @@ export default function EditTable({ table, cols, order = [], filter, defaults = 
     if (error) setErr(error.message); else setRows(sortRows ? sortRows(data || []) : data || [])
   }, [table, select, filter, order, sortRows])
   useEffect(() => { load() }, [load])
+  useLive(live ? [table] : [], load)
 
   async function update(id, key, value) {
     setRows((rs) => rs.map((r) => (r.id === id ? { ...r, [key]: value } : r)))

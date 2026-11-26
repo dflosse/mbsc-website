@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback, useMemo } from 'react'
 import { NavLink, Routes, Route, Navigate } from 'react-router-dom'
 import { supabase, REG_SEASON, PREV_SEASON, fmtDate, ageGroupFor } from '../supabase'
 import { useAuth } from '../auth'
-import EditTable from './EditTable'
+import EditTable, { useLive } from './EditTable'
 import useSettings from '../useSettings'
 import { KitTags, kitText } from './kitInfo'
 import { wwccState } from './Volunteer'
@@ -118,7 +118,7 @@ function Players() {
         {season === REG_SEASON && teamOpts.length === 0 && <span className="muted small">No {REG_SEASON} teams yet – add them under Teams to assign players.</span>}</div>
       {note && <p className="ok">{note}</p>}
       <p className="muted small">Registrations are signed off by the executive on the <NavLink to="/committee/approvals">Approvals</NavLink> tab. {season === PREV_SEASON ? `Last season's players are kept here. Use ➜${REG_SEASON} to carry a returning player over. ` : ''}Edits save as you go. "Approved" + FV registered + paid = fully registered. Use 🔗 to link a parent's account to a player.</p>
-      <EditTable key={season} table="players" filter={filter} order={order} select={'*, ' + TEAM_SEL} sortRows={sortPlayers} search={['first_name', 'last_name']}
+      <EditTable live key={season} table="players" filter={filter} order={order} select={'*, ' + TEAM_SEL} sortRows={sortPlayers} search={['first_name', 'last_name']}
         defaults={{ season, first_name: 'New', last_name: 'Player', status: 'pending' }}
         cols={[
           { key: 'first_name', label: 'First', width: 100 }, { key: 'last_name', label: 'Last', width: 110 },
@@ -320,6 +320,51 @@ async function teamDeleteWarning(t) {
   return lines.join('\n')
 }
 
+// Players under each team. Moving a player here or on Edit players updates both straight away.
+function Squads() {
+  const { isExec } = useAuth()
+  const [teams, setTeams] = useState([])
+  const [players, setPlayers] = useState([])
+  const [err, setErr] = useState('')
+  const load = useCallback(async () => {
+    const { data: t } = await supabase.from('teams').select('id, name, age_group, sort_order').eq('season', REG_SEASON).order('sort_order')
+    setTeams(t || [])
+    const { data: p } = await supabase.from('players').select('id, first_name, last_name, dob, status, team_id, ' + TEAM_SEL).eq('season', REG_SEASON).neq('status', 'withdrawn')
+    setPlayers(sortPlayers(p || []))
+  }, [])
+  useEffect(() => { load() }, [load])
+  useLive(['players', 'teams'], load)
+  async function move(p, team_id) {
+    setPlayers((ps) => ps.map((x) => x.id === p.id ? { ...x, team_id: team_id || null } : x))
+    const { error } = await supabase.from('players').update({ team_id: team_id || null }).eq('id', p.id)
+    setErr(error?.message || ''); if (error) load()
+  }
+  if (!isExec) return <p className="muted small">Squad lists (children's names) are visible to the executive only.</p>
+  const groups = [...teams.map((t) => ({ t, list: players.filter((p) => p.team_id === t.id) })), { t: null, list: players.filter((p) => !p.team_id || !teams.some((t) => t.id === p.team_id)) }]
+  return (
+    <section className="squads">
+      <h2>{REG_SEASON} squads</h2>
+      <p className="muted small">Move a child by choosing a different team. It saves straight away and shows on Edit players too. Pending registrations are included and marked.</p>
+      {err && <p className="err">{err}</p>}
+      <div className="squad-grid">
+        {groups.map(({ t, list }) => (
+          <div key={t?.id || 'none'} className={'card squad' + (t ? '' : ' unassigned')}>
+            <div className="row between"><h3>{t ? t.name : 'Not in a team yet'}</h3><span className="pill">{list.length}</span></div>
+            {list.length === 0 ? <p className="muted small">{t ? 'No players yet.' : 'Everyone has a team.'}</p> : (
+              <ul className="squad-list">{list.map((p) => (
+                <li key={p.id}>
+                  <span><b>{p.first_name} {p.last_name}</b>{p.status === 'pending' && <span className="pill wait small-pill">pending</span>}<br /><span className="small muted">{p.dob ? `born ${p.dob.slice(0, 4)} · ${ageGroupFor(p.dob, REG_SEASON)}` : ''}</span></span>
+                  <select aria-label={`Team for ${p.first_name} ${p.last_name}`} value={t ? t.id : ''} onChange={(e) => move(p, e.target.value)}><option value="">No team</option>{teams.map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}</select>
+                </li>
+              ))}</ul>
+            )}
+          </div>
+        ))}
+      </div>
+    </section>
+  )
+}
+
 function Teams() {
   const order = useMemo(() => [['sort_order'], ['name']], [])
   const pastOrder = useMemo(() => [['season', false], ['sort_order']], [])
@@ -327,7 +372,8 @@ function Teams() {
     <>
       <h2>{REG_SEASON} teams</h2>
       <p className="muted small">Add, rename or split teams here (e.g. "Under 9 Red" and "Under 9 Green"), then assign children under Edit players and coaches under People &amp; access. Coaches' names show on the public Teams page.</p>
-      <EditTable table="teams" filter={thisSeason} order={order} defaults={{ season: REG_SEASON, name: 'New team', age_group: 'U?', sort_order: 99 }} cols={TEAM_COLS} confirmDelete={teamDeleteWarning} deleteLabel="Delete" />
+      <EditTable live table="teams" filter={thisSeason} order={order} defaults={{ season: REG_SEASON, name: 'New team', age_group: 'U?', sort_order: 99 }} cols={TEAM_COLS} confirmDelete={teamDeleteWarning} deleteLabel="Delete" />
+      <Squads />
       <details className="past">
         <summary>Past seasons</summary>
         <EditTable table="teams" filter={pastSeasons} order={pastOrder} cols={TEAM_COLS} noAdd confirmDelete={teamDeleteWarning} deleteLabel="Delete" />
