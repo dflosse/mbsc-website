@@ -7,6 +7,7 @@ import useSettings from '../useSettings'
 import { KitTags, kitText } from './kitInfo'
 import { wwccState } from './Volunteer'
 import Treasurer from './Treasurer'
+import Assets from './Assets'
 import { bondInfo } from './bond'
 import { sortPlayers, TEAM_SEL } from './sortPlayers'
 
@@ -791,10 +792,7 @@ function Registers() {
       <p className="muted small">Who holds which key. When a key comes back, tick "Returned" rather than deleting the row, so the history stays.</p>
       <EditTable table="keys" order={[['sort'], ['key_no']]} search={['key_no', 'holder', 'location', 'notes']} defaults={{ key_no: 'New' }}
         cols={[{ key: 'key_no', label: 'Key', width: 60 }, { key: 'location', label: 'Opens', width: 220 }, { key: 'holder', label: 'Held by', width: 160 }, { key: 'issued', label: 'Issued', width: 70 }, { key: 'returned', label: 'Returned', type: 'bool' }, { key: 'notes', label: 'Notes', type: 'textarea', width: 240 }, { key: 'sort', label: 'Order', type: 'number', width: 50 }]} />
-      <h2>Asset register</h2>
-      <p className="muted small">Club equipment, what it cost and its condition. Jerseys by number are on the Uniforms tab.</p>
-      <EditTable table="assets" order={[['sort'], ['category']]} search={['category', 'brand', 'notes', 'location']} defaults={{ category: 'New item' }}
-        cols={[{ key: 'category', label: 'Item', width: 140 }, { key: 'brand', label: 'Brand / supplier', width: 120 }, { key: 'quantity', label: 'Qty', type: 'textarea', width: 140 }, { key: 'sizes', label: 'Sizes', type: 'textarea', width: 180 }, { key: 'value', label: 'Cost', type: 'textarea', width: 150 }, { key: 'year', label: 'Year', width: 70 }, { key: 'condition', label: 'Condition', type: 'textarea', width: 150 }, { key: 'location', label: 'Stored', width: 110 }, { key: 'notes', label: 'Notes', type: 'textarea', width: 160 }, { key: 'sort', label: 'Order', type: 'number', width: 50 }]} />
+      <Assets />
     </>
   )
 }

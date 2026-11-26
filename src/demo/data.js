@@ -199,9 +199,12 @@ export const keys = [
   { id: 'k3', key_no: 'M1', location: 'Main door – Mount Beauty Oval Pavilion', holder: 'Sample past president', issued: null, returned: false, notes: 'Don\'t give this one up', sort: 3 },
 ]
 export const assets = [
-  { id: 'a1', category: 'Goals', brand: 'Hart', quantity: '6 × U11/12, 4 × U9, 6 × U7, 4 × U5/6', sizes: 'U11/12 5 × 2 m', value: '$306.81 each (2025)', year: '2024–2025', condition: 'New', location: 'Container', notes: null, sort: 1 },
-  { id: 'a2', category: 'Line marker kit', brand: 'Hart', quantity: '1', sizes: null, value: '$2,190.00', year: '2025', condition: 'New', location: 'Container', notes: null, sort: 2 },
-  { id: 'a3', category: 'Balls', brand: null, quantity: null, sizes: 'Size 3, size 4', value: null, year: '2024', condition: 'Many at end of life – reorder size 3', location: 'Container', notes: null, sort: 3 },
+  { id: 'a1', category: 'Goals', group_name: 'Goals & field', brand: 'Hart / Tor Sport', quantity: '20', sizes: 'U11/12 ×6 · U9 ×4 · U7 ×6 · U5/6 ×4', value: 'U11/12 goals $306.81 each', total_value: null, year: '2024–2025', condition: 'New', location: 'Container – Les Peart', action: null, notes: null, sort: 10 },
+  { id: 'a2', category: 'Line marker kit', group_name: 'Goals & field', brand: 'Hart', quantity: '1', sizes: null, value: '$2,190.00', total_value: 2190, year: '2025', condition: 'New', location: 'Container – Les Peart', action: null, notes: null, sort: 11 },
+  { id: 'a3', category: 'Balls', group_name: 'Balls & training', brand: null, quantity: null, sizes: 'Size 3 and size 4', value: null, total_value: null, year: '2024', condition: 'Needs replacing', location: null, action: 'Order new size 3 for U5–U9 before 2027', notes: null, sort: 20 },
+  { id: 'a4', category: 'Bibs', group_name: 'Balls & training', brand: 'Hart', quantity: '2 sets', sizes: 'Junior · green', value: '$71.55 a set', total_value: 143.10, year: '2025', condition: 'New', location: null, action: null, notes: null, sort: 21 },
+  { id: 'a5', category: 'Playing jerseys', group_name: 'Uniforms & kit', brand: null, quantity: '102', sizes: 'Youth 4 ×9, 6 ×16, 8 ×20, 10 ×24, 12 ×18, 14 ×9', value: '$1,390.40 incl. embroidery', total_value: 1390.40, year: '2023', condition: 'Good', location: null, action: 'Older sizes ran out in 2026 – new design being looked at', notes: null, sort: 1 },
+  { id: 'a6', category: 'First aid kit', group_name: 'First aid & safety', brand: 'The First Aid Shop', quantity: '1', sizes: null, value: '$110 restock', total_value: 110, year: '2025', condition: null, location: null, action: 'Check and restock before the season', notes: null, sort: 30 },
 ]
 export const contacts = [
   { id: 'c1', topic: 'Les Peart Oval booking', name: 'Sample contact', organisation: null, phone: '0400 000 000', email: 'sample@example.com', notes: 'Book training and galas early', sort: 1 },
