@@ -230,6 +230,14 @@ function LinkParent({ player, onClose }) {
     await supabase.from('player_guardians').delete().eq('player_id', player.id).eq('profile_id', l.profile_id); load()
   }
   async function cancelInvite(i) { await supabase.from('guardian_invites').delete().eq('id', i.id); load() }
+  async function sendInvite(email, name) {
+    setMsg(null)
+    const { data, error: fe } = await supabase.functions.invoke('invite-member', { body: { email, full_name: name || '', kind: 'parent' } })
+    let err = data?.error
+    if (fe && !err) { try { err = (await fe.context.json()).error } catch { err = fe.message } }
+    setMsg(err ? { ok: false, text: `Email not sent: ${err}` } : { ok: true, text: `Invitation emailed to ${email}.` })
+    return err
+  }
   async function invite(e) {
     e.preventDefault(); setMsg(null)
     const email = inv.email.trim().toLowerCase()
@@ -249,7 +257,7 @@ function LinkParent({ player, onClose }) {
       {links.length === 0 && invites.length === 0 && <p className="muted small">No one linked yet.</p>}
       <ul className="plain">
         {links.map((l) => <li key={l.profile_id}><span><b>{l.profiles?.full_name || l.profiles?.email}</b><br /><span className="small muted">{l.profiles?.email}{l.profiles?.phone ? ` · ${l.profiles.phone}` : ''}</span></span><button className="link danger small" onClick={() => unlink(l)}>Unlink</button></li>)}
-        {invites.map((i) => <li key={i.id}><span><b>{i.name || i.email}</b> <span className="pill wait small-pill">invited – not signed up yet</span><br /><span className="small muted">{i.email}{i.relationship ? ` · ${i.relationship}` : ''}</span></span><button className="link danger small" onClick={() => cancelInvite(i)}>Cancel</button></li>)}
+        {invites.map((i) => <li key={i.id}><span><b>{i.name || i.email}</b> <span className="pill wait small-pill">invited – not signed up yet</span><br /><span className="small muted">{i.email}{i.relationship ? ` · ${i.relationship}` : ''}</span></span><span className="row small-gap"><button className="link small" onClick={() => sendInvite(i.email, i.name)}>Send email</button><button className="link danger small" onClick={() => cancelInvite(i)}>Cancel</button></span></li>)}
       </ul>
       <label>Link someone who already has an account<input placeholder="Search by name or email" value={q} onChange={(e) => setQ(e.target.value)} /></label>
       {matches.length > 0 && <ul className="plain picks">{matches.map((p) => <li key={p.id}><span>{p.full_name || p.email}<br /><span className="small muted">{p.email}</span></span><button className="btn small" onClick={() => link(p.id)}>Link</button></li>)}</ul>}
