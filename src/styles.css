@@ -498,3 +498,9 @@ ul.plain { list-style: none; padding: 0; margin: 6px 0 12px; }
 ul.plain li { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 8px 0; border-top: 1px solid var(--line); }
 ul.picks { margin-top: -4px; }
 .invite-parent { display: grid; gap: 8px; border-top: 1px solid var(--line); padding-top: 10px; margin-top: 6px; }
+.note-group h3 { margin: 18px 0 8px; font-size: 1rem; }
+.card.note { padding: 14px 16px; margin-bottom: 10px; max-width: 760px; }
+.note-body { white-space: pre-line; line-height: 1.55; margin-top: 6px; }
+.note-dates { margin: 8px 0 0; }
+.note-edit { max-width: 760px; margin-bottom: 10px; }
+.row.between { justify-content: space-between; align-items: center; }

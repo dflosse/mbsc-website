@@ -949,10 +949,71 @@ function Contacts() {
       <p className="muted small">Bookings, the Shire, Football Victoria and suppliers. Account passwords never go here – keep them in a password manager.</p>
       <EditTable table="contacts" order={[['sort'], ['topic']]} search={['topic', 'name', 'organisation', 'notes']} defaults={{ topic: 'New contact' }}
         cols={[{ key: 'topic', label: 'For', width: 140 }, { key: 'name', label: 'Name', width: 120 }, { key: 'organisation', label: 'Organisation', width: 170 }, { key: 'phone', label: 'Phone', width: 110 }, { key: 'email', label: 'Email', width: 190 }, { key: 'notes', label: 'Notes', type: 'textarea', width: 240 }, { key: 'sort', label: 'Order', type: 'number', width: 50 }]} />
-      <h2>Handover notes</h2>
+      <HandoverNotes />
+    </>
+  )
+}
+
+const shortDate = (v) => (v ? fmtDate(v.slice(0, 10), { day: 'numeric', month: 'short', year: 'numeric' }) : '')
+
+// Handover notes as readable cards grouped by area; tap Edit to change one.
+function HandoverNotes() {
+  const [notes, setNotes] = useState(null)
+  const [editing, setEditing] = useState(null)
+  const [f, setF] = useState({})
+  const [err, setErr] = useState(null)
+  const load = useCallback(async () => {
+    const { data, error } = await supabase.from('club_notes').select('*').order('sort').order('category')
+    if (error) setErr(error.message); setNotes(data || [])
+  }, [])
+  useEffect(() => { load() }, [load])
+  const groups = []
+  for (const n of notes || []) { const g = groups.find((x) => x.name === (n.category || 'Other')); g ? g.items.push(n) : groups.push({ name: n.category || 'Other', items: [n] }) }
+  function open(n) { setEditing(n.id); setF({ category: n.category || '', title: n.title || '', body: n.body || '', sort: n.sort ?? '' }) }
+  async function save(e) {
+    e.preventDefault(); setErr(null)
+    const row = { category: f.category.trim() || null, title: f.title.trim(), body: f.body, sort: f.sort === '' ? null : Number(f.sort) }
+    const { error } = editing === 'new' ? await supabase.from('club_notes').insert(row) : await supabase.from('club_notes').update(row).eq('id', editing)
+    if (error) return setErr(error.message)
+    setEditing(null); load()
+  }
+  async function remove() {
+    if (!window.confirm(`Delete the note "${f.title}"? This can't be undone.`)) return
+    const { error } = await supabase.from('club_notes').delete().eq('id', editing)
+    if (error) return setErr(error.message)
+    setEditing(null); load()
+  }
+  const form = (
+    <form className="card form note-edit" onSubmit={save}>
+      <div className="ae-grid">
+        <label>Area<input value={f.category || ''} onChange={(e) => setF({ ...f, category: e.target.value })} list="note-areas" placeholder="e.g. Facilities" /></label>
+        <label>Topic<input value={f.title || ''} onChange={(e) => setF({ ...f, title: e.target.value })} required /></label>
+        <label>Order<input type="number" value={f.sort ?? ''} onChange={(e) => setF({ ...f, sort: e.target.value })} /></label>
+      </div>
+      <datalist id="note-areas">{groups.map((g) => <option key={g.name} value={g.name} />)}</datalist>
+      <label>Notes<textarea rows={8} value={f.body || ''} onChange={(e) => setF({ ...f, body: e.target.value })} /></label>
+      <div className="row"><button className="btn small">Save</button><button type="button" className="btn small ghost" onClick={() => setEditing(null)}>Cancel</button>
+        {editing !== 'new' && <button type="button" className="link danger small" onClick={remove}>Delete note</button>}</div>
+    </form>
+  )
+  return (
+    <>
+      <div className="row between"><h2>Handover notes</h2>{editing !== 'new' && <button className="btn small" onClick={() => { setEditing('new'); setF({ category: '', title: '', body: '', sort: (notes?.length || 0) + 1 }) }}>+ Add a note</button>}</div>
       <p className="muted small">How the club works – the things a new President, Secretary or committee member needs to know.</p>
-      <EditTable table="club_notes" order={[['sort'], ['category']]} search={['category', 'title', 'body']} defaults={{ title: 'New note' }}
-        cols={[{ key: 'category', label: 'Area', width: 100 }, { key: 'title', label: 'Topic', width: 170 }, { key: 'body', label: 'Notes', type: 'textarea', width: 480 }, { key: 'created_at', label: 'Added', readOnly: true, width: 80, render: (v) => v ? fmtDate(v.slice(0, 10), { day: 'numeric', month: 'short', year: 'numeric' }) : '' }, { key: 'updated_at', label: 'Updated', readOnly: true, width: 80, render: (v) => v ? fmtDate(v.slice(0, 10), { day: 'numeric', month: 'short', year: 'numeric' }) : '' }, { key: 'sort', label: 'Order', type: 'number', width: 50 }]} />
+      {err && <p className="err small">{err}</p>}
+      {editing === 'new' && form}
+      {notes === null ? <p className="muted">Loading…</p> : groups.map((g) => (
+        <section key={g.name} className="note-group">
+          <h3>{g.name}</h3>
+          {g.items.map((n) => editing === n.id ? <div key={n.id}>{form}</div> : (
+            <article key={n.id} className="card note">
+              <div className="row between"><b>{n.title}</b><button className="link small" onClick={() => open(n)}>Edit</button></div>
+              <div className="note-body">{n.body}</div>
+              {n.created_at && <p className="small muted note-dates">Added {shortDate(n.created_at)}{n.updated_at && shortDate(n.updated_at) !== shortDate(n.created_at) ? ` · Updated ${shortDate(n.updated_at)}` : ''}</p>}
+            </article>
+          ))}
+        </section>
+      ))}
     </>
   )
 }
