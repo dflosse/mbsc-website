@@ -100,14 +100,15 @@ export default function Home() {
           </section>
 
           <section>
+            <h2>Get involved</h2>
             <div className="card help-out">
-              <h2>Coach or help out</h2>
+              <h3>Coach or help out</h3>
               <p>Every team needs a parent coach and an assistant, and gala days need helpers. No experience needed – Football Victoria runs free coaching courses.</p>
               <Link className="btn" to="/volunteer">Put your hand up</Link>
             </div>
 
             <div className="card">
-              <h2>Contact the club</h2>
+              <h3>Contact the club</h3>
               <p><a href={`mailto:${s.club_email}`}>{s.club_email}</a></p>
               {s.facebook_url && <p><a href={s.facebook_url} target="_blank" rel="noreferrer">Club Facebook page</a></p>}
               <p className="muted small">Questions about registration, teams or volunteering – we're all volunteers, so allow a day or two.</p>

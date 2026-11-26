@@ -60,12 +60,12 @@ export default function EditTable({ table, cols, order = [], filter, defaults = 
         {noAdd ? <span /> : <button className="btn small" onClick={add}>+ Add row</button>}
       </div>
       {err && <p className="err">{err} <button className="link" onClick={() => setErr('')}>dismiss</button></p>}
-      <div className="table-wrap"><table className="edit">
+      <div className="table-wrap"><table className="edit stack">
         <thead><tr>{cols.map((c) => <th key={c.key} style={{ minWidth: c.width }}>{c.label}</th>)}<th /></tr></thead>
         <tbody>{shown.map((r) => (
           <tr key={r.id} className={saving[r.id] ? 'saving' : ''}>
-            {cols.map((c) => <td key={c.key}><Cell c={c} v={r[c.key]} onChange={(v) => update(r.id, c.key, v)} /></td>)}
-            <td className="nowrap">{rowActions && rowActions(r, load)}<button className="link danger" title="Delete" onClick={() => remove(r.id)}>{deleteLabel || '✕'}</button></td>
+            {cols.map((c) => <td key={c.key} data-label={c.label} className={'t-' + (c.type || 'text')}><Cell c={c} v={r[c.key]} onChange={(v) => update(r.id, c.key, v)} /></td>)}
+            <td className="nowrap row-actions">{rowActions && rowActions(r, load)}<button className="link danger" title="Delete" onClick={() => remove(r.id)}>{deleteLabel || '✕'}</button></td>
           </tr>))}</tbody>
       </table></div>
     </div>

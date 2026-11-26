@@ -541,7 +541,7 @@ function KitRequests() {
       <p className="small muted">Asked for on the registration form. Loan boots: {boots.length} families interested, {out} allocated (very limited supply). Bonds: boots {s.boots_bond || 'TBA'}, uniform {bondInfo(s).text}. Sorted by team, youngest first. {isExec ? '' : 'Only the executive can allocate boots or record bonds.'}</p>
       {err && <p className="err">{err}</p>}
       {rows.length === 0 ? <p className="muted">No requests yet.</p> : (
-        <div className="table-wrap"><table>
+        <div className="table-wrap"><table className="stack auto-label">
           <thead><tr><th>Child</th><th>Uniform</th><th>Boots interest</th><th>Boots status</th><th>Bond paid</th><th>Bond refunded</th></tr></thead>
           <tbody>{rows.map((r) => <tr key={r.id}>
             <td>{r.first_name} {r.last_name} <span className="muted small">{ageGroupFor(r.dob, REG_SEASON)}</span></td>
@@ -771,7 +771,7 @@ function People() {
       <p className="muted small note-wide">Choose each person's <b>Access</b>. <b>Executive</b> is for the President, Vice President, Secretary and Treasurer ({execCount} of 4 filled{execCount >= 4 ? '' : ` – ${4 - execCount} to go`}) and gives full access. Everyone else starts with family access; coach, committee and volunteer access is normally added by approving their application. Only the executive sees children's personal details.</p>
       {err && <p className="err">{err}</p>}
       {isExec ? <Invite onSent={load} /> : <div className="card"><h3 style={{ marginTop: 0 }}>Invite someone</h3><p className="small">Inviting is for the executive and needs your two-factor code for this sign-in. <a href="/security">Enter your code</a>, then come back here.</p></div>}
-      <div className="table-wrap"><table className="people">
+      <div className="table-wrap"><table className="people stack auto-label">
         <thead><tr><th>Name</th><th>Joined</th><th>Access</th><th>Applications ({REG_SEASON})</th><th>Coaches team</th></tr></thead>
         <tbody>{sorted.map((p) => {
           const st = acct[p.id]
@@ -944,13 +944,13 @@ function Approvals() {
         })}
       </div>
       <h2>Extra parents / guardians ({gInv.length})</h2>
-      {gInv.length === 0 ? <p className="muted">Nothing waiting.</p> : <div className="table-wrap"><table><thead><tr><th>Child</th><th>Requested by</th><th>New guardian</th><th>Relationship</th><th /></tr></thead>
+      {gInv.length === 0 ? <p className="muted">Nothing waiting.</p> : <div className="table-wrap"><table className="stack auto-label"><thead><tr><th>Child</th><th>Requested by</th><th>New guardian</th><th>Relationship</th><th /></tr></thead>
         <tbody>{gInv.map((i) => <tr key={i.id}><td><b>{i.players?.first_name} {i.players?.last_name}</b></td><td>{people[i.invited_by]?.full_name || people[i.invited_by]?.email || '—'}</td><td>{i.name}<br /><span className="small muted">{i.email}</span></td><td>{i.relationship || '—'}</td>
           <td className="nowrap">{isExec && <><button className="btn small" onClick={async () => { const { error } = await supabase.from('guardian_invites').update({ approved: true }).eq('id', i.id); setMsg(error ? error.message : 'Approved – they\'ll be linked when they sign up.'); load() }}>Approve</button> <button className="link danger" onClick={async () => { await supabase.from('guardian_invites').delete().eq('id', i.id); setMsg('Request removed.'); load() }}>Decline</button></>}</td></tr>)}</tbody></table></div>}
       <p className="small muted">Check custody arrangements before approving. Each parent's contact details stay hidden from the other.</p>
       <h2>Player registrations ({players.length})</h2>
       {players.length === 0 && <p className="muted">Nothing waiting.</p>}
-      {players.length > 0 && <div className="table-wrap"><table><thead><tr><th>Player</th><th>Born</th><th>Season</th><th>Parent</th><th>Medical</th><th>FV reg</th><th>Paid</th><th /></tr></thead>
+      {players.length > 0 && <div className="table-wrap"><table className="stack auto-label"><thead><tr><th>Player</th><th>Born</th><th>Season</th><th>Parent</th><th>Medical</th><th>FV reg</th><th>Paid</th><th /></tr></thead>
         <tbody>{players.map((p) => { const g = people[p.player_guardians?.[0]?.profile_id]; return (
           <tr key={p.id}><td><b>{p.first_name} {p.last_name}</b>{p.committee_notes && <><br /><span className="small muted">{p.committee_notes}</span></>}
             <KitTags p={p} />
@@ -1081,7 +1081,7 @@ function WWCCRegister() {
       {note && <p className="ok">{note}</p>}
       <h2>People with a site account</h2>
       <p className="muted small">Sorted by expiry, so problems are at the top. <b>Retention:</b> delete a WWCC record once someone stops volunteering, no later than 12 months after their last role (WWC Connect keeps the 7-year history).</p>
-      <div className="table-wrap"><table><thead><tr><th>Name</th><th>Access</th><th>Card</th><th>Expiry</th><th>Status</th><th>Checked</th><th>WWC Connect</th><th>Active?</th><th /></tr></thead>
+      <div className="table-wrap"><table className="stack auto-label"><thead><tr><th>Name</th><th>Access</th><th>Card</th><th>Expiry</th><th>Status</th><th>Checked</th><th>WWC Connect</th><th>Active?</th><th /></tr></thead>
         <tbody>{sorted.map(({ p, w, active }) => { const [cls, label] = wwccState(w); return <tr key={p.id}><td>{p.full_name || p.email}<br /><span className="small muted">{p.phone || 'no phone'} · {p.address ? 'address ✓' : 'no address'}</span></td><td>{p.role}{p.is_executive ? ' · exec' : ''}</td><td>{w?.card_number || '—'}<br /><span className="small muted">{w?.card_type}</span></td><td>{w ? (w.pending ? <span className="small">Application no.</span> : w.expiry ? fmtDate(w.expiry) : <span className="small warn-text">not recorded</span>) : '—'}</td><td><span className={'pill ' + cls}>{label}</span></td>
           <td className="small">{w ? (w.status_checked_at ? fmtDate(w.status_checked_at.slice(0, 10)) : <button className="btn small ghost" onClick={() => act(p, 'check')}>Mark checked</button>) : '—'}</td>
           <td className="small">{!w ? '—' : w.disconnected_at ? <>Disconnected {fmtDate(w.disconnected_at.slice(0, 10))}</> : w.wwc_connected_at ? <>Connected {fmtDate(w.wwc_connected_at.slice(0, 10))}
@@ -1309,22 +1309,22 @@ function PlayersList({ season, toolbarExtra }) {
       {adding && <AddFamily teams={teams.filter((t) => t.season === REG_SEASON)} onClose={(m) => { setAdding(false); if (m) setCopied(m); setReload((x) => x + 1) }} />}
       {custodyFor && <CustodyModal player={custodyFor} onClose={() => { setCustodyFor(null); setReload((x) => x + 1) }} />}
       <p className="small muted">{counts.total} players · {counts.fv} FV registered · {counts.paid} paid · {counts.med} with medical notes · {counts.uni} need a uniform · {counts.boots} interested in loan boots. Click <b>Edit</b> on a child to change their details.</p>
-      <div className="table-wrap"><table className="dir">
+      <div className="table-wrap"><table className="dir stack players-dir">
         <thead><tr><th>Player</th><th>Team</th><th>Status</th><th>FV</th><th>Paid</th><th>Medical</th><th>Photos</th><th>Parent / guardian</th><th>Emergency</th></tr></thead>
         <tbody>{shown.map((r) => <Fragment key={r.id}><tr className={editing === r.id ? 'editing-row' : ''}>
-          <td><b>{r.first_name} {r.last_name}</b><br /><span className="small muted">{r.dob ? fmtDate(r.dob, { day: 'numeric', month: 'short', year: 'numeric' }) : ''} · {ageGroupFor(r.dob, r.season)}</span>
+          <td className="lead-cell"><b>{r.first_name} {r.last_name}</b><br /><span className="small muted">{r.dob ? fmtDate(r.dob, { day: 'numeric', month: 'short', year: 'numeric' }) : ''} · {ageGroupFor(r.dob, r.season)}</span>
             {r.release_check && <div className="release">⚠ Release check</div>}
             <KitTags p={r} />
-            <div className="row small-gap"><button className="btn small" onClick={() => setEditing(editing === r.id ? null : r.id)}>{editing === r.id ? 'Close' : 'Edit'}</button><button className="link small" onClick={() => setCustodyFor(r)}>{r.custody?.custody_note || r.release_check ? 'Custody note' : '+ custody note'}</button><button className="link small" onClick={() => setLinkFor(r)}>Parents</button></div></td>
-          <td>{r.teams?.name || <span className="muted">TBA</span>}</td>
-          <td><span className={'pill ' + ({ approved: 'good', pending: 'wait', withdrawn: 'bad' }[r.status])}>{r.status === 'pending' ? 'awaiting' : r.status}</span></td>
-          <td>{r.fv_registered ? '✓' : <span className="err">✗</span>}</td><td>{r.fees_paid ? '✓' : <span className="err">✗</span>}</td>
-          <td className={r.medical_notes ? 'alert' : 'muted'}>{r.medical_notes || '—'}</td><td>{r.photo_consent ? 'Yes' : 'No'}</td>
-          <td>{r.guardians.map((g) => <div key={g.email} className="small"><b>{g.full_name || g.email}</b><br />{g.phone || ''}{g.phone ? ' · ' : ''}{g.email}</div>)}
+            <div className="row small-gap nowrap-row"><button className="btn small" onClick={() => setEditing(editing === r.id ? null : r.id)}>{editing === r.id ? 'Close' : 'Edit'}</button><button className="link small" onClick={() => setCustodyFor(r)}>{r.custody?.custody_note || r.release_check ? 'Custody note' : '+ custody note'}</button><button className="link small" onClick={() => setLinkFor(r)}>Parents</button></div></td>
+          <td data-label="Team">{r.teams?.name || <span className="muted">TBA</span>}</td>
+          <td data-label="Status"><span className={'pill ' + ({ approved: 'good', pending: 'wait', withdrawn: 'bad' }[r.status])}>{r.status === 'pending' ? 'awaiting' : r.status}</span></td>
+          <td data-label="FV">{r.fv_registered ? '✓' : <span className="err">✗</span>}</td><td data-label="Paid">{r.fees_paid ? '✓' : <span className="err">✗</span>}</td>
+          <td data-label="Medical" className={r.medical_notes ? 'alert' : 'muted'}>{r.medical_notes || '—'}</td><td data-label="Photos">{r.photo_consent ? 'Yes' : 'No'}</td>
+          <td data-label="Parent">{r.guardians.map((g) => <div key={g.email} className="small"><b>{g.full_name || g.email}</b><br />{g.phone || ''}{g.phone ? ' · ' : ''}{g.email}</div>)}
             {r.invites.map((i) => <div key={i.id} className="small muted">{i.name || i.email} ({i.relationship || 'guardian'}) – {i.approved ? 'invited, not signed up' : 'awaiting approval'}<br />{i.phone || ''} {i.email}</div>)}
             {!r.guardians.length && !r.invites.length && <span className="muted small">not linked</span>}</td>
-          <td className="small">{r.emergency_contact || '—'}</td>
-        </tr>{editing === r.id && <tr className="editrow"><td colSpan={9}><PlayerEditor p={r} teams={teams.filter((t) => t.season === r.season)} onDone={() => { setEditing(null); bump() }} /></td></tr>}</Fragment>)}</tbody></table></div>
+          <td data-label="Emergency" className="small">{r.emergency_contact || '—'}</td>
+        </tr>{editing === r.id && <tr className="editrow"><td colSpan={9} className="full-cell"><PlayerEditor p={r} teams={teams.filter((t) => t.season === r.season)} onDone={() => { setEditing(null); bump() }} /></td></tr>}</Fragment>)}</tbody></table></div>
       {linkFor && <LinkParent player={linkFor} onClose={() => { setLinkFor(null); bump() }} />}
     </>
   )
@@ -1418,7 +1418,7 @@ function Audit() {
     <>
       <p className="muted small">Every approval, access change, payment/registration change, WWCC check, parent link and custody note edit is recorded here automatically. It can't be edited.</p>
       <div className="tabs">{[['', 'All'], ...Object.entries(LABEL)].map(([k, l]) => <button key={k} className={tbl === k ? 'on' : ''} onClick={() => setTbl(k)}>{l}</button>)}</div>
-      <div className="table-wrap"><table><thead><tr><th>When</th><th>Who</th><th>What</th><th>Action</th><th>Changes</th></tr></thead>
+      <div className="table-wrap"><table className="stack auto-label"><thead><tr><th>When</th><th>Who</th><th>What</th><th>Action</th><th>Changes</th></tr></thead>
         <tbody>{rows.map((r) => <tr key={r.id}><td className="nowrap small">{new Date(r.at).toLocaleString('en-AU', { dateStyle: 'medium', timeStyle: 'short' })}</td><td>{r.actor_name || 'system'}</td><td>{LABEL[r.tbl] || r.tbl}</td><td>{r.action}</td><td className="small">{fmt(r.changes)}</td></tr>)}</tbody></table></div>
     </>
   )

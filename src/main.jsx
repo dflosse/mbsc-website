@@ -6,6 +6,7 @@ import { AuthProvider } from './auth'
 import { DEMO } from './supabase'
 import '@fontsource-variable/overpass'
 import './styles.css'
+import { startStackLabels } from './stackLabels'
 
 const Router = DEMO ? HashRouter : BrowserRouter
 
@@ -18,3 +19,5 @@ ReactDOM.createRoot(document.getElementById('root')).render(
     </Router>
   </React.StrictMode>
 )
+
+startStackLabels()

@@ -745,3 +745,47 @@ ul.plain.jobs li a { width: 100%; box-sizing: border-box; }
   .cn-list { display: none; background: var(--paper); border-radius: var(--r); padding: 12px; margin-top: 8px; }
   .cmte-nav.open .cn-list { display: block; }
 }
+
+/* ---------- Alignment pass ---------- */
+/* Committee sidebar: show the whole menu, no inner scroll */
+.cmte-nav { position: static; max-height: none; overflow: visible; }
+.cn-link { padding: 7px 10px; }
+/* Even stat and tile grids */
+.cmte-main .dash .stats { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.pre-tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+@media (max-width: 1100px) { .pre-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 560px) { .pre-tiles, .cmte-main .dash .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); } .pre-tiles { grid-template-columns: 1fr; } }
+/* Players list: name column wide enough for its buttons */
+.players-dir td.lead-cell { min-width: 240px; }
+.nowrap-row { flex-wrap: nowrap; white-space: nowrap; }
+/* Segmented buttons wrap instead of running off screen */
+.seg { flex-wrap: wrap; }
+.home-cols > section > h2:first-child { margin-top: 0; }
+
+/* Tables become stacked cards on phones */
+@media (max-width: 700px) {
+  .table-wrap:has(table.stack) { overflow: visible; background: transparent; }
+  table.stack, table.stack tbody, table.stack tr, table.stack td { display: block; width: 100%; box-sizing: border-box; }
+  table.stack thead { display: none; }
+  table.stack tr { background: #fff; border-radius: 12px; padding: 10px 14px; margin-bottom: 10px; border: 1px solid var(--rule); }
+  table.stack tr.editrow { padding: 0; border: 0; background: transparent; }
+  table.stack td { display: grid; grid-template-columns: 104px minmax(0, 1fr); gap: 10px; align-items: center; padding: 5px 0 !important; border: 0 !important; min-width: 0 !important; text-align: left; }
+  table.stack td::before { content: attr(data-label); font-size: .78rem; font-weight: 700; color: var(--muted); }
+  table.stack td:not([data-label]) { grid-template-columns: 1fr; }
+  table.stack td:not([data-label])::before { content: none; }
+  table.stack td.lead-cell { padding-bottom: 8px !important; border-bottom: 1px solid #edf0ec !important; margin-bottom: 4px; }
+  table.stack td.row-actions { display: flex; justify-content: flex-end; gap: 12px; padding-top: 8px !important; border-top: 1px solid #edf0ec !important; margin-top: 4px; }
+  table.edit.stack input:not([type=checkbox]), table.edit.stack select, table.edit.stack textarea { border-color: var(--rule); background: #fff; width: 100%; font-size: .95rem; padding: 8px 10px; }
+  table.edit.stack td.t-bool input { justify-self: start; margin: 0; }
+  .players-dir td.lead-cell { min-width: 0; }
+  .nowrap-row { flex-wrap: wrap; }
+}
+.home-cols .card h3 { margin: 0 0 8px; font-size: 1.1rem; }
+.tabs { flex-wrap: wrap; overflow-x: visible; }
+table.stack td .pill, table.stack td .btn, table.stack td button.link { justify-self: start; width: auto; }
+@media (max-width: 700px) {
+  table.stack td[data-label] { display: block; position: relative; padding-left: 114px !important; min-height: 28px; }
+  table.stack td[data-label]::before { position: absolute; left: 0; top: 7px; width: 104px; line-height: 1.25; }
+  table.stack td:not([data-label]):not(.lead-cell) { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; }
+  table.edit.stack td[data-label] input:not([type=checkbox]), table.edit.stack td[data-label] select, table.edit.stack td[data-label] textarea { width: 100%; }
+}
