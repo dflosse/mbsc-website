@@ -17,7 +17,17 @@ const authStorage = {
   setItem: (k, v) => { try { const s = store(); s.setItem(k, v); (s === localStorage ? sessionStorage : localStorage).removeItem(k) } catch { /* private mode */ } },
   removeItem: (k) => { try { localStorage.removeItem(k); sessionStorage.removeItem(k) } catch { /* private mode */ } },
 }
-export const supabase = DEMO ? mockSupabase : createClient(url, key, { auth: { storage: authStorage, persistSession: true, autoRefreshToken: true } })
+export const supabase = DEMO ? mockSupabase : createClient(url, key, { auth: { storage: authStorage, persistSession: true, autoRefreshToken: true, experimental: { passkey: true } } })
+
+// A passkey (Face ID / Touch ID / fingerprint) sign-in counts as two-factor: it needs the device
+// plus the face/finger/PIN that unlocks it. Same rule as app.aal2() in the database.
+export const PASSKEY_AMR = ['passkey', 'webauthn', 'mfa/webauthn']
+export function strongSession(session) {
+  try {
+    const c = JSON.parse(atob(session.access_token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')))
+    return c.aal === 'aal2' || (c.amr || []).some((m) => PASSKEY_AMR.includes(m.method))
+  } catch { return false }
+}
 
 // Season settings – change these when the next season opens.
 export const REG_SEASON = 2027 // the season families register for and teams are built for

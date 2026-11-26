@@ -16,7 +16,7 @@ Deno.serve(async (req) => {
     const { data: { user } } = await asUser.auth.getUser()
     if (!user) return json({ error: 'Please sign in again.' }, 401)
     const claims = JSON.parse(atob(authz.replace(/^Bearer\s+/i, '').split('.')[1].replace(/-/g, '+').replace(/_/g, '/')))
-    if (claims.aal !== 'aal2') return json({ error: 'Two-factor sign-in is needed to invite people.' }, 403)
+    if (!(claims.aal === 'aal2' || (claims.amr ?? []).some((m: { method: string }) => ['passkey', 'webauthn', 'mfa/webauthn'].includes(m.method)))) return json({ error: 'Two-factor sign-in is needed to invite people.' }, 403)
     const db = createClient(url, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!)
     const { data: me } = await db.from('profiles').select('is_executive, full_name').eq('id', user.id).single()
     if (!me?.is_executive) return json({ error: 'Only the executive can send invitations.' }, 403)

@@ -55,6 +55,14 @@ export default function Login() {
     setBusy(false)
   }
 
+  async function faceId() {
+    setBusy(true); setMsg(null)
+    try { localStorage.setItem(REMEMBER_KEY, 'yes') } catch { /* ignore */ }
+    const { error } = await supabase.auth.signInWithPasskey()
+    setBusy(false)
+    if (error) setMsg({ ok: false, text: /NotAllowed|abort|cancel/i.test(error.name + error.message) ? 'Cancelled – try again, or sign in with your email and password.' : /not found|credential/i.test(error.message) ? 'No Face ID set up for this site on this device yet – sign in with your password, then turn it on under Two-factor sign-in.' : error.message })
+  }
+
   async function resend() {
     setBusy(true); setMsg(null)
     const { error } = await supabase.auth.resend({ type: 'signup', email: sent, options: { emailRedirectTo: redirect } })
@@ -86,6 +94,12 @@ export default function Login() {
         <button className={mode === 'signup' ? 'on' : ''} onClick={() => setMode('signup')}>Create account</button>
         <button className={mode === 'link' ? 'on' : ''} onClick={() => setMode('link')}>Forgot password?</button>
       </div>
+      {mode === 'signin' && typeof window !== 'undefined' && window.PublicKeyCredential && (
+        <div className="card form faceid">
+          <button type="button" className="btn big" disabled={busy} onClick={faceId}>Sign in with Face ID / fingerprint</button>
+          <p className="small muted" style={{ margin: 0 }}>Set it up once under Two-factor sign-in. No password or code needed after that.</p>
+        </div>
+      )}
       <form className="card form" onSubmit={submit}>
         {mode === 'signup' && <label>Your full name<input value={name} onChange={(e) => setName(e.target.value)} required={mode === 'signup'} /></label>}
         {mode === 'signup' && <label>Mobile<input value={phone} onChange={(e) => setPhone(e.target.value)} inputMode="tel" /></label>}

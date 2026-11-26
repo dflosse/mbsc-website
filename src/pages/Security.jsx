@@ -21,7 +21,7 @@ const device = () => {
 }
 // Face ID / fingerprint (WebAuthn) as the second step. Bound to the club domain so it keeps working
 // whichever address people type (www and netlify.app both redirect here).
-const RP = { rpId: 'mountbeautyfc.org.au', rpOrigins: ['https://mountbeautyfc.org.au'] }
+const RP = { rpId: 'mountbeautyfc.org.au' }
 const canPasskey = () => typeof window !== 'undefined' && !!window.PublicKeyCredential && location.hostname === RP.rpId
 const BIO = { iphone: 'Face ID', android: 'fingerprint', mac: 'Touch ID', pc: 'your phone' }
 const friendlyErr = (e) => /NotAllowed|abort|cancel/i.test((e?.name || '') + (e?.message || '')) ? 'Cancelled – tap the button to try again.' : (e?.message || 'That didn’t work – try again or use your 6-digit code.')
@@ -51,17 +51,17 @@ export default function Security() {
     const { data } = await supabase.auth.mfa.listFactors()
     const v = (data?.all || []).filter((f) => f.status === 'verified')
     setFactors(v.filter((f) => f.factor_type === 'totp'))
-    setKeys(v.filter((f) => f.factor_type === 'webauthn'))
+    try { const { data: pk } = await supabase.auth.passkey.list(); setKeys(pk || []) } catch { setKeys([]) }
   }
   async function done(text) {
     await load(); await refresh()
     setMsg({ ok: true, text })
     if (loc.state?.from) setTimeout(() => nav(loc.state.from), 600)
   }
-  async function useKey(f) {
+  async function useKey() {
     setMsg(null); setBusy(true)
     if (!(await ensureSession())) { setBusy(false); return setMsg({ ok: false, text: 'Your sign-in has lapsed. Please sign out, sign back in with your email and password, then try again.' }) }
-    const { error } = await supabase.auth.mfa.webauthn.authenticate({ factorId: f.id, webauthn: RP })
+    const { error } = await supabase.auth.signInWithPasskey()
     setBusy(false)
     if (error) return setMsg({ ok: false, text: friendlyErr(error) })
     done('Signed in. Your access is unlocked.')
@@ -70,7 +70,8 @@ export default function Security() {
     setMsg(null); setBusy(true)
     if (!(await ensureSession())) { setBusy(false); return setMsg({ ok: false, text: 'Your sign-in has lapsed. Please sign out, sign back in with your email and password, then try again.' }) }
     const name = `${BIO[device()] === 'your phone' ? 'Passkey' : BIO[device()]} – ${DEVICE_NAME[device()]} ${new Date().toISOString().slice(0, 10)}`
-    const { error } = await supabase.auth.mfa.webauthn.register({ friendlyName: name, webauthn: RP })
+    const { data: pk, error } = await supabase.auth.registerPasskey()
+    if (!error && pk?.id) await supabase.auth.passkey.update({ passkeyId: pk.id, friendlyName: name })
     setBusy(false)
     if (error) return setMsg({ ok: false, text: friendlyErr(error) })
     setOffer(false)
@@ -103,7 +104,7 @@ export default function Security() {
   }
   async function remove(f) {
     if (factors.length + keys.length === 1 && elevated && !window.confirm('Removing your only authenticator will switch off your coach/committee/volunteer access until you set it up again. Continue?')) return
-    const { error } = await supabase.auth.mfa.unenroll({ factorId: f.id })
+    const { error } = f.factor_type === 'totp' ? await supabase.auth.mfa.unenroll({ factorId: f.id }) : await supabase.auth.passkey.delete({ passkeyId: f.id })
     setMsg(error ? { ok: false, text: error.message } : { ok: true, text: 'Removed.' }); load(); refresh()
   }
 
@@ -140,7 +141,7 @@ export default function Security() {
       {needsMfa && mfaEnrolled && keys.length > 0 && (
         <div className="card form">
           <h3>Confirm it's you</h3>
-          {keys.map((k) => <button key={k.id} className="btn big" disabled={busy} onClick={() => useKey(k)}>{busy ? 'Waiting for you to approve…' : keys.length > 1 ? `Use ${k.friendly_name?.split(' – ')[0] || 'passkey'} (${k.friendly_name?.split(' – ')[1]?.replace(/ \d{4}-.*/, '') || ''})` : `Use ${BIO[device()] === 'your phone' ? 'your phone (passkey)' : BIO[device()]}`}</button>)}
+          <button className="btn big" disabled={busy} onClick={useKey}>{busy ? 'Waiting for you to approve…' : `Use ${BIO[device()] === 'your phone' ? 'your phone (passkey)' : BIO[device()]}`}</button>
           <p className="small muted">On a computer without it, your browser shows a QR code – scan it with your phone and approve there.{verified ? ' Or type your 6-digit code below.' : ''}</p>
         </div>
       )}

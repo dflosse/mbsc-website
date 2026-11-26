@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState, useCallback } from 'react'
-import { supabase } from './supabase'
+import { supabase, strongSession } from './supabase'
 
 const AuthCtx = createContext(null)
 const ELEVATED = ['volunteer', 'coach', 'committee', 'admin']
@@ -10,6 +10,7 @@ export function AuthProvider({ children }) {
   const [coachTeams, setCoachTeams] = useState([])
   const [aal, setAal] = useState({ current: 'aal1', next: 'aal1' })
   const [loading, setLoading] = useState(true)
+  const [hasPasskey, setHasPasskey] = useState(false)
   const [recovering, setRecovering] = useState(false)
 
   const loadProfile = useCallback(async (s) => {
@@ -21,6 +22,7 @@ export function AuthProvider({ children }) {
     setCoachTeams((tc || []).map((r) => r.team_id))
     const { data: lv } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel()
     if (lv) setAal({ current: lv.currentLevel, next: lv.nextLevel })
+    try { const { data: pk } = await supabase.auth.passkey.list(); setHasPasskey((pk || []).length > 0) } catch { setHasPasskey(false) }
   }, [])
 
   useEffect(() => {
@@ -39,7 +41,7 @@ export function AuthProvider({ children }) {
 
   const role = profile?.role
   const elevated = ELEVATED.includes(role) || !!profile?.is_executive || coachTeams.length > 0
-  const mfaOk = aal.current === 'aal2'
+  const mfaOk = aal.current === 'aal2' || (!!session && strongSession(session))
   const value = {
     session,
     user: session?.user || null,
@@ -48,7 +50,7 @@ export function AuthProvider({ children }) {
     refresh: () => loadProfile(session),
     // elevated access only counts once two-factor is complete (the database enforces the same rule)
     needsMfa: elevated && !mfaOk,
-    mfaEnrolled: aal.next === 'aal2',
+    mfaEnrolled: aal.next === 'aal2' || hasPasskey,
     elevated,
     isStaff: mfaOk && (role === 'committee' || role === 'admin'),
     isAdmin: mfaOk && role === 'admin',
@@ -56,7 +58,9 @@ export function AuthProvider({ children }) {
     isVolunteer: mfaOk && ELEVATED.includes(role),
     isCoach: mfaOk && (role === 'coach' || coachTeams.length > 0),
     coachTeams,
-    aalCurrent: aal.current,
+    aalCurrent: mfaOk ? 'aal2' : aal.current,
+    hasPasskey,
+    mfaOk,
     recovering,
     endRecovery: () => setRecovering(false),
     signOut: () => supabase.auth.signOut(),
