@@ -484,3 +484,12 @@ tr.editing-row td { background: #fff8f0; }
 tr.editrow td { background: #fff8f0; padding: 12px 14px 16px; }
 .ticks-row { display: flex; flex-wrap: wrap; gap: 6px 18px; margin: 12px 0; }
 .ticks-row .check { margin: 0; }
+.asset-summary { margin: 4px 0 10px; color: var(--ink-2); }
+.asset-summary .link.strong { font-weight: 800; }
+.asset-table { margin-bottom: 16px; }
+.asset-table table { table-layout: fixed; }
+.asset-table thead th:first-child { width: 30%; font-size: .9rem; color: var(--forest); }
+.asset-table thead th:nth-child(2) { width: 13%; } .asset-table thead th:nth-child(3) { width: 14%; } .asset-table thead th:nth-child(4) { width: 17%; }
+tr.clickable { cursor: pointer; } tr.clickable:hover td { background: #f6f8f4; } tr.opened td { background: #fff8f0; }
+.asset-detail { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; }
+@media (max-width: 640px) { .asset-table table { table-layout: auto; } .asset-table th:nth-child(4), .asset-table td:nth-child(4) { display: none; } }
