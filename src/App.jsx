@@ -65,11 +65,11 @@ function WWCCNudge() {
 }
 
 export default function App() {
-  const { user, profile, coachTeams, isStaff, isExec, isCoach, signOut, recovering } = useAuth()
+  const { user, profile, coachTeams, isStaff, isCoach, signOut, recovering } = useAuth()
   const where = useLocation()
   useFreshVersion()
   const st = useSettings()
-  const showCoach = profile?.role === 'coach' || coachTeams.length > 0 || !!profile?.is_executive
+  const showCoach = profile?.role === 'coach' || coachTeams.length > 0
   const showCommittee = ['committee', 'admin'].includes(profile?.role) || profile?.is_executive
   const [open, setOpen] = useState(false)
   const close = () => setOpen(false)
@@ -121,7 +121,7 @@ export default function App() {
           <Route path="/board/:id" element={<Guard><Forum /></Guard>} />
           <Route path="/account" element={<Guard><Account /></Guard>} />
           <Route path="/volunteer" element={<Guard><Volunteer /></Guard>} />
-          <Route path="/coach" element={<Guard elevated ok={isCoach || isStaff || isExec}><Coach /></Guard>} />
+          <Route path="/coach" element={<Guard elevated ok={isCoach || isStaff}><Coach /></Guard>} />
           <Route path="/committee/*" element={<Guard elevated ok={isStaff || !!profile?.is_executive}><Committee /></Guard>} />
           <Route path="/security" element={<Guard><Security /></Guard>} />
           <Route path="/privacy" element={<Privacy />} />

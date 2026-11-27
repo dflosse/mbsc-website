@@ -24,6 +24,7 @@ const PAGES = {
   approvals: ['Approve applications', 'Approve new player registrations and volunteer, coach and committee applications.'],
   players: ['Players', 'All registered players: edit details, link parents, check PlayFootball and fees.'],
   wwcc: ['WWCC register', 'Working With Children Checks: check, connect in WWC Connect, and track expiry.'],
+  coaches: [`${PREV_SEASON} coaches`, `Last season's coaches and their emails. Executive only. The emails also show as a group on Send email.`],
   people: ['People & access', 'Who has an account and what they can see. Invite new people here.'],
   kit: ['Uniforms', 'Uniforms for this season, and jerseys still out from last season.'],
   registers: ['Keys & assets', 'Who holds which key, and the club\'s equipment and assets.'],
@@ -39,12 +40,12 @@ const PAGES = {
 const SECTIONS = [
   { key: 'home', label: 'Home', pages: ['overview'] },
   { key: 'season', label: 'This season', pages: ['preseason', 'galas', 'teams', 'tasks'] },
-  { key: 'people', label: 'People', pages: ['approvals', 'players', 'wwcc', 'people'], exec: true },
+  { key: 'people', label: 'People', pages: ['approvals', 'players', 'wwcc', 'coaches', 'people'], exec: true },
   { key: 'gear', label: 'Gear', pages: ['kit', 'registers'] },
   { key: 'admin', label: 'Club admin', pages: ['email', 'contacts', 'docs', 'roles', 'treasurer', 'settings', 'audit'] },
   { key: 'start', label: 'Start here', pages: ['start'] },
 ]
-const EXEC_ONLY = ['approvals', 'wwcc', 'players', 'people', 'email', 'audit']
+const EXEC_ONLY = ['approvals', 'wwcc', 'players', 'coaches', 'people', 'email', 'audit']
 
 export default function Committee() {
   const { isExec } = useAuth()
@@ -103,6 +104,7 @@ export default function Committee() {
         <Route path="registers" element={<Registers />} />
         <Route path="contacts" element={<Contacts />} />
         <Route path="teams" element={<Teams />} />
+        <Route path="coaches" element={<PastCoaches />} />
         <Route path="people" element={<People />} />
         <Route path="docs" element={<Docs />} />
         <Route path="roles" element={<Roles />} />
@@ -1413,7 +1415,7 @@ function Audit() {
     q.then(({ data }) => setRows(data || []))
   }, [tbl])
   if (!isExec) return <div className="card"><p>Visible to the executive committee only.</p></div>
-  const LABEL = { players: 'Players', volunteer_roles: 'Applications', wwcc: 'WWCC', profiles: 'Access', player_guardians: 'Parent links', guardian_invites: 'Guardian invites', team_coaches: 'Coach teams', player_private: 'Custody notes' }
+  const LABEL = { players: 'Players', volunteer_roles: 'Applications', wwcc: 'WWCC', profiles: 'Access', player_guardians: 'Parent links', guardian_invites: 'Guardian invites', team_coaches: 'Coach teams', player_private: 'Custody notes', coach_contacts: 'Past coaches' }
   const fmt = (c) => Object.entries(c || {}).map(([k, v]) => typeof v === 'object' && v && 'to' in v ? `${k}: ${v.from ?? '–'} → ${v.to ?? '–'}` : `${k} ${typeof v === 'string' ? v : ''}`).join('; ')
   return (
     <>
@@ -1452,5 +1454,21 @@ function GalaJobs({ gala, onClose }) {
       <p className="small muted">Approved volunteers (with a checked WWCC) sign up on the Gala days page.</p>
       <button className="btn ghost small" onClick={onClose}>Close</button>
     </div></div>
+  )
+}
+
+// Last season's coaches with their emails – executive only (the database enforces this too).
+// The emails show as the "<season> coaches" group on Send email.
+const PAST_COACH_ORDER = [['sort'], ['name']]
+const pastCoachFilter = (q) => q.eq('season', PREV_SEASON)
+function PastCoaches() {
+  const { isExec } = useAuth()
+  if (!isExec) return <p className="muted">This page is for the executive committee.</p>
+  return (
+    <div>
+      <p className="muted small">Type an email in and it's saved straight away. It then shows in the "{PREV_SEASON} coaches" group on Send email.</p>
+      <EditTable table="coach_contacts" filter={pastCoachFilter} order={PAST_COACH_ORDER} search={['name', 'team', 'email']} defaults={{ season: PREV_SEASON, name: 'New coach' }}
+        cols={[{ key: 'team', label: 'Team', width: 110 }, { key: 'name', label: 'Coach', width: 150 }, { key: 'email', label: 'Email', width: 220 }, { key: 'phone', label: 'Phone', width: 120 }, { key: 'notes', label: 'Notes', width: 160 }]} />
+    </div>
   )
 }
