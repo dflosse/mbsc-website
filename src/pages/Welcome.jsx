@@ -1,3 +1,4 @@
+import PasswordInput from '../PasswordInput'
 import { useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { supabase } from '../supabase'
@@ -47,8 +48,8 @@ export default function Welcome() {
       {kind !== 'parent' && <div className="card callout"><p style={{ margin: 0 }}><b>What happens next:</b> choose a password, then add your mobile, address and Working With Children Check. The executive checks your card and connects you to the club in WWC Connect. Your access switches on once they've approved you.</p></div>}
       <form className="card" onSubmit={submit}>
         <p className="small muted">Signed in as <b>{user.email}</b></p>
-        <label>Choose a password<input type="password" autoComplete="new-password" value={pw} onChange={(e) => setPw(e.target.value)} required /></label>
-        <label>Type it again<input type="password" autoComplete="new-password" value={pw2} onChange={(e) => setPw2(e.target.value)} required /></label>
+        <label>Choose a password<PasswordInput autoComplete="new-password" value={pw} onChange={(e) => setPw(e.target.value)} required /></label>
+        <label>Type it again<PasswordInput autoComplete="new-password" value={pw2} onChange={(e) => setPw2(e.target.value)} required /></label>
         <p className="small muted">{PW_RULE}</p>
         {msg && <p className={msg.ok ? 'ok' : 'err'}>{msg.text}</p>}
         <button className="btn" disabled={busy}>{busy ? 'Saving…' : 'Save password and continue'}</button>

@@ -1,3 +1,4 @@
+import PasswordInput from '../PasswordInput'
 import { useEffect, useState } from 'react'
 import { supabase } from '../supabase'
 import { useAuth } from '../auth'
@@ -40,5 +41,5 @@ function ChangePassword() {
     const { error } = await supabase.auth.updateUser({ password: pw })
     setMsg(error ? error.message : 'Password updated.'); setPw('')
   }
-  return <label>New password (optional)<div className="row"><input type="password" value={pw} onChange={(e) => setPw(e.target.value)} autoComplete="new-password" /><button type="button" className="btn small ghost" onClick={save}>Set password</button></div>{msg && <span className="small">{msg}</span>}</label>
+  return <label>New password (optional)<div className="row"><PasswordInput value={pw} onChange={(e) => setPw(e.target.value)} autoComplete="new-password" /><button type="button" className="btn small ghost" onClick={save}>Set password</button></div>{msg && <span className="small">{msg}</span>}</label>
 }

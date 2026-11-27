@@ -969,3 +969,33 @@ table.stack td .pill, table.stack td .btn, table.stack td button.link { justify-
 .mention-banner { display: flex; gap: 12px; align-items: center; background: #fdecea; border: 1.5px solid #f1b8b1; border-radius: var(--r); padding: 12px 16px; margin-bottom: 14px; }
 .mention-banner .mb-dot { display: inline-grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; background: var(--bad); color: #fff; font-weight: 800; flex: 0 0 30px; }
 .mention-banner a { font-weight: 700; color: var(--bad); }
+
+/* Password field with show/hide eye */
+.pw-wrap { position: relative; display: block; }
+.pw-wrap input { width: 100%; padding-right: 46px; }
+.pw-eye { position: absolute; right: 4px; top: 50%; transform: translateY(-50%); width: 38px; height: 38px; display: grid; place-items: center; border: 0; background: transparent; color: var(--muted, #667); border-radius: 8px; cursor: pointer; padding: 0; }
+.pw-eye:hover, .pw-eye[aria-pressed="true"] { color: var(--forest); background: rgba(0,0,0,.04); }
+.pw-eye:focus-visible { outline: 2px solid var(--forest); outline-offset: 1px; }
+.pw-label-row { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+.pw-label-row .link { font-size: .85rem; }
+
+/* Simple two-factor screens */
+.tf { text-align: center; padding: 28px 22px; }
+.tf h2 { margin: 0 0 6px; }
+.tf .tf-icon { font-size: 2.6rem; line-height: 1; margin-bottom: 10px; }
+.tf p { margin: 0 auto 14px; max-width: 34em; }
+.tf .btn.big { width: 100%; max-width: 340px; justify-content: center; }
+.tf .tf-alt { margin-top: 14px; }
+.tf .code-in { font-size: 1.6rem; letter-spacing: .4em; text-align: center; max-width: 220px; margin: 0 auto 12px; display: block; padding: 10px 8px 10px calc(8px + .4em); }
+.tf .qr { display: block; margin: 0 auto 10px; }
+.tf details { text-align: left; max-width: 26em; margin: 10px auto 0; }
+.tf-list { list-style: none; padding: 0; margin: 0 0 12px; }
+.tf-list li { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--rule, #e5e5e5); }
+.tf-list li:last-child { border-bottom: 0; }
+.row > .pw-wrap { flex: 1; min-width: 0; }
+.pw-wrap { margin-top: 4px; }
+.pw-wrap input, .row .pw-wrap input { margin: 0; width: 100%; }
+.form .field { margin-bottom: 12px; }
+.form .field > .pw-label-row label { margin: 0; font-weight: 500; font-size: .9rem; }
+.wrap.narrow > .card.tf:first-child { margin-top: 32px; }
+nav a.btn.active, nav a.btn.active:hover { background: var(--forest); color: #fff !important; }

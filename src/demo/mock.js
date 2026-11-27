@@ -205,11 +205,17 @@ export const mockSupabase = {
   auth: {
     updateUser: async () => ({ error: null }),
     mfa: {
-      getAuthenticatorAssuranceLevel: async () => ({ data: me() ? { currentLevel: 'aal2', nextLevel: 'aal2' } : { currentLevel: 'aal1', nextLevel: 'aal1' } }),
-      listFactors: async () => ({ data: { totp: me() ? [{ id: 'f1', status: 'verified', friendly_name: 'Authenticator (demo)' }] : [], all: [] } }),
+      getAuthenticatorAssuranceLevel: async () => ({ data: !me() || tf() === 'none' ? { currentLevel: 'aal1', nextLevel: 'aal1' } : tf().startsWith('confirm') ? { currentLevel: 'aal1', nextLevel: 'aal2' } : { currentLevel: 'aal2', nextLevel: 'aal2' } }),
+      listFactors: async () => { const t = me() && tf() !== 'none' && tf() !== 'confirm-key' ? [{ id: 'f1', status: 'verified', factor_type: 'totp', friendly_name: 'iPhone 2026-11-20' }] : []; return { data: { totp: t, all: t } } },
       enroll: async () => ({ data: { id: 'f2', totp: { qr_code: '', secret: 'DEMO-ONLY', uri: 'otpauth://totp/Mount%20Beauty%20FC:demo?secret=DEMO&issuer=Mount%20Beauty%20FC' } } }),
       challengeAndVerify: async () => ({ error: null }), unenroll: async () => ({ error: null }),
     },
+    passkey: {
+      list: async () => ({ data: me() && (tf() === 'on' || tf() === 'confirm-key') ? [{ id: 'k1', friendly_name: 'iPhone – 20/11/2026' }] : [] }),
+      update: async () => ({ error: null }), delete: async () => ({ error: null }),
+    },
+    registerPasskey: async () => ({ data: { id: 'k2' }, error: null }),
+    signInWithPasskey: async () => ({ error: null }),
     getSession: async () => ({ data: { session: session() } }),
     onAuthStateChange: (fn) => { listeners.add(fn); return { data: { subscription: { unsubscribe: () => listeners.delete(fn) } } } },
     signOut: async () => setDemoRole('visitor'),
@@ -219,5 +225,8 @@ export const mockSupabase = {
     signUp: async () => { setTimeout(() => setDemoRole('parent'), 1500); return { error: null } },
   },
 }
+
+// Demo two-factor state: localStorage mbfc-demo-tf = on | none | confirm-key | confirm-code
+function tf() { try { return localStorage.getItem('mbfc-demo-tf') || 'on' } catch { return 'on' } }
 
 const seedCard = () => db.wwcc[0].file_path

@@ -160,7 +160,6 @@ function ForumHome() {
   const [sel, setSel] = useState('all')
   const [q, setQ] = useState('')
   const [writing, setWriting] = useState(false)
-  const [prefs, setPrefs] = useState(false)
   const { isUnread, reload: reloadReads } = useReads(user?.id)
   const [mentions, setMentions] = useState([])
   const load = useCallback(async () => {
@@ -200,7 +199,6 @@ function ForumHome() {
           <button className={'chan' + (sel === 'all' ? ' on' : '')} onClick={() => setSel('all')}><span className="ci">🗂️</span><span className="cn">All discussions</span>{unreadIn('all') > 0 && <span className="cu">{unreadIn('all')}</span>}</button>
           {ch.list.map((c) => <button key={c.key} className={'chan' + (sel === c.key ? ' on' : '')} onClick={() => setSel(c.key)}><span className="ci">{c.icon}</span><span className="cn">{c.name}</span>{unreadIn(c.key) > 0 && <span className="cu">{unreadIn(c.key)}</span>}</button>)}
           <div className="chan-foot">
-            <button className="link small" onClick={() => setPrefs(true)}>✉️ Email settings</button>
             {unreadIn('all') > 0 && <button className="link small" onClick={markAllRead}>Mark all as read</button>}
           </div>
         </aside>
@@ -233,14 +231,13 @@ function ForumHome() {
         </section>
       </div>
       {writing && <NewThread channels={ch.list.filter((c) => c.canPost)} mod={ch.mod} start={sel !== 'all' && ch.list.find((c) => c.key === sel)?.canPost ? sel : 'members'} onClose={() => setWriting(false)} onDone={(id) => { setWriting(false); nav(`/board/${id}`) }} />}
-      {prefs && <EmailPrefs channels={ch.list} onClose={() => setPrefs(false)} />}
     </div>
   )
 }
 
 function NewThread({ channels, mod, start, onClose, onDone }) {
   const { user } = useAuth()
-  const [f, setF] = useState({ chan: start, title: '', body: '', everyone: false })
+  const [f, setF] = useState({ chan: start, title: '', body: '' })
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState(null)
   const c = channels.find((x) => x.key === f.chan) || channels[0]
@@ -253,7 +250,6 @@ function NewThread({ channels, mod, start, onClose, onDone }) {
     await supabase.from('thread_reads').upsert({ post_id: newId, read_at: new Date().toISOString() })
     const ids = mentionedIds(f.body, people)
     await saveMentions(newId, null, ids)
-    supabase.functions.invoke('forum-notify', { body: { post_id: newId, everyone: mod && f.everyone, mentions: ids } })
     onDone(newId)
   }
   return (
@@ -264,35 +260,9 @@ function NewThread({ channels, mod, start, onClose, onDone }) {
         <p className="small muted chan-note">{c.blurb}</p>
         <label>Title<input value={f.title} onChange={(e) => setF({ ...f, title: e.target.value })} required maxLength={140} placeholder="e.g. Carpool to Bright on Sunday?" autoFocus /></label>
         <label>Message<MentionArea rows={7} value={f.body} onChange={(v) => setF({ ...f, body: v })} people={people} me={user?.id} required placeholder="Type @ to mention someone" /></label>
-        {mod && <label className="check"><input type="checkbox" checked={f.everyone} onChange={(e) => setF({ ...f, everyone: e.target.checked })} /> Also email everyone who can see this channel <span className="muted small">(moderators only – use for important news)</span></label>}
         {err && <p className="err small">{err}</p>}
         <div className="row"><button className="btn" disabled={busy}>{busy ? 'Posting…' : 'Post thread'}</button><button type="button" className="btn ghost" onClick={onClose}>Cancel</button></div>
       </form>
-    </div>
-  )
-}
-
-function EmailPrefs({ channels, onClose }) {
-  const [p, setP] = useState(null)
-  const [saved, setSaved] = useState(false)
-  useEffect(() => { supabase.from('forum_prefs').select('*').maybeSingle().then(({ data }) => setP(data || { reply_emails: true, mention_emails: true, channels: [] })) }, [])
-  async function save(next) {
-    setP(next); setSaved(false)
-    const { error } = await supabase.from('forum_prefs').upsert({ reply_emails: next.reply_emails, mention_emails: next.mention_emails !== false, channels: next.channels, updated_at: new Date().toISOString() })
-    if (!error) setSaved(true)
-  }
-  if (!p) return null
-  return (
-    <div className="modal" onClick={onClose}>
-      <div className="card form prefs" onClick={(e) => e.stopPropagation()}>
-        <div className="row between"><h3>Email settings</h3><button className="link" onClick={onClose} aria-label="Close">✕</button></div>
-        <label className="check"><input type="checkbox" checked={p.reply_emails} onChange={(e) => save({ ...p, reply_emails: e.target.checked })} /> Email me when someone replies to a thread I started or replied to</label>
-        <label className="check"><input type="checkbox" checked={p.mention_emails !== false} onChange={(e) => save({ ...p, mention_emails: e.target.checked })} /> Email me when someone @mentions me</label>
-        <p className="small"><b>Email me every new thread in:</b></p>
-        {channels.map((c) => <label key={c.key} className="check"><input type="checkbox" checked={p.channels.includes(c.key)} onChange={(e) => save({ ...p, channels: e.target.checked ? [...p.channels, c.key] : p.channels.filter((x) => x !== c.key) })} /> {c.icon} {c.name}</label>)}
-        <p className="small muted">{saved ? '✓ Saved' : 'Changes save straight away.'} Important club news may still be emailed to everyone.</p>
-        <button className="btn ghost small" onClick={onClose}>Done</button>
-      </div>
     </div>
   )
 }
@@ -352,7 +322,6 @@ function Thread({ id }) {
     await saveMentions(id, newId, ids)
     setReplyTo(null); if (parent) setCollapsed((x) => ({ ...x, [parent]: false }))
     await load(); setFlash(newId); setTimeout(() => document.getElementById(`r-${newId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 80); setTimeout(() => setFlash(null), 2200)
-    supabase.functions.invoke('forum-notify', { body: { post_id: id, reply_id: newId, mentions: ids } })
     return true
   }
   async function react(emoji, replyId) {

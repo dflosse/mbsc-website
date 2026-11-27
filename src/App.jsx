@@ -59,7 +59,7 @@ function WWCCNudge() {
   const { needsMfa } = useAuth()
   const here = useLocation().pathname
   if (here === '/start' || here === '/security') return null
-  if (needsMfa) return <div className="nudge"><div className="wrap">Your account has coach, committee or volunteer access – <Link to="/security">turn on two-factor sign-in</Link> (or enter your code) to use it.</div></div>
+  if (needsMfa) return <div className="nudge"><div className="wrap">Your account has coach, committee or volunteer access – <Link to="/security">confirm it's you</Link> to use it.</div></div>
   if (!need) return null
   return <div className="nudge"><div className="wrap">You've applied to help out – please <Link to="/volunteer">upload your Working With Children Check</Link> so the executive can sign you off.</div></div>
 }

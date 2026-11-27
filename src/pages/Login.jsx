@@ -1,3 +1,4 @@
+import PasswordInput from '../PasswordInput'
 import { PW_RULE, strongPw } from './Account.jsx'
 import { useState } from 'react'
 import { Navigate, useLocation, useNavigate, Link } from 'react-router-dom'
@@ -89,15 +90,22 @@ export default function Login() {
     <div className="wrap narrow">
       <h1>Sign in or register</h1>
       <p className="lead">Everyone has their own login – parents, coaches, committee members and volunteers. Your email address is your username.</p>
-      <div className="tabs">
-        <button className={mode === 'signin' ? 'on' : ''} onClick={() => setMode('signin')}>Sign in</button>
-        <button className={mode === 'signup' ? 'on' : ''} onClick={() => setMode('signup')}>Create account</button>
-        <button className={mode === 'link' ? 'on' : ''} onClick={() => setMode('link')}>Forgot password?</button>
-      </div>
+      {mode !== 'link' && (
+        <div className="tabs">
+          <button className={mode === 'signin' ? 'on' : ''} onClick={() => { setMode('signin'); setMsg(null) }}>Sign in</button>
+          <button className={mode === 'signup' ? 'on' : ''} onClick={() => { setMode('signup'); setMsg(null) }}>Create account</button>
+        </div>
+      )}
+      {mode === 'link' && (
+        <div className="card callout">
+          <b>Reset your password</b>
+          <p className="small" style={{ margin: '4px 0 0' }}>Type the email you sign in with. We'll email you a link to choose a new password.</p>
+        </div>
+      )}
       {mode === 'signin' && typeof window !== 'undefined' && window.PublicKeyCredential && (
         <div className="card form faceid">
           <button type="button" className="btn big" disabled={busy} onClick={faceId}>Sign in with Face ID / fingerprint</button>
-          <p className="small muted" style={{ margin: 0 }}>Set it up once under Two-factor sign-in. No password or code needed after that.</p>
+          <p className="small muted" style={{ margin: 0 }}>Already set up on this device? One tap – no password or code.</p>
         </div>
       )}
       <form className="card form" onSubmit={submit}>
@@ -110,9 +118,16 @@ export default function Login() {
           </fieldset>
         )}
         <label>Email (your username)<input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required autoComplete="email" /></label>
-        {mode !== 'link' && <label>Password<input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={mode === 'signup' ? 10 : 6} autoComplete={mode === 'signup' ? 'new-password' : 'current-password'} />{mode === 'signup' && <span className="small muted">{PW_RULE}</span>}</label>}
-        {mode === 'signin' && <label className="check"><input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} /><span>Keep me signed in on this device<br /><span className="small muted">You'll only need your two-factor code once on this device. Untick on a shared computer.</span></span></label>}
+        {mode !== 'link' && (
+          <div className="field">
+            <div className="pw-label-row"><label htmlFor="pw">Password</label>{mode === 'signin' && <button type="button" className="link" onClick={() => { setMode('link'); setMsg(null) }}>Forgot password?</button>}</div>
+            <PasswordInput id="pw" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={mode === 'signup' ? 10 : 6} autoComplete={mode === 'signup' ? 'new-password' : 'current-password'} />
+            {mode === 'signup' && <span className="small muted">{PW_RULE}</span>}
+          </div>
+        )}
+        {mode === 'signin' && <label className="check"><input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} /><span>Keep me signed in on this device<br /><span className="small muted">Untick on a shared computer.</span></span></label>}
         <button className="btn" disabled={busy}>{busy ? 'Please wait…' : mode === 'link' ? 'Email me a reset link' : mode === 'signin' ? 'Sign in' : 'Create account'}</button>
+        {mode === 'link' && <button type="button" className="link" onClick={() => { setMode('signin'); setMsg(null) }}>← Back to sign in</button>}
         {msg && <p className={msg.ok ? 'ok' : 'err'}>{msg.text}</p>}
       </form>
       <p className="muted small">Coaching or volunteering? Create an account, then go to <b>Volunteer</b> to apply and upload your Working With Children Check. We only use your details to run the club – see our <Link to="/privacy">privacy statement</Link>. Children's details are visible only to you, your child's coach and the committee.</p>
