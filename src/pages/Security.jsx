@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useNavigate, useLocation } from 'react-router-dom'
+import { useNavigate, useLocation, Navigate } from 'react-router-dom'
 import { supabase, DEMO } from '../supabase'
 import { useAuth } from '../auth'
 
@@ -38,7 +38,7 @@ const APP_HINT = {
 }[DEV]
 
 export default function Security() {
-  const { refresh, elevated, needsMfa, mfaEnrolled } = useAuth()
+  const { refresh, elevated, needsMfa, mfaEnrolled, twoFactorOn, loading } = useAuth()
   const nav = useNavigate()
   const loc = useLocation()
   const [codes, setCodes] = useState(null) // verified 6-digit-code factors
@@ -120,6 +120,8 @@ export default function Security() {
     setMsg(error ? { ok: false, text: error.message } : { ok: true, text: 'Removed.' }); load(); refresh()
   }
 
+  // Two-factor switched off club-wide: nothing to do here.
+  if (!loading && !twoFactorOn) return <Navigate to={loc.state?.from || '/family'} replace />
   if (codes === null) return <div className="wrap narrow"><h1>Two-factor sign-in</h1><p className="muted">Loading…</p></div>
 
   const code1 = codes[0]
