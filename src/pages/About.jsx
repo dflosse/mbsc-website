@@ -5,14 +5,17 @@ import { Link, useLocation } from 'react-router-dom'
 import { supabase, fmtDate } from '../supabase'
 import useSettings, { useKeyDates } from '../useSettings'
 
+// [group, age, format, game length]. Game lengths follow the Football Victoria MiniRoos guidelines
+// (U6–U11). U5 and U13 aren't MiniRoos national formats – the gala host confirms on the day.
 export const AGE_GROUPS = [
-  ['U5', 'Turning 5', '4v4, no goalkeeper'],
-  ['U6', 'Turning 6', '4v4, no goalkeeper'],
-  ['U7', 'Turning 7', '4v4, no goalkeeper'],
-  ['U9', 'Turning 8–9', '7v7 with goalkeeper'],
-  ['U11', 'Turning 10–11', '9v9 with goalkeeper'],
-  ['U13', 'Turning 12–13', '9v9 with goalkeeper'],
+  ['U5', 'Turning 5', '4v4, no goalkeeper', 'Short fun games – set on the day'],
+  ['U6', 'Turning 6', '4v4, no goalkeeper', '2 × 20 min, 5 min half-time'],
+  ['U7', 'Turning 7', '4v4, no goalkeeper', '2 × 20 min, 5 min half-time'],
+  ['U9', 'Turning 8–9', '7v7 with goalkeeper', '2 × 20 min, 5 min half-time'],
+  ['U11', 'Turning 10–11', '9v9 with goalkeeper', '2 × 25 min, 5 min half-time'],
+  ['U13', 'Turning 12–13', '9v9 with goalkeeper', '2 × 30 min – set by the gala host'],
 ]
+export const gameLength = (g) => AGE_GROUPS.find((a) => a[0] === g)?.[3] || 'TBA'
 
 export function FeesCard({ s, compact }) {
   return (
@@ -74,8 +77,9 @@ export default function About() {
             </ol>
             <h2>Age groups</h2>
             <p className="muted small">"Under" means "turning" – an Under 9 player turns 9 (or 8) during the year. We follow Football Australia MiniRoos formats.</p>
-            <div className="table-wrap"><table><thead><tr><th>Group</th><th>Age in the year</th><th>Format</th></tr></thead>
-              <tbody>{AGE_GROUPS.map(([g, a, f]) => <tr key={g}><td><b>{g}</b></td><td>{a}</td><td>{f}</td></tr>)}</tbody></table></div>
+            <div className="table-wrap"><table className="stack"><thead><tr><th>Group</th><th>Age in the year</th><th>Format</th><th>Game length</th></tr></thead>
+              <tbody>{AGE_GROUPS.map(([g, a, f, l]) => <tr key={g}><td data-label="Group"><b>{g}</b></td><td data-label="Age">{a}</td><td data-label="Format">{f}</td><td data-label="Game length">{l}</td></tr>)}</tbody></table></div>
+            <p className="muted small">Game lengths follow Football Victoria's MiniRoos guidelines. All MiniRoos players get equal game time.</p>
           </section>
           <aside>
             <FeesCard s={s} />

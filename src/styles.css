@@ -1010,3 +1010,20 @@ nav a.btn.active, nav a.btn.active:hover { background: var(--forest); color: #ff
 .post-as button:focus-visible { outline: 2px solid var(--forest); outline-offset: 1px; }
 .post-as.small { margin: 2px 0 8px; }
 .post-as.small button { font-size: .82rem; min-height: 30px; padding: 3px 10px 3px 3px; }
+
+/* Teams & age groups table */
+.card.flush { padding: 0; overflow: hidden; }
+.card.flush .table-wrap { margin: 0; border: 0; }
+.teams-table { width: 100%; border-collapse: collapse; }
+.teams-table th, .teams-table td { padding: 12px 14px; text-align: left; vertical-align: top; }
+.teams-table thead th { font-size: .8rem; color: var(--muted); font-weight: 700; border-bottom: 1.5px solid var(--rule, #e2ddd0); white-space: nowrap; }
+.teams-table tbody tr + tr td { border-top: 1px solid var(--rule, #e2ddd0); }
+.teams-table td:first-child { white-space: nowrap; }
+@media (max-width: 700px) {
+  .card.flush:has(.teams-table) { background: transparent; box-shadow: none; border: 0; overflow: visible; }
+  .teams-table tbody tr + tr td { border-top: 0; }
+  table.stack.teams-table tr { padding: 8px 14px 10px; }
+  table.stack.teams-table td { padding-top: 3px !important; padding-bottom: 3px !important; }
+  table.stack.teams-table td:first-child { display: block; font-size: 1.05rem; padding: 2px 0 6px 0 !important; margin-bottom: 4px; border-bottom: 1px solid var(--rule) !important; }
+  table.stack.teams-table td:first-child::before { content: none; }
+}
