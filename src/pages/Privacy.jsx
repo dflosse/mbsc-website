@@ -51,7 +51,7 @@ export default function Privacy() {
       <p>We only use photos of children on club social media or this website if a parent has given permission. You can change this at any time in My family.</p>
 
       <h2>How we protect it</h2>
-      <p>Information is stored in an Australian data centre (Sydney) with encrypted connections. Access is controlled by the database itself, not just the website. Executive, committee, coach and volunteer accounts must use two-factor sign-in. Working With Children Check images are stored privately and can only be opened by the person and the executive. Changes to registrations, approvals and access are logged.</p>
+      <p>Information is stored in an Australian data centre (Sydney) with encrypted connections. Access is controlled by the database itself, not just the website. Working With Children Check images are stored privately and can only be opened by the person and the executive. Changes to registrations, approvals and access are logged.</p>
 
       <h2>How long we keep it</h2>
       <ul>

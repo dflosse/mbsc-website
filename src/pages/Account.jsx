@@ -5,7 +5,7 @@ import { useAuth } from '../auth'
 import { Link } from 'react-router-dom'
 
 export default function Account() {
-  const { profile, refresh, user } = useAuth()
+  const { profile, refresh, user, twoFactorOn } = useAuth()
   const [form, setForm] = useState({ full_name: '', phone: '', address: '' })
   const [msg, setMsg] = useState('')
   useEffect(() => { if (profile) setForm({ full_name: profile.full_name || '', phone: profile.phone || '', address: profile.address || '' }) }, [profile])
@@ -22,7 +22,7 @@ export default function Account() {
         <label>Mobile<input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} inputMode="tel" /></label>
         <label>Home address<input value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} /></label>
         <ChangePassword />
-        <p className="small"><Link to="/security">Two-factor sign-in settings</Link></p>
+        {twoFactorOn && <p className="small"><Link to="/security">Two-factor sign-in settings</Link></p>}
         <p className="muted small">Username (email): {profile?.email} · Access: {profile?.role}{profile?.is_executive ? ' · executive committee' : ''}</p>
         <button className="btn">Save</button> {msg && <span className="ok">{msg}</span>}
       </form>

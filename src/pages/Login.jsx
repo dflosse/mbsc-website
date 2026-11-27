@@ -28,7 +28,7 @@ export default function Login() {
   const [busy, setBusy] = useState(false)
   const [sent, setSent] = useState(null)
   const [remember, setRemember] = useState(() => { try { return localStorage.getItem(REMEMBER_KEY) !== 'no' } catch { return true } })
-  const { needsMfa, mfaEnrolled } = useAuth()
+  const { needsMfa, mfaEnrolled, twoFactorOn } = useAuth()
   if (user && needsMfa && mfaEnrolled) return <Navigate to="/security" state={{ from: loc.state?.from }} replace />
   if (user) return <Navigate to={loc.state?.from || '/family'} replace />
 
@@ -44,7 +44,7 @@ export default function Login() {
       ;({ error } = await supabase.auth.signInWithPassword({ email, password }))
       if (!error) {
         const { data: lv } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel()
-        if (lv?.nextLevel === 'aal2' && lv.currentLevel !== 'aal2') { setBusy(false); return navigate('/security', { state: { from: loc.state?.from || '/family' } }) }
+        if (twoFactorOn && lv?.nextLevel === 'aal2' && lv.currentLevel !== 'aal2') { setBusy(false); return navigate('/security', { state: { from: loc.state?.from || '/family' } }) }
       }
     } else {
       if (!roles.length) { setBusy(false); return setMsg({ ok: false, text: 'Tick at least one option.' }) }
@@ -102,7 +102,7 @@ export default function Login() {
           <p className="small" style={{ margin: '4px 0 0' }}>Type the email you sign in with. We'll email you a link to choose a new password.</p>
         </div>
       )}
-      {mode === 'signin' && typeof window !== 'undefined' && window.PublicKeyCredential && (
+      {twoFactorOn && mode === 'signin' && typeof window !== 'undefined' && window.PublicKeyCredential && (
         <div className="card form faceid">
           <button type="button" className="btn big" disabled={busy} onClick={faceId}>Sign in with Face ID / fingerprint</button>
           <p className="small muted" style={{ margin: 0 }}>Already set up on this device? One tap – no password or code.</p>

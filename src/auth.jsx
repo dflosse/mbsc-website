@@ -12,6 +12,7 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true)
   const [hasPasskey, setHasPasskey] = useState(false)
   const [recovering, setRecovering] = useState(false)
+  const [tfOn, setTfOn] = useState(false) // club switch: settings.require_2fa
 
   const loadProfile = useCallback(async (s) => {
     if (!s?.user) { setProfile(null); setCoachTeams([]); return }
@@ -27,6 +28,7 @@ export function AuthProvider({ children }) {
 
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data }) => {
+      try { const { data: st } = await supabase.from('settings').select('value').eq('key', 'require_2fa').maybeSingle(); setTfOn((st?.value || 'on').trim().toLowerCase() !== 'off') } catch { setTfOn(false) }
       setSession(data.session)
       await loadProfile(data.session)
       setLoading(false)
@@ -41,7 +43,7 @@ export function AuthProvider({ children }) {
 
   const role = profile?.role
   const elevated = ELEVATED.includes(role) || !!profile?.is_executive || coachTeams.length > 0
-  const mfaOk = aal.current === 'aal2' || (!!session && strongSession(session))
+  const mfaOk = !tfOn || aal.current === 'aal2' || (!!session && strongSession(session))
   const value = {
     session,
     user: session?.user || null,
@@ -51,6 +53,7 @@ export function AuthProvider({ children }) {
     // elevated access only counts once two-factor is complete (the database enforces the same rule)
     needsMfa: elevated && !mfaOk,
     mfaEnrolled: aal.next === 'aal2' || hasPasskey,
+    twoFactorOn: tfOn,
     elevated,
     isStaff: mfaOk && (role === 'committee' || role === 'admin'),
     isAdmin: mfaOk && role === 'admin',

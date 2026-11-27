@@ -113,6 +113,7 @@ export const committee_roles = [
   ...['Child Safety Officer', 'Coaches Coordinator', 'Gala Coordinator (Alpine Valleys)', 'Uniforms & Equipment', 'Grants & Sponsorship', 'Communications (email / Facebook / website)', 'Field marking', 'Come n Try day'].map((r, i) => R('Club volunteer roles', r, null, null, 30 + i)),
 ]
 export const settings = [
+  { key: 'require_2fa', label: 'Two-factor sign-in (type on or off)', value: 'off' },
   { id: 's1', key: 'fees', label: 'Season fee', value: 'TBA – 2027 fees will be confirmed by the committee. (2026: $55 per player.)' },
   { id: 's2', key: 'payment', label: 'How to pay', value: "Registration and payment are completed online through Football Victoria's PlayFootball system. The club will email the 2027 registration link once it opens." },
   { id: 's3', key: 'agm', label: 'AGM date', value: 'TBA' },

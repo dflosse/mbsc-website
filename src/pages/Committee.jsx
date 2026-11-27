@@ -245,7 +245,7 @@ function CommitteeStart() {
           <li><b>The website is the one place club information is kept.</b> Change things here, not in old spreadsheets – Google Drive copies are read-only.</li>
           <li><b>Changes save straight away</b> and show for everyone, everywhere on the site. For example, change the fee in Fees & settings and it updates on the home page, About the club and the registration form.</li>
           <li><b>Every change is logged</b> with who made it, so nothing can go missing.</li>
-          <li><b>Children's details are protected.</b> Only the executive sees them, and everyone with access signs in with two-factor (Face ID or a 6-digit code).</li>
+          <li><b>Children's details are protected.</b> Only the executive, the child's coach and their own family can see them, and the database itself enforces this.</li>
           <li>The buttons at the top group the pages: <b>This season</b>, <b>People</b> (exec only), <b>Gear</b> and <b>Club admin</b>. Each page says what it's for at the top.</li>
         </ul>
       </section>
@@ -772,7 +772,7 @@ function People() {
     <>
       <p className="muted small note-wide">Choose each person's <b>Access</b>. <b>Executive</b> is for the President, Vice President, Secretary and Treasurer ({execCount} of 4 filled{execCount >= 4 ? '' : ` – ${4 - execCount} to go`}) and gives full access. Everyone else starts with family access; coach, committee and volunteer access is normally added by approving their application. Only the executive sees children's personal details.</p>
       {err && <p className="err">{err}</p>}
-      {isExec ? <Invite onSent={load} /> : <div className="card"><h3 style={{ marginTop: 0 }}>Invite someone</h3><p className="small">Inviting is for the executive and needs your two-factor code for this sign-in. <a href="/security">Enter your code</a>, then come back here.</p></div>}
+      {isExec ? <Invite onSent={load} /> : <div className="card"><h3 style={{ marginTop: 0 }}>Invite someone</h3><p className="small">Inviting people is for the executive only.</p></div>}
       <div className="table-wrap"><table className="people stack auto-label">
         <thead><tr><th>Name</th><th>Joined</th><th>Access</th><th>Applications ({REG_SEASON})</th><th>Coaches team</th></tr></thead>
         <tbody>{sorted.map((p) => {
@@ -914,7 +914,6 @@ function Approvals() {
                 const st = acct[a.profile_id]
                 const steps = [
                   [!!st?.confirmed_at, st?.confirmed_at ? `Account set up ${fmtDate(st.confirmed_at.slice(0, 10), { day: 'numeric', month: 'short' })}` : st?.invited_at ? `Invited ${fmtDate(st.invited_at.slice(0, 10), { day: 'numeric', month: 'short' })} – hasn't accepted yet` : 'Email not confirmed yet'],
-                  [!!st?.has_mfa, st?.has_mfa ? 'Two-factor on' : 'Two-factor not set up'],
                   [!!(p.phone && p.address), p.phone && p.address ? 'Mobile and address added' : 'Mobile / address missing'],
                   [!!w, w ? (w.pending ? 'WWCC applied for' : 'WWCC uploaded') : 'No WWCC yet'],
                 ]
