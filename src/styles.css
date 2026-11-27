@@ -999,3 +999,5 @@ table.stack td .pill, table.stack td .btn, table.stack td button.link { justify-
 .form .field > .pw-label-row label { margin: 0; font-weight: 500; font-size: .9rem; }
 .wrap.narrow > .card.tf:first-child { margin-top: 32px; }
 nav a.btn.active, nav a.btn.active:hover { background: var(--forest); color: #fff !important; }
+.av.club { background: #fff; box-shadow: inset 0 0 0 1.5px var(--rule, #e2ddd0); padding: 1px; }
+.av.club img { width: 100%; height: 100%; object-fit: contain; display: block; }

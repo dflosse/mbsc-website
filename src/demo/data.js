@@ -69,14 +69,14 @@ players.forEach((p, i) => {
 
 const P = (id, audience, title, body, extra = {}) => ({ id, audience, title, body, team_id: null, pinned: false, author_name: 'Dan Florisson', created_at: '2026-12-05T09:00:00Z', ...extra })
 export const posts = [
-  P('n1', 'public', '2027 registrations are open', 'Registrations for the 2027 season are now open for kids born 2014–2022. Sign in, add your child and the committee will confirm their squad. Come n Try day date TBA – bring a friend!', { pinned: true, created_at: '2026-12-01T09:00:00Z' }),
+  P('n1', 'public', '2027 registrations are open', 'Registrations for the 2027 season are now open for kids born 2014–2022. Sign in, add your child and the committee will confirm their squad. Come n Try day date TBA – bring a friend!', { pinned: true, author_id: null, author_name: null, created_at: '2026-12-01T09:00:00Z' }),
   P('n2', 'public', '2027 AGM – date TBA', 'All families welcome. We need volunteers for several committee roles – see About us for what is open.', { created_at: '2026-12-03T09:00:00Z' }),
   P('m1', 'members', 'Volunteers for the first home gala', 'We need 6 helpers for 16 May: 2 on the BBQ, 2 on canteen, 2 on pack-up. Reply here if you can help.', { author_name: 'Club Secretary', created_at: '2027-04-20T09:00:00Z' }),
   P('m2', 'team', 'U9 Red – training this week', 'Training is on as normal Wednesday. We will practise throw-ins and goal kicks. Please bring a full water bottle – it will be warm.', { team_id: 't9r', author_name: 'Sample coach (U9 Red)', created_at: '2027-04-27T09:00:00Z' }),
   P('c1', 'coaches', 'Pre-gala reminder – Mini-Roos rules', 'Reminder of the rough-play protocol agreed at the Alpine region meeting: send off for a short time, then back on in the spirit of the game; second time off for the match.', { created_at: '2027-05-01T09:00:00Z' }),
   P('k1', 'committee', 'FV renewal submitted', 'Football Victoria 2027 club renewal is in. Next: book Les Peart Oval for Come n Try.', { created_at: '2026-12-20T09:00:00Z' }),
 ]
-posts.forEach((p) => { p.reply_count = p.reply_count ?? 0; p.last_activity_at = p.last_activity_at || p.created_at; p.author_name = p.author_name || 'Dan Florisson' })
+posts.forEach((p) => { p.reply_count = p.reply_count ?? 0; p.last_activity_at = p.last_activity_at || p.created_at; if (p.author_name === undefined) p.author_name = 'Dan Florisson' })
 posts.find((p) => p.id === 'm1').reply_count = 2
 posts.find((p) => p.id === 'm1').last_activity_at = '2027-04-21T10:00:00Z'
 export const replies = [

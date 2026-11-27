@@ -5,6 +5,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { supabase, REG_SEASON } from '../supabase'
 import { useAuth } from '../auth'
 import { useLive } from './EditTable'
+import crestInk from '../assets/crest-ink.png'
 
 export const CHANNELS = {
   public: { name: 'Club news', icon: '📣', blurb: 'Announcements from the President and Secretary. Everyone can read.' },
@@ -25,7 +26,12 @@ export const ago = (iso) => {
 }
 const initials = (n) => (n || '?').split(/\s+/).map((x) => x[0]).slice(0, 2).join('').toUpperCase()
 const hue = (n) => [...(n || '')].reduce((a, c) => a + c.charCodeAt(0), 0) % 360
-export const Avatar = ({ name, size = 36 }) => <span className="av" style={{ width: size, height: size, fontSize: size * 0.38, background: `hsl(${hue(name)} 32% 88%)`, color: `hsl(${hue(name)} 40% 26%)` }} aria-hidden>{initials(name)}</span>
+// Posts with no person behind them (from the club / website) show the club crest.
+export const CLUB_NAME = 'Mount Beauty FC'
+const who = (n) => n || CLUB_NAME
+export const Avatar = ({ name, size = 36 }) => !name || name === CLUB_NAME
+  ? <span className="av club" style={{ width: size, height: size }} aria-hidden><img src={crestInk} alt="" /></span>
+  : <span className="av" style={{ width: size, height: size, fontSize: size * 0.38, background: `hsl(${hue(name)} 32% 88%)`, color: `hsl(${hue(name)} 40% 26%)` }} aria-hidden>{initials(name)}</span>
 const chanKey = (p) => (p.audience === 'team' ? `team:${p.team_id}` : p.audience)
 
 // People who can be @mentioned in a channel (only those who can see it). Cached per channel.
@@ -220,7 +226,7 @@ function ForumHome() {
                     <Avatar name={t.author_name} />
                     <span className="tr-main">
                       <span className="tr-title">{t.pinned && <span className="pin" title="Pinned">📌</span>}{t.locked && <span title="Locked">🔒</span>}{t.title}{un && <span className="new-dot">New</span>}{mentionedIn.has(t.id) && <span className="at-dot">@ you</span>}</span>
-                      <span className="tr-meta">{t.author_name} · {sel === 'all' && c ? <span className="tr-chan">{c.icon} {c.name}</span> : null}{sel === 'all' && c ? ' · ' : ''}{ago(t.created_at)}</span>
+                      <span className="tr-meta">{who(t.author_name)} · {sel === 'all' && c ? <span className="tr-chan">{c.icon} {c.name}</span> : null}{sel === 'all' && c ? ' · ' : ''}{ago(t.created_at)}</span>
                       <span className="tr-excerpt">{t.body.slice(0, 140)}{t.body.length > 140 ? '…' : ''}</span>
                     </span>
                     <span className="tr-stats"><b>{t.reply_count}</b><span>{t.reply_count === 1 ? 'reply' : 'replies'}</span><em>{ago(t.last_activity_at)}</em></span>
@@ -357,11 +363,11 @@ function Thread({ id }) {
         <div className="cmt-card">
           <div className="cmt-head">
             <Avatar name={r.author_name} size={30} />
-            <b>{r.author_name}</b>
+            <b>{who(r.author_name)}</b>
             {r.author_id && r.author_id === t.author_id && <span className="op-tag">Started thread</span>}
             <span className="cmt-time" title={new Date(r.created_at).toLocaleString('en-AU')}>{ago(r.created_at)}{r.edited_at ? ' · edited' : ''}</span>
           </div>
-          {(depth >= 4 && parent) || orphan ? <p className="replying-to">↳ replying to {orphan ? 'a deleted comment' : <a href={`#r-${parent.id}`}>{parent.author_name}</a>}</p> : null}
+          {(depth >= 4 && parent) || orphan ? <p className="replying-to">↳ replying to {orphan ? 'a deleted comment' : <a href={`#r-${parent.id}`}>{who(parent.author_name)}</a>}</p> : null}
           {editing === r.id ? <EditBox body={r.body} onCancel={() => setEditing(null)} onSave={(v) => saveEdit('reply', r.id, v)} /> : <RichText text={r.body} people={people} me={user?.id} />}
           <div className="msg-actions">
             <Reacts replyId={r.id} />
@@ -370,11 +376,11 @@ function Thread({ id }) {
             {(mine(r.author_id) || mod) && <button className="link small act danger" onClick={() => delReply(r)}>Delete</button>}
             {children.length > 0 && <button className="link small act" onClick={() => setCollapsed((x) => ({ ...x, [r.id]: !isCollapsed }))}>{isCollapsed ? `Show ${count(r.id)} ${count(r.id) === 1 ? 'reply' : 'replies'}` : 'Hide replies'}</button>}
           </div>
-          {replyTo === r.id && <Composer key={r.id} inline to={r.author_name} people={people} me={user?.id} onCancel={() => setReplyTo(null)} onSend={(b) => send(b, r.id)} />}
+          {replyTo === r.id && <Composer key={r.id} inline to={who(r.author_name)} people={people} me={user?.id} onCancel={() => setReplyTo(null)} onSend={(b) => send(b, r.id)} />}
         </div>
         {children.length > 0 && !isCollapsed && (
           <div className={'cmt-children' + (depth >= 3 ? ' flat' : '')}>
-            <button className="thread-line" aria-label={`Hide replies to ${r.author_name}`} onClick={() => setCollapsed((x) => ({ ...x, [r.id]: true }))} />
+            <button className="thread-line" aria-label={`Hide replies to ${who(r.author_name)}`} onClick={() => setCollapsed((x) => ({ ...x, [r.id]: true }))} />
             <div className="cmt-kids">{children.map((k) => renderComment(k, depth + 1))}</div>
           </div>
         )}
@@ -393,7 +399,7 @@ function Thread({ id }) {
       <article className="msg op">
         <Avatar name={t.author_name} size={44} />
         <div className="msg-body">
-          <div className="msg-meta"><b>{t.author_name}</b><span>{ago(t.created_at)}{t.edited_at ? ' · edited' : ''}</span></div>
+          <div className="msg-meta"><b>{who(t.author_name)}</b><span>{ago(t.created_at)}{t.edited_at ? ' · edited' : ''}</span></div>
           {editing === 'post' ? <EditBox title={t.title} body={t.body} onCancel={() => setEditing(null)} onSave={(v) => saveEdit('post', t.id, v)} /> : <RichText text={t.body} people={people} me={user?.id} />}
           <div className="msg-actions"><Reacts />{canReply && <button className="link small act" onClick={() => document.getElementById('reply-box')?.focus()}>↩ Reply</button>}{mine(t.author_id) && editing !== 'post' && <button className="link small act" onClick={() => setEditing('post')}>Edit</button>}{!mod && mine(t.author_id) && <button className="link small act danger" onClick={delThread}>Delete</button>}</div>
         </div>
@@ -403,7 +409,7 @@ function Thread({ id }) {
         {replies.length > 1 && <div className="seg small-seg"><button className={sort === 'old' ? 'on' : ''} onClick={() => setSort('old')}>Oldest first</button><button className={sort === 'new' ? 'on' : ''} onClick={() => setSort('new')}>Newest first</button></div>}
       </div>
       <div className="cmts">{(kids.root || []).map((r) => renderComment(r, 0))}</div>
-      {canReply ? <Composer bottom to={t.author_name} people={people} me={user?.id} onSend={(b) => send(b, null)} channel={c.name} /> : <p className="locked-note">🔒 This thread is locked – no new replies.</p>}
+      {canReply ? <Composer bottom to={who(t.author_name)} people={people} me={user?.id} onSend={(b) => send(b, null)} channel={c.name} /> : <p className="locked-note">🔒 This thread is locked – no new replies.</p>}
     </div>
   )
 }
