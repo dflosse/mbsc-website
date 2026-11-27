@@ -830,6 +830,7 @@ function Approvals() {
   const { isExec } = useAuth()
   const [players, setPlayers] = useState([])
   const [apps, setApps] = useState([])
+  const [interest, setInterest] = useState([])
   const [wwcc, setWwcc] = useState({})
   const [people, setPeople] = useState({})
   const [msg, setMsg] = useState('')
@@ -849,7 +850,8 @@ function Approvals() {
     const { data: gi } = await supabase.from('guardian_invites').select('*, players(first_name, last_name)').eq('approved', false).order('created_at')
     setGInv(gi || [])
     const { data: a } = await supabase.from('volunteer_roles').select('*, teams(name)').eq('status', 'pending').order('created_at')
-    setApps(a || [])
+    setApps((a || []).filter((x) => !x.eoi))
+    setInterest((a || []).filter((x) => x.eoi))
     const ids = [...new Set([...(a || []).map((x) => x.profile_id), ...(p || []).flatMap((x) => (x.player_guardians || []).map((g) => g.profile_id)), ...(gi || []).map((x) => x.invited_by)])]
     if (ids.length) {
       const { data: pr } = await supabase.from('profiles').select('*').in('id', ids)
@@ -899,6 +901,18 @@ function Approvals() {
     <>
       {!isExec && <div className="card callout"><p>You can see what's waiting, but only the <b>executive committee</b> (President, Vice President, Secretary, Treasurer) can sign off.</p></div>}
       {msg && <p className="ok">{msg}</p>}
+      <h2>Coaching expressions of interest ({interest.length})</h2>
+      <p className="muted small">People who registered interest in coaching. <b>Yes – invite to coach</b> emails them to add their Working With Children Check; they then appear below for the usual WWCC check and sign-off. <b>No thanks</b> declines the coaching role only – their site account and any family access stay as they are.</p>
+      {interest.length === 0 ? <p className="muted">Nothing waiting.</p> : <div className="cards wide">
+        {interest.map((a) => { const p = people[a.profile_id] || {}; return (
+          <div key={a.id} className="card">
+            <div className="row between"><b>{p.full_name || p.email}</b><span className="tag">Coach – interest{a.teams?.name ? ' – ' + a.teams.name : ''}</span></div>
+            <p className="small">{p.email}{p.phone ? <> · <a href={'tel:' + p.phone.replace(/\s/g, '')}>{p.phone}</a></> : ''}<br /><span className="muted">Registered {fmtDate(a.created_at.slice(0, 10), { day: 'numeric', month: 'short' })}</span></p>
+            {a.detail && a.detail !== 'Ticked at sign-up' && <p className="small">"{a.detail}"</p>}
+            {isExec && <InterestDecision a={a} person={p} onDone={(m) => { setMsg(m); load() }} onDecline={() => decideVol(a, false)} />}
+          </div>
+        ) })}
+      </div>}
       <h2>Coaches, committee & volunteers ({apps.length})</h2>
       <p className="muted small">Before approving: 1) check the card with the <a href={WWC_STATUS_URL} target="_blank" rel="noreferrer">WWC status checker</a>, 2) connect the person to the club in <a href={WWC_CONNECT_URL} target="_blank" rel="noreferrer">WWC Connect</a>. Both are required by Victorian law from 19 Oct 2026, and the site won't let you approve until both are ticked.</p>
       {apps.length === 0 && <p className="muted">Nothing waiting.</p>}
@@ -910,6 +924,7 @@ function Approvals() {
           return (
             <div key={a.id} className="card">
               <div className="row between"><b>{p.full_name || p.email}</b><span className="tag">{kindLabel[a.kind]}{a.teams?.name ? ' – ' + a.teams.name : ''}</span></div>
+              {a.eoi_accepted_at && <p className="small muted">Expression of interest accepted {fmtDate(a.eoi_accepted_at.slice(0, 10), { day: 'numeric', month: 'short' })}</p>}
               {a.detail && <p className="small">"{a.detail}"</p>}
               <p className="small">{p.email} · {p.phone || 'no phone'}<br />{p.address || 'no address'}</p>
               {(() => {
@@ -1248,7 +1263,8 @@ function DecideModal({ a, ok, person, onClose }) {
   const label = { coach: 'Coach', executive: 'Executive committee', committee: 'Committee', volunteer: 'Volunteer' }[a.kind]
   return (
     <div className="modal" onClick={() => onClose()}><div className="card form" onClick={(e) => e.stopPropagation()}>
-      <h3>{ok ? 'Approve' : 'Decline'}: {person.full_name || person.email} – {label}</h3>
+      <h3>{ok ? 'Approve' : a.eoi ? 'No thanks' : 'Decline'}: {person.full_name || person.email} – {label}{a.eoi ? ' (expression of interest)' : ''}</h3>
+      {!ok && a.eoi && <p className="small muted">Declines the coaching role only. Their account stays active.</p>}
       {ok && a.kind === 'coach' && <label>Coaching which team?<select value={team} onChange={(e) => setTeam(e.target.value)}><option value="">Decide later</option>{teams.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}</select>{teams.length === 0 && <span className="small muted">No {REG_SEASON} teams yet – add them under Teams, then assign under People & access.</span>}</label>}
       {ok && ['committee', 'executive'].includes(a.kind) && <label>Which role?<select value={role} onChange={(e) => setRole(e.target.value)}><option value="">Not yet decided</option>{roleOpts.map((r) => <option key={r.id} value={r.id}>{r.role}{r.person ? ` (currently ${r.person})` : ' – vacant'}</option>)}</select><span className="small muted">Their name is added to the public committee list.</span></label>}
       <label>{ok ? 'Note to the applicant (optional)' : 'Reason (shown to the applicant)'}<input value={note} onChange={(e) => setNote(e.target.value)} /></label>
@@ -1469,6 +1485,30 @@ function PastCoaches() {
       <p className="muted small">Type an email in and it's saved straight away. It then shows in the "{PREV_SEASON} coaches" group on Send email.</p>
       <EditTable table="coach_contacts" filter={pastCoachFilter} order={PAST_COACH_ORDER} search={['name', 'team', 'email']} defaults={{ season: PREV_SEASON, name: 'New coach' }}
         cols={[{ key: 'team', label: 'Team', width: 110 }, { key: 'name', label: 'Coach', width: 150 }, { key: 'email', label: 'Email', width: 220 }, { key: 'phone', label: 'Phone', width: 120 }, { key: 'notes', label: 'Notes', width: 160 }]} />
+    </div>
+  )
+}
+
+// Yes / No on a coaching expression of interest. Yes moves it to a normal coach application
+// (they then add their WWCC); No declines the coaching role only.
+function InterestDecision({ a, person, onDone, onDecline }) {
+  const teams = useTeams()
+  const [team, setTeam] = useState(a.team_id || '')
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState('')
+  async function yes() {
+    setBusy(true); setErr('')
+    const { error } = await supabase.rpc('accept_interest', { p_id: a.id, p_team: team || null })
+    if (error) { setBusy(false); return setErr(error.message) }
+    const { data: n } = await supabase.functions.invoke('notify-decision', { body: { id: a.id, interest: true } })
+    setBusy(false)
+    onDone(`${person.full_name || person.email}: yes to coaching.${n?.ok ? ` They've been emailed at ${n.to} to add their WWCC.` : n?.skipped ? ' (Emails switch on once the email key is added – let them know to add their WWCC.)' : ' The email didn\'t send – let them know to add their WWCC.'}`)
+  }
+  return (
+    <div className="form">
+      <label>Team<select value={team} onChange={(e) => setTeam(e.target.value)}><option value="">Decide later</option>{teams.filter((t) => t.season === REG_SEASON).map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}</select></label>
+      {err && <p className="err">{err}</p>}
+      <div className="row"><button className="btn small" disabled={busy} onClick={yes}>{busy ? 'Saving…' : 'Yes – invite to coach'}</button><button className="btn small ghost" disabled={busy} onClick={onDecline}>No thanks</button></div>
     </div>
   )
 }

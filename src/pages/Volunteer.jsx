@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { supabase, REG_SEASON, fmtDate } from '../supabase'
 import { useAuth } from '../auth'
 import { useLive } from './EditTable'
+import { CoachChoice } from './Login'
 
 const KINDS = [
   ['coach', 'Coach or assistant coach'],
@@ -40,7 +41,12 @@ export const wwccState = (w) => {
 }
 
 const BLANK_W = { card_number: '', expiry: '', card_type: 'Volunteer', pending: false }
-const BLANK_REQ = { kind: '', detail: '', team_id: '' }
+const BLANK_REQ = { kind: '', detail: '', team_id: '', eoi: true }
+// What an application's status means for the person, in plain words.
+export const appStatus = (a, w) => a.status === 'approved' ? 'Approved'
+  : a.eoi ? 'Expression of interest – with the executive'
+  : a.eoi_accepted_at && !w ? 'Interest accepted – next: add your WWCC'
+  : 'Awaiting sign-off'
 const roleName = (k) => KINDS.find((x) => x[0] === k)?.[1].split(' (')[0] || k
 
 export default function Volunteer() {
@@ -86,13 +92,15 @@ export default function Volunteer() {
               {current.length === 0 ? <p className="muted small">No applications yet.</p> : current.map((a) => (
                 <div key={a.id} className="vs-row">
                   <span><b>{roleName(a.kind)}</b>{a.teams?.name ? ` – ${a.teams.name}` : ''}{a.detail ? <span className="small muted"> · {a.detail}</span> : null}</span>
-                  <span className="vs-right"><span className={'pill ' + (a.status === 'approved' ? 'good' : 'wait')}>{a.status === 'approved' ? 'Approved' : 'Awaiting sign-off'}</span>{a.status === 'pending' && <button className="link small" onClick={() => withdraw(a.id)}>Withdraw</button>}</span>
+                  <span className="vs-right"><span className={'pill ' + (a.status === 'approved' ? 'good' : 'wait')}>{appStatus(a, w)}</span>{a.status === 'pending' && <button className="link small" onClick={() => withdraw(a.id)}>Withdraw</button>}</span>
                 </div>
               ))}
             </div>
             <div>
               <h3>Working With Children Check</h3>
-              <div className="vs-row"><span className={'pill ' + cls}>{label}</span>{(w || open.length === 0) && !updatingCard && <button className="link small" onClick={() => setUpdatingCard(true)}>{w ? 'Update my WWCC' : 'Add my WWCC'}</button>}</div>
+              <div className="vs-row"><span className={'pill ' + cls}>{label}</span>{(w || open.length === 0 || current.some((x) => !x.eoi && x.eoi_accepted_at)) && !updatingCard && <button className="link small" onClick={() => setUpdatingCard(true)}>{w ? 'Update my WWCC' : 'Add my WWCC'}</button>}</div>
+              {current.some((a) => a.eoi) && <p className="small muted">Thanks for registering your interest in coaching. The executive will be in touch – if they say yes, you'll get an email and can then add your WWCC here.</p>}
+              {current.some((a) => !a.eoi && a.eoi_accepted_at) && !w && <p className="small">You're in! Add your Working With Children Check (<b>Add my WWCC</b>) so the executive can sign you off.</p>}
               {w?.pending && <p className="small muted">When your card arrives (3 to 12 weeks), choose "Update my WWCC" and add the card number, expiry and a photo.</p>}
             </div>
           </div>
@@ -117,6 +125,7 @@ function ApplicationForm({ open, teams, profile, needCard, hasAny, onDone }) {
   const { user } = useAuth()
   const [req, setReq] = useState(BLANK_REQ)
   const detailsOnFile = !!(profile?.full_name && profile?.phone && profile?.address)
+  const haveName = !!(profile?.full_name && profile?.phone)
   const [me, setMe] = useState({ full_name: '', phone: '', address: '' })
   const [wf, setWf] = useState(BLANK_W)
   const [file, setFile] = useState(null)
@@ -125,39 +134,40 @@ function ApplicationForm({ open, teams, profile, needCard, hasAny, onDone }) {
   async function submit(e) {
     e.preventDefault(); setErr(null)
     if (!req.kind) return setErr('Choose a role.')
-    if (!detailsOnFile && (!me.full_name || !me.phone || !me.address)) return setErr('Please fill in your full name, mobile and home address – the club needs these to link you in WWC Connect.')
+    const eoi = req.kind === 'coach' && req.eoi
+    if (eoi ? (!haveName && (!me.full_name || !me.phone)) : (!detailsOnFile && (!me.full_name || !me.phone || !me.address))) return setErr(eoi ? 'Please fill in your full name and mobile.' : 'Please fill in your full name, mobile and home address – the club needs these to link you in WWC Connect.')
     setBusy(true)
-    if (!detailsOnFile) { const { error } = await supabase.from('profiles').update(me).eq('id', user.id); if (error) { setBusy(false); return setErr(error.message) } }
-    if (needCard) {
+    if (eoi ? !haveName : !detailsOnFile) { const patch = Object.fromEntries(Object.entries(me).filter(([, v]) => v)); const { error } = await supabase.from('profiles').update(patch).eq('id', user.id); if (error) { setBusy(false); return setErr(error.message) } }
+    if (needCard && !eoi) {
       const e2 = await saveCard(user.id, null, wf, file)
       if (e2) { setBusy(false); return setErr(e2) }
     }
-    const { error } = await supabase.from('volunteer_roles').insert({ profile_id: user.id, season: REG_SEASON, kind: req.kind, detail: req.detail.trim() || null, team_id: req.kind === 'coach' && req.team_id ? req.team_id : null })
+    const { error } = await supabase.from('volunteer_roles').insert({ profile_id: user.id, season: REG_SEASON, kind: req.kind, detail: req.detail.trim() || null, team_id: req.kind === 'coach' && req.team_id ? req.team_id : null, eoi })
     setBusy(false)
     if (error) return setErr(/duplicate|unique/i.test(error.message) ? "You've already applied for that role." : /already covers/i.test(error.message) ? 'Your executive role already covers committee and volunteer work – no need to apply separately.' : error.message)
     setReq(BLANK_REQ); setWf(BLANK_W); setFile(null)
-    onDone({ ok: true, text: `Thanks! Your application to be a ${roleName(req.kind).toLowerCase()} is with the executive committee. You'll get an email when it's approved.` })
+    onDone({ ok: true, text: eoi ? "Thanks! Your interest in coaching is with the executive committee. They'll be in touch – no WWCC needed until they say yes." : `Thanks! Your application to be a ${roleName(req.kind).toLowerCase()} is with the executive committee. You'll get an email when it's approved.` })
   }
   return (
     <form className="card form vol-form" onSubmit={submit}>
       <h2>{hasAny ? 'Apply for another role' : 'Your application'}</h2>
       <fieldset className="vol-step"><legend><span className="n">1</span> What would you like to do?</legend>
         <label>Role<select value={req.kind} onChange={(e) => setReq({ ...req, kind: e.target.value })} required><option value="">Choose a role…</option>{open.map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select></label>
-        {req.kind === 'coach' && <label>Team (if you know)<select value={req.team_id} onChange={(e) => setReq({ ...req, team_id: e.target.value })}><option value="">Not sure yet</option>{teams.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}</select></label>}
+        {req.kind === 'coach' && <CoachChoice name="vol-coach-kind" teams={teams} team={req.team_id} setTeam={(v) => setReq((r) => ({ ...r, team_id: v }))} eoi={req.eoi} setEoi={(v) => setReq((r) => ({ ...r, eoi: v }))} />}
         <label>{['committee', 'executive'].includes(req.kind) ? 'Which role? (see About us for open roles)' : 'Anything we should know? (optional)'}<input value={req.detail} onChange={(e) => setReq({ ...req, detail: e.target.value })} /></label>
       </fieldset>
       <fieldset className="vol-step"><legend><span className="n">2</span> Your details</legend>
-        {detailsOnFile ? <p className="on-file">✓ Using the name, mobile and address on your account. <Link to="/account">Change them</Link></p> : <>
+        {(req.kind === 'coach' && req.eoi ? haveName : detailsOnFile) ? <p className="on-file">✓ Using the name, mobile and address on your account. <Link to="/account">Change them</Link></p> : <>
           <label>Full name<input value={me.full_name} onChange={(e) => setMe({ ...me, full_name: e.target.value })} required /></label>
           <div className="grid2 tight"><label>Mobile<input value={me.phone} onChange={(e) => setMe({ ...me, phone: e.target.value })} inputMode="tel" required /></label><label>Email<input value={profile?.email || ''} disabled /></label></div>
-          <label>Home address<input value={me.address} onChange={(e) => setMe({ ...me, address: e.target.value })} required /></label>
+          {!(req.kind === 'coach' && req.eoi) && <label>Home address<input value={me.address} onChange={(e) => setMe({ ...me, address: e.target.value })} required /></label>}
         </>}
       </fieldset>
-      <fieldset className="vol-step"><legend><span className="n">3</span> Working With Children Check</legend>
+      {!(req.kind === 'coach' && req.eoi) && <fieldset className="vol-step"><legend><span className="n">3</span> Working With Children Check</legend>
         {needCard ? <><ApplyWWCC /><CardFields wf={wf} setWf={setWf} setFile={setFile} /></> : <p className="on-file">✓ Using the WWCC already on file. If it has changed, use "Update my WWCC" above.</p>}
-      </fieldset>
+      </fieldset>}
       {err && <p className="err">{err}</p>}
-      <button className="btn big" disabled={busy}>{busy ? 'Sending…' : 'Send application'}</button>
+      <button className="btn big" disabled={busy}>{busy ? 'Sending…' : req.kind === 'coach' && req.eoi ? 'Send my expression of interest' : 'Send application'}</button>
       <p className="small muted">Your card image is private: only you and the executive committee can see it.</p>
     </form>
   )

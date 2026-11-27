@@ -35,9 +35,11 @@ Deno.serve(async (req) => {
 
     const { data: ce } = await db.from('settings').select('value').eq('key', 'club_email').maybeSingle()
     const clubInbox = ce?.value?.trim() || 'mtbeautysoccerclub@gmail.com'
-    const { id } = await req.json()
-    const { data: app } = await db.from('volunteer_roles').select('kind, status, decision_note, profile_id, teams(name)').eq('id', id).single()
-    if (!app || !['approved', 'declined'].includes(app.status)) return json({ error: 'No decision to send.' }, 400)
+    const { id, interest } = await req.json()
+    const { data: app } = await db.from('volunteer_roles').select('kind, status, decision_note, profile_id, eoi, eoi_accepted_at, teams(name)').eq('id', id).single()
+    // interest = "yes" to a coaching expression of interest: still pending, now needs their WWCC
+    const interestYes = !!interest && app?.status === 'pending' && !app.eoi && !!app.eoi_accepted_at
+    if (!app || (!interestYes && !['approved', 'declined'].includes(app.status))) return json({ error: 'No decision to send.' }, 400)
     const { data: p } = await db.from('profiles').select('email, full_name').eq('id', app.profile_id).single()
     if (!p?.email) return json({ error: 'No email address.' }, 400)
 
@@ -45,8 +47,16 @@ Deno.serve(async (req) => {
     const role = LABEL[app.kind] + ((app as any).teams?.name ? ` (${esc((app as any).teams.name)})` : '')
     const note = app.decision_note ? `<p><b>Note from the club:</b> ${esc(app.decision_note)}</p>` : ''
     const ok = app.status === 'approved'
-    const subject = ok ? `You're approved – Mount Beauty Football Club` : `About your application – Mount Beauty Football Club`
-    const body = ok
+    const team = (app as any).teams?.name ? ` for <b>${esc((app as any).teams.name)}</b>` : ''
+    const btn = (href: string, t: string) => `<p><a href="${href}" style="display:inline-block;background:#f08a3c;color:#1e3b2f;padding:12px 20px;border-radius:12px;text-decoration:none;font-weight:bold">${t}</a></p>`
+    const subject = interestYes ? `Yes please – coaching at Mount Beauty Football Club` : !ok && app.eoi ? `Thanks for your interest in coaching – Mount Beauty Football Club` : ok ? `You're approved – Mount Beauty Football Club` : `About your application – Mount Beauty Football Club`
+    const body = interestYes
+      ? `<p>Hi ${first},</p><p>Thanks for registering your interest in coaching – we'd love to have you${team}.</p>
+         <p><b>Next step:</b> sign in, go to <b>Apply to Volunteer</b> and add your Working With Children Check. If you don't have one yet, the volunteer check is free and takes about 15 minutes online – once you've applied you can add your application number straight away.</p>
+         <p>Once your check is in, the executive confirms it and switches on your coach access.</p>${btn(SITE + '/volunteer', 'Add my WWCC')}<p>Thanks for helping out.</p>`
+      : !ok && app.eoi
+      ? `<p>Hi ${first},</p><p>Thanks for registering your interest in coaching. We won't need you as a coach this season, but we really appreciate the offer.</p>${note}<p>Your club account stays active. If you have questions, reply to the club at ${clubInbox}.</p>`
+      : ok
       ? `<p>Hi ${first},</p><p>Good news – you've been approved as a <b>${role}</b> at Mount Beauty Football Club.</p><p>${ACCESS[app.kind]}</p>${note}
          <p><a href="${SITE}/start" style="display:inline-block;background:#f08a3c;color:#1e3b2f;padding:12px 20px;border-radius:12px;text-decoration:none;font-weight:bold">Sign in</a></p>
          <p>Thanks for helping out.</p>`

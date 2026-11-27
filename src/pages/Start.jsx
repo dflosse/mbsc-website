@@ -14,7 +14,7 @@ export function useSetup() {
     let live = true
     ;(async () => {
       const [{ data: apps }, { data: w }, { data: kids }] = await Promise.all([
-        supabase.from('volunteer_roles').select('kind, status').eq('profile_id', user.id).in('status', ['pending', 'approved']).gte('season', REG_SEASON),
+        supabase.from('volunteer_roles').select('kind, status, eoi, eoi_accepted_at').eq('profile_id', user.id).in('status', ['pending', 'approved']).gte('season', REG_SEASON),
         supabase.from('wwcc').select('pending, status_checked_at, wwc_connected_at').eq('profile_id', user.id).maybeSingle(),
         supabase.from('player_guardians').select('player_id').eq('profile_id', user.id),
       ])
@@ -23,7 +23,10 @@ export function useSetup() {
       const helper = (apps || []).length > 0 || ['coach', 'committee', 'admin', 'volunteer'].includes(profile?.role)
       const parent = wanted.includes('parent') || (kids || []).length > 0
       const steps = []
-      if (helper) {
+      const onlyInterest = (apps || []).length > 0 && (apps || []).every((a) => a.eoi && a.status === 'pending') && !['coach', 'committee', 'admin', 'volunteer'].includes(profile?.role)
+      if (onlyInterest) {
+        steps.push({ key: 'approve', done: false, wait: true, title: 'Coaching expression of interest – with the executive', why: 'Nothing to do yet. If the executive says yes, you\'ll get an email and then add your Working With Children Check.', to: '/volunteer', cta: 'View' })
+      } else if (helper) {
         if (twoFactorOn) steps.push({ key: 'mfa', done: mfaEnrolled, title: 'Turn on two-factor sign-in', why: 'Anyone who can see children\'s details confirms it’s them with Face ID or a code. Under a minute.', to: '/security', cta: 'Set it up' })
         steps.push({ key: 'details', done: !!(profile?.phone && profile?.address), title: 'Add your mobile and home address', why: 'The club must give these to the Regulator when it connects you in WWC Connect.', to: '/account', cta: 'Add details' })
         steps.push({ key: 'wwcc', done: !!w, title: w?.pending ? 'WWCC applied for – add the card when it arrives' : 'Add your Working With Children Check', why: w?.pending ? 'You\'re covered while it\'s processed. When the card arrives, update it on the Apply to Volunteer page.' : 'Upload your card, or tick "I\'ve applied" and add your application number. Volunteer checks are free.', to: '/volunteer', cta: w ? 'Update' : 'Add WWCC' })

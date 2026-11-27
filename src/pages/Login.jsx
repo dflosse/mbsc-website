@@ -1,13 +1,13 @@
 import PasswordInput from '../PasswordInput'
 import { PW_RULE, strongPw } from './Account.jsx'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Navigate, useLocation, useNavigate, Link } from 'react-router-dom'
 import { supabase, REG_SEASON, REMEMBER_KEY } from '../supabase'
 import { useAuth } from '../auth'
 
 const ROLE_OPTS = [
   ['parent', 'Parent / guardian', 'Register your children and manage gala days. Starts straight away.'],
-  ['coach', 'Coach', 'Needs a WWCC and executive sign-off.'],
+  ['coach', 'Coach', 'Register your interest or apply to coach. Coaches need a WWCC and executive sign-off before they start.'],
   ['executive', 'Executive committee', 'President, Vice President, Secretary or Treasurer. Needs a WWCC and executive sign-off.'],
   ['committee', 'Committee member', 'Needs a WWCC and executive sign-off.'],
   ['volunteer', 'Volunteer', 'Gala days, canteen, BBQ, set-up. Needs a WWCC and executive sign-off.'],
@@ -17,12 +17,18 @@ export default function Login() {
   const { user } = useAuth()
   const loc = useLocation()
   const navigate = useNavigate()
-  const [mode, setMode] = useState(() => (new URLSearchParams(window.location.search).get('mode') === 'signup' ? 'signup' : 'signin'))
+  const qs = new URLSearchParams(window.location.search)
+  const coachLink = qs.get('role') === 'coach'
+  const [mode, setMode] = useState(() => (qs.get('mode') === 'signup' || coachLink ? 'signup' : 'signin'))
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [name, setName] = useState('')
   const [phone, setPhone] = useState('')
-  const [roles, setRoles] = useState(['parent'])
+  const [roles, setRoles] = useState(coachLink ? ['coach'] : ['parent'])
+  const [coachTeam, setCoachTeam] = useState('')
+  const [coachEoi, setCoachEoi] = useState(true)
+  const [teams, setTeams] = useState([])
+  useEffect(() => { supabase.from('teams').select('id,name').eq('season', REG_SEASON).order('sort_order').then(({ data }) => setTeams(data || [])) }, [])
   const toggle = (r) => setRoles((rs) => rs.includes(r) ? rs.filter((x) => x !== r) : [...rs, r])
   const [msg, setMsg] = useState(null)
   const [busy, setBusy] = useState(false)
@@ -49,7 +55,7 @@ export default function Login() {
     } else {
       if (!roles.length) { setBusy(false); return setMsg({ ok: false, text: 'Tick at least one option.' }) }
       if (!strongPw(password)) { setBusy(false); return setMsg({ ok: false, text: PW_RULE }) }
-      ;({ error } = await supabase.auth.signUp({ email, password, options: { emailRedirectTo: redirect, data: { full_name: name, phone, roles, season: REG_SEASON } } }))
+      ;({ error } = await supabase.auth.signUp({ email, password, options: { emailRedirectTo: redirect, data: { full_name: name, phone, roles, season: REG_SEASON, ...(roles.includes('coach') ? { coach_team: coachTeam || null, coach_eoi: coachEoi } : {}) } } }))
       if (!error) { setBusy(false); setPassword(''); window.scrollTo(0, 0); return setSent(email) }
     }
     if (error) setMsg({ ok: false, text: error.message })
@@ -114,7 +120,10 @@ export default function Login() {
         {mode === 'signup' && (
           <fieldset className="roles-pick">
             <legend>What are you applying for? <span className="muted small">(tick all that apply – one account covers everything)</span></legend>
-            {ROLE_OPTS.map(([k, l, d]) => <label key={k} className="check"><input type="checkbox" checked={roles.includes(k)} onChange={() => toggle(k)} /><span><b>{l}</b><br /><span className="small muted">{d}</span></span></label>)}
+            {ROLE_OPTS.map(([k, l, d]) => <div key={k}>
+              <label className="check"><input type="checkbox" checked={roles.includes(k)} onChange={() => toggle(k)} /><span><b>{l}</b><br /><span className="small muted">{d}</span></span></label>
+              {k === 'coach' && roles.includes('coach') && <CoachChoice teams={teams} team={coachTeam} setTeam={setCoachTeam} eoi={coachEoi} setEoi={setCoachEoi} />}
+            </div>)}
           </fieldset>
         )}
         <label>Email (your username)<input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required autoComplete="email" /></label>
@@ -131,6 +140,19 @@ export default function Login() {
         {msg && <p className={msg.ok ? 'ok' : 'err'}>{msg.text}</p>}
       </form>
       <p className="muted small">Coaching or volunteering? Create an account, then go to <b>Volunteer</b> to apply and upload your Working With Children Check. We only use your details to run the club – see our <Link to="/privacy">privacy statement</Link>. Children's details are visible only to you, your child's coach and the committee.</p>
+    </div>
+  )
+}
+
+// Coach option at sign-up: which team, and whether it's an expression of interest or a full application.
+export function CoachChoice({ teams, team, setTeam, eoi, setEoi, name = 'coach-kind' }) {
+  return (
+    <div className="coach-choice">
+      <label>Team you'd like to coach<select value={team} onChange={(e) => setTeam(e.target.value)}><option value="">Not sure yet</option>{teams.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}</select></label>
+      <div className="choice">
+        <label className="check"><input type="radio" name={name} checked={eoi} onChange={() => setEoi(true)} /><span><b>Expression of interest</b><br /><span className="small muted">I'm interested and happy to chat. No WWCC needed yet – the executive will get back to you.</span></span></label>
+        <label className="check"><input type="radio" name={name} checked={!eoi} onChange={() => setEoi(false)} /><span><b>I'm ready to coach</b><br /><span className="small muted">You'll add your Working With Children Check next, then the executive signs you off.</span></span></label>
+      </div>
     </div>
   )
 }

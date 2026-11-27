@@ -1027,3 +1027,8 @@ nav a.btn.active, nav a.btn.active:hover { background: var(--forest); color: #ff
   table.stack.teams-table td:first-child { display: block; font-size: 1.05rem; padding: 2px 0 6px 0 !important; margin-bottom: 4px; border-bottom: 1px solid var(--rule) !important; }
   table.stack.teams-table td:first-child::before { content: none; }
 }
+
+/* Coach option at sign-up / volunteer form: team + expression of interest */
+.coach-choice { margin: 2px 0 12px 28px; padding: 10px 12px; border-left: 3px solid var(--line); display: grid; gap: 8px; }
+.coach-choice .choice { display: grid; gap: 6px; margin: 0; }
+.coach-choice .check { margin-bottom: 0; }
