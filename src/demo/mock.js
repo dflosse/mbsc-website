@@ -102,7 +102,7 @@ class Query {
     const denied = { data: null, error: { message: 'new row violates row-level security policy (demo)' } }
     if (this.op === 'insert') {
       const row = { id: uid(), created_at: new Date().toISOString(), ...this.payload }
-      if (t === 'posts' || t === 'replies') { row.author_id = me(); row.author_name = db.profiles.find((p) => p.id === me())?.full_name }
+      if (t === 'posts' || t === 'replies') { row.author_id = me(); row.author_name = row.as_club ? 'Mount Beauty FC' : db.profiles.find((p) => p.id === me())?.full_name }
       if (t === 'guardian_invites') row.approved = exec()
       if (t === 'gala_job_signups') { row.display_name = db.profiles.find((p) => p.id === me())?.full_name; const j = db.gala_jobs.find((x) => x.id === row.job_id); if (db.gala_job_signups.filter((x) => x.job_id === row.job_id).length >= j.slots) return { data: null, error: { message: 'That job is full' } } }
       if (Array.isArray(this.payload)) { const rows = this.payload.map((x) => ({ id: uid(), ...x })); db[t].push(...rows); return { data: rows, error: null } }

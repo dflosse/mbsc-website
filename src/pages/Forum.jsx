@@ -44,8 +44,10 @@ export function useMentionable(audience, teamId) {
     if (mentionCache[k]) { setList(mentionCache[k]); return }
     supabase.rpc('forum_mentionable', { a: audience, t: teamId || null }).then(({ data }) => { mentionCache[k] = data || []; setList(mentionCache[k]) })
   }, [k, audience, teamId])
-  return list || []
+  return useMemo(() => [...(list || []), CLUB_PERSON], [list])
 }
+// "@Mount Beauty FC" notifies every exec member (done by the database).
+const CLUB_PERSON = { id: 'club', full_name: 'Mount Beauty FC', role_label: 'The club – notifies the executive' }
 const escRe = (x) => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 // Show @Full Name as a highlighted tag (red if it's you).
 export function RichText({ text, people, me }) {
@@ -62,7 +64,7 @@ export function RichText({ text, people, me }) {
   out.push(text.slice(last))
   return <div className="msg-text">{out}</div>
 }
-export const mentionedIds = (text, people) => (people || []).filter((p) => text.includes('@' + p.full_name)).map((p) => p.id)
+export const mentionedIds = (text, people) => (people || []).filter((p) => p.id !== 'club' && text.includes('@' + p.full_name)).map((p) => p.id)
 
 // Textarea that suggests people when you type @ – name and role only.
 export function MentionArea({ value, onChange, people, me, ...rest }) {
@@ -101,6 +103,17 @@ export function MentionArea({ value, onChange, people, me, ...rest }) {
         </ul>
       )}
       {q !== null && matches.length === 0 && q.length > 0 && <div className="mention-menu none">No one called "{q}" can see this channel.</div>}
+    </div>
+  )
+}
+// Exec choose whether a post/reply comes from them or from the club.
+function PostAs({ value, onChange, small }) {
+  const { profile } = useAuth()
+  return (
+    <div className={'post-as' + (small ? ' small' : '')} role="radiogroup" aria-label="Post as">
+      <span className="pa-label">Post as</span>
+      <button type="button" role="radio" aria-checked={!value} className={!value ? 'on' : ''} onClick={() => onChange(false)}><Avatar name={profile?.full_name || 'Me'} size={small ? 20 : 24} />{profile?.full_name?.split(' ')[0] || 'Me'}</button>
+      <button type="button" role="radio" aria-checked={value} className={value ? 'on' : ''} onClick={() => onChange(true)}><Avatar name={CLUB_NAME} size={small ? 20 : 24} />Mount Beauty FC</button>
     </div>
   )
 }
@@ -171,13 +184,15 @@ function ForumHome() {
   const load = useCallback(async () => {
     const { data } = await supabase.from('posts').select('id, title, body, audience, team_id, author_id, author_name, pinned, locked, created_at, last_activity_at, reply_count').order('pinned', { ascending: false }).order('last_activity_at', { ascending: false }).limit(300)
     setThreads(data || [])
-    const { data: m } = await supabase.from('forum_mentions').select('post_id, by_name, created_at').eq('mentioned_id', user.id).is('seen_at', null).order('created_at', { ascending: false })
+    const { data: m } = await supabase.from('forum_mentions').select('post_id, by_name, created_at, kind').eq('mentioned_id', user.id).is('seen_at', null).order('created_at', { ascending: false })
     setMentions(m || [])
   }, [user.id])
   useEffect(() => { load() }, [load])
   useLive(['posts', 'forum_mentions'], load)
   if (!ch || !threads) return <div className="wrap"><p className="muted">Loading the forum…</p></div>
   const mentionedIn = new Set(mentions.map((m) => m.post_id))
+  const clubIn = new Set(mentions.filter((m) => m.kind?.startsWith('club')).map((m) => m.post_id))
+  const youIn = new Set(mentions.filter((m) => !m.kind?.startsWith('club')).map((m) => m.post_id))
   const channel = ch.list.find((c) => c.key === sel)
   const visible = threads.filter((t) => ch.list.some((c) => c.key === chanKey(t)))
   const shown = visible.filter((t) => (sel === 'all' || chanKey(t) === sel) && (!q.trim() || `${t.title} ${t.body} ${t.author_name}`.toLowerCase().includes(q.trim().toLowerCase())))
@@ -197,7 +212,7 @@ function ForumHome() {
       {mentions.length > 0 && (
         <div className="mention-banner">
           <span className="mb-dot">@</span>
-          <span><b>You've been mentioned</b> in {[...mentionedIn].length} {mentionedIn.size === 1 ? 'thread' : 'threads'}: {[...mentionedIn].slice(0, 3).map((pid, i) => { const th = threads.find((x) => x.id === pid); return th ? <Fragment key={pid}>{i ? ', ' : ''}<Link to={`/board/${pid}`}>{th.title}</Link></Fragment> : null })}</span>
+          <span><b>{mentions.every((m) => m.kind?.startsWith('club')) ? 'New replies to Mount Beauty FC' : mentions.some((m) => m.kind?.startsWith('club')) ? 'Mentions and club replies' : "You've been mentioned"}</b> in {[...mentionedIn].length} {mentionedIn.size === 1 ? 'thread' : 'threads'}: {[...mentionedIn].slice(0, 3).map((pid, i) => { const th = threads.find((x) => x.id === pid); return th ? <Fragment key={pid}>{i ? ', ' : ''}<Link to={`/board/${pid}`}>{th.title}</Link></Fragment> : null })}</span>
         </div>
       )}
       <div className="forum-grid">
@@ -225,7 +240,7 @@ function ForumHome() {
                   <Link to={`/board/${t.id}`} className={'thread-row' + (un ? ' unread' : '') + (mentionedIn.has(t.id) ? ' at' : '')}>
                     <Avatar name={t.author_name} />
                     <span className="tr-main">
-                      <span className="tr-title">{t.pinned && <span className="pin" title="Pinned">📌</span>}{t.locked && <span title="Locked">🔒</span>}{t.title}{un && <span className="new-dot">New</span>}{mentionedIn.has(t.id) && <span className="at-dot">@ you</span>}</span>
+                      <span className="tr-title">{t.pinned && <span className="pin" title="Pinned">📌</span>}{t.locked && <span title="Locked">🔒</span>}{t.title}{un && <span className="new-dot">New</span>}{mentionedIn.has(t.id) && <span className="at-dot">{clubIn.has(t.id) && !youIn.has(t.id) ? '@ club' : '@ you'}</span>}</span>
                       <span className="tr-meta">{who(t.author_name)} · {sel === 'all' && c ? <span className="tr-chan">{c.icon} {c.name}</span> : null}{sel === 'all' && c ? ' · ' : ''}{ago(t.created_at)}</span>
                       <span className="tr-excerpt">{t.body.slice(0, 140)}{t.body.length > 140 ? '…' : ''}</span>
                     </span>
@@ -242,15 +257,15 @@ function ForumHome() {
 }
 
 function NewThread({ channels, mod, start, onClose, onDone }) {
-  const { user } = useAuth()
-  const [f, setF] = useState({ chan: start, title: '', body: '' })
+  const { user, isExec } = useAuth()
+  const [f, setF] = useState({ chan: start, title: '', body: '', club: false })
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState(null)
   const c = channels.find((x) => x.key === f.chan) || channels[0]
   const people = useMentionable(c.audience, c.team_id)
   async function submit(e) {
     e.preventDefault(); setBusy(true); setErr(null)
-    const { data, error } = await supabase.from('posts').insert({ audience: c.audience, team_id: c.team_id || null, title: f.title.trim(), body: f.body.trim() }).select('id').single()
+    const { data, error } = await supabase.from('posts').insert({ audience: c.audience, team_id: c.team_id || null, title: f.title.trim(), body: f.body.trim(), as_club: isExec && f.club }).select('id').single()
     if (error) { setBusy(false); return setErr(/row-level/.test(error.message) ? "You can't post in that channel." : error.message) }
     const newId = Array.isArray(data) ? data[0]?.id : data?.id
     await supabase.from('thread_reads').upsert({ post_id: newId, read_at: new Date().toISOString() })
@@ -266,6 +281,8 @@ function NewThread({ channels, mod, start, onClose, onDone }) {
         <p className="small muted chan-note">{c.blurb}</p>
         <label>Title<input value={f.title} onChange={(e) => setF({ ...f, title: e.target.value })} required maxLength={140} placeholder="e.g. Carpool to Bright on Sunday?" autoFocus /></label>
         <label>Message<MentionArea rows={7} value={f.body} onChange={(v) => setF({ ...f, body: v })} people={people} me={user?.id} required placeholder="Type @ to mention someone" /></label>
+        {isExec && <PostAs value={f.club} onChange={(v) => setF({ ...f, club: v })} />}
+        {isExec && f.club && <p className="small muted" style={{ marginTop: -4 }}>Shows as Mount Beauty FC with the club crest. Replies notify the whole executive, and any exec member can edit it.</p>}
         {err && <p className="err small">{err}</p>}
         <div className="row"><button className="btn" disabled={busy}>{busy ? 'Posting…' : 'Post thread'}</button><button type="button" className="btn ghost" onClick={onClose}>Cancel</button></div>
       </form>
@@ -274,7 +291,7 @@ function NewThread({ channels, mod, start, onClose, onDone }) {
 }
 
 function Thread({ id }) {
-  const { user } = useAuth()
+  const { user, isExec } = useAuth()
   const ch = useChannels()
   const nav = useNavigate()
   const [t, setT] = useState(undefined)
@@ -317,11 +334,12 @@ function Thread({ id }) {
   const c = ch.list.find((x) => x.key === chanKey(t)) || { icon: CHANNELS[t.audience].icon, name: t.audience === 'team' ? t.teams?.name : CHANNELS[t.audience].name }
   const mod = ch.mod
   const mine = (a) => a === user?.id
+  const canEdit = (x) => mine(x.author_id) || (x.as_club && isExec)
   const canReply = !t.locked || mod
 
-  async function send(body, parent) {
+  async function send(body, parent, asClub) {
     setErr(null)
-    const { data, error } = await supabase.from('replies').insert({ post_id: id, body, parent_id: parent || null }).select('id').single()
+    const { data, error } = await supabase.from('replies').insert({ post_id: id, body, parent_id: parent || null, as_club: !!(isExec && asClub) }).select('id').single()
     if (error) { setErr(/row-level/.test(error.message) ? (t.locked ? 'This thread is locked.' : "You can't reply here.") : error.message); return false }
     const newId = Array.isArray(data) ? data[0]?.id : data?.id
     const ids = mentionedIds(body, people)
@@ -372,11 +390,11 @@ function Thread({ id }) {
           <div className="msg-actions">
             <Reacts replyId={r.id} />
             {canReply && <button className="link small act" onClick={() => setReplyTo(replyTo === r.id ? null : r.id)}>↩ Reply</button>}
-            {mine(r.author_id) && editing !== r.id && <button className="link small act" onClick={() => setEditing(r.id)}>Edit</button>}
-            {(mine(r.author_id) || mod) && <button className="link small act danger" onClick={() => delReply(r)}>Delete</button>}
+            {canEdit(r) && editing !== r.id && <button className="link small act" onClick={() => setEditing(r.id)}>Edit</button>}
+            {(canEdit(r) || mod) && <button className="link small act danger" onClick={() => delReply(r)}>Delete</button>}
             {children.length > 0 && <button className="link small act" onClick={() => setCollapsed((x) => ({ ...x, [r.id]: !isCollapsed }))}>{isCollapsed ? `Show ${count(r.id)} ${count(r.id) === 1 ? 'reply' : 'replies'}` : 'Hide replies'}</button>}
           </div>
-          {replyTo === r.id && <Composer key={r.id} inline to={who(r.author_name)} people={people} me={user?.id} onCancel={() => setReplyTo(null)} onSend={(b) => send(b, r.id)} />}
+          {replyTo === r.id && <Composer key={r.id} inline to={who(r.author_name)} people={people} me={user?.id} onCancel={() => setReplyTo(null)} onSend={(b, c) => send(b, r.id, c)} canClub={isExec} />}
         </div>
         {children.length > 0 && !isCollapsed && (
           <div className={'cmt-children' + (depth >= 3 ? ' flat' : '')}>
@@ -401,7 +419,7 @@ function Thread({ id }) {
         <div className="msg-body">
           <div className="msg-meta"><b>{who(t.author_name)}</b><span>{ago(t.created_at)}{t.edited_at ? ' · edited' : ''}</span></div>
           {editing === 'post' ? <EditBox title={t.title} body={t.body} onCancel={() => setEditing(null)} onSave={(v) => saveEdit('post', t.id, v)} /> : <RichText text={t.body} people={people} me={user?.id} />}
-          <div className="msg-actions"><Reacts />{canReply && <button className="link small act" onClick={() => document.getElementById('reply-box')?.focus()}>↩ Reply</button>}{mine(t.author_id) && editing !== 'post' && <button className="link small act" onClick={() => setEditing('post')}>Edit</button>}{!mod && mine(t.author_id) && <button className="link small act danger" onClick={delThread}>Delete</button>}</div>
+          <div className="msg-actions"><Reacts />{canReply && <button className="link small act" onClick={() => document.getElementById('reply-box')?.focus()}>↩ Reply</button>}{canEdit(t) && editing !== 'post' && <button className="link small act" onClick={() => setEditing('post')}>Edit</button>}{!mod && canEdit(t) && <button className="link small act danger" onClick={delThread}>Delete</button>}</div>
         </div>
       </article>
       <div className="row between replies-bar">
@@ -409,23 +427,25 @@ function Thread({ id }) {
         {replies.length > 1 && <div className="seg small-seg"><button className={sort === 'old' ? 'on' : ''} onClick={() => setSort('old')}>Oldest first</button><button className={sort === 'new' ? 'on' : ''} onClick={() => setSort('new')}>Newest first</button></div>}
       </div>
       <div className="cmts">{(kids.root || []).map((r) => renderComment(r, 0))}</div>
-      {canReply ? <Composer bottom to={who(t.author_name)} people={people} me={user?.id} onSend={(b) => send(b, null)} channel={c.name} /> : <p className="locked-note">🔒 This thread is locked – no new replies.</p>}
+      {canReply ? <Composer bottom to={who(t.author_name)} people={people} me={user?.id} onSend={(b, c) => send(b, null, c)} channel={c.name} canClub={isExec} /> : <p className="locked-note">🔒 This thread is locked – no new replies.</p>}
     </div>
   )
 }
 
-function Composer({ inline, bottom, to, channel, people, me, onSend, onCancel }) {
+function Composer({ inline, bottom, to, channel, people, me, onSend, onCancel, canClub }) {
   const [body, setBody] = useState('')
+  const [club, setClub] = useState(false)
   const [busy, setBusy] = useState(false)
   async function go(e) {
     e.preventDefault(); if (!body.trim()) return
-    setBusy(true); const ok = await onSend(body.trim()); setBusy(false)
+    setBusy(true); const ok = await onSend(body.trim(), canClub && club); setBusy(false)
     if (ok) setBody('')
   }
   return (
     <form className={'composer' + (inline ? ' inline' : '') + (bottom ? ' bottom' : '')} onSubmit={go}>
       <p className="composer-to">{inline ? <>↩ Replying to <b>{to}</b></> : <>Reply to the thread{to ? <> started by <b>{to}</b></> : null}</>}</p>
       <MentionArea id={bottom ? 'reply-box' : undefined} rows={inline ? 2 : 3} value={body} onChange={setBody} people={people} me={me} placeholder={inline ? `Reply to ${to}… (type @ to mention someone)` : 'Write a reply… (type @ to mention someone)'} autoFocus={inline} onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) go(e); if (e.key === 'Escape' && onCancel) onCancel() }} />
+      {canClub && <PostAs small value={club} onChange={setClub} />}
       <div className="row between"><span className="small muted">{channel ? `Everyone in ${channel} can see your reply.` : ''}</span><span className="row">{onCancel && <button type="button" className="btn small ghost" onClick={onCancel}>Cancel</button>}<button className="btn small" disabled={busy || !body.trim()}>{busy ? 'Posting…' : 'Reply'}</button></span></div>
     </form>
   )
