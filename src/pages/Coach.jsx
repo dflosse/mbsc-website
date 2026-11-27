@@ -1,12 +1,13 @@
 import { KitTags } from './kitInfo'
-import { useEffect, useState } from 'react'
-import { supabase, fmtDate, ROSTER_SEASON } from '../supabase'
+import { useCallback, useEffect, useState } from 'react'
+import { supabase, fmtDate, ROSTER_SEASON, PREV_SEASON } from '../supabase'
+import EditTable from './EditTable'
 import { ForumLatest } from './Forum'
 import { useAuth } from '../auth'
 import { GameEditor } from './GalaGames'
 
 export default function Coach() {
-  const { isStaff, coachTeams } = useAuth()
+  const { isStaff, isExec, coachTeams } = useAuth()
   const [teams, setTeams] = useState([])
   const [teamId, setTeamId] = useState('')
   const [players, setPlayers] = useState([])
@@ -18,13 +19,13 @@ export default function Coach() {
 
   useEffect(() => {
     supabase.from('teams').select('*').eq('season', ROSTER_SEASON).order('sort_order').then(({ data }) => {
-      const mine = (data || []).filter((t) => isStaff || coachTeams.includes(t.id))
+      const mine = (data || []).filter((t) => isStaff || isExec || coachTeams.includes(t.id))
       setTeams(mine); if (mine[0]) setTeamId((id) => id || mine[0].id)
     })
     supabase.from('galas').select('*').gte('gala_date', new Date().toISOString().slice(0, 10)).order('gala_date').then(({ data }) => setGalas(data || []))
     supabase.from('galas').select('*').order('gala_date').then(({ data }) => setAllGalas(data || []))
     supabase.from('documents').select('*').in('audience', ['coaches', 'public']).order('title').then(({ data }) => setDocs(data || []))
-  }, [isStaff, coachTeams])
+  }, [isStaff, isExec, coachTeams])
 
   useEffect(() => {
     if (!teamId) return
@@ -80,7 +81,33 @@ export default function Coach() {
           </section>
         </>
       )}
+      <PastCoaches season={PREV_SEASON} canEdit={isStaff || isExec} />
       <section><h2>Coaching resources</h2><ul className="links">{docs.map((d) => <li key={d.id}><a href={d.url} target="_blank" rel="noreferrer">{d.title}</a></li>)}</ul></section>
     </div>
   )
 }
+
+// Last season's coaches with their emails. The executive keeps this up to date here;
+// the emails also show as a group on Committee → Send email.
+function PastCoaches({ season, canEdit }) {
+  const [rows, setRows] = useState(null)
+  useEffect(() => {
+    if (canEdit) return
+    supabase.from('coach_contacts').select('*').eq('season', season).order('sort').order('name').then(({ data }) => setRows(data || []))
+  }, [season, canEdit])
+  const filter = useCallback((q) => q.eq('season', season), [season])
+  return (
+    <section><h2>{season} coaches</h2>
+      {canEdit ? <>
+        <p className="muted small">Last season's coaches and their emails. Type an email in and it's saved straight away – it then shows as the "{season} coaches" group on Committee → Send email.</p>
+        <EditTable table="coach_contacts" filter={filter} order={PAST_ORDER} search={['name', 'team', 'email']} defaults={{ season, name: 'New coach' }}
+          cols={[{ key: 'team', label: 'Team', width: 110 }, { key: 'name', label: 'Coach', width: 150 }, { key: 'email', label: 'Email', width: 220 }, { key: 'phone', label: 'Phone', width: 120 }, { key: 'notes', label: 'Notes', width: 160 }]} />
+      </> : rows === null ? <p className="muted small">Loading…</p> : rows.length === 0 ? <p className="muted small">No {season} coaches listed.</p> : (
+        <div className="table-wrap"><table className="stack auto-label"><thead><tr><th>Team</th><th>Coach</th><th>Email</th></tr></thead><tbody>
+          {rows.map((r) => <tr key={r.id}><td>{r.team}</td><td>{r.name}</td><td>{r.email ? <a href={'mailto:' + r.email}>{r.email}</a> : <span className="muted">—</span>}</td></tr>)}
+        </tbody></table></div>
+      )}
+    </section>
+  )
+}
+const PAST_ORDER = [['sort'], ['name']]

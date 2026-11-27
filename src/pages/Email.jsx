@@ -1,6 +1,6 @@
 // Committee → Send email. Exec-only. Sends from noreply@mountbeautyfc.org.au (each person gets their own copy).
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { supabase, REG_SEASON, fmtDate } from '../supabase'
+import { supabase, REG_SEASON, PREV_SEASON, fmtDate } from '../supabase'
 import { useAuth } from '../auth'
 import useSettings from '../useSettings'
 
@@ -22,15 +22,16 @@ export default function Email() {
   const [log, setLog] = useState([])
 
   const load = useCallback(async () => {
-    const [p, v, pl, g, t, c] = await Promise.all([
+    const [p, v, pl, g, t, c, pc] = await Promise.all([
       supabase.from('profiles').select('id, full_name, email, is_executive'),
       supabase.from('volunteer_roles').select('profile_id, kind, team_id').eq('status', 'approved'),
       supabase.from('players').select('id, team_id').eq('season', REG_SEASON).neq('status', 'withdrawn'),
       supabase.from('player_guardians').select('player_id, profile_id'),
       supabase.from('teams').select('id, name, sort_order').eq('season', REG_SEASON).order('sort_order'),
       supabase.from('contacts').select('id, topic, name, organisation, email').order('sort'),
+      supabase.from('coach_contacts').select('name, team, email').eq('season', PREV_SEASON).order('sort'),
     ])
-    setD({ profiles: p.data || [], vols: v.data || [], players: pl.data || [], guardians: g.data || [], teams: t.data || [], contacts: c.data || [] })
+    setD({ profiles: p.data || [], vols: v.data || [], players: pl.data || [], guardians: g.data || [], teams: t.data || [], contacts: c.data || [], pastCoaches: pc.data || [] })
     const { data: l } = await supabase.from('email_log').select('id, sent_at, sent_by_name, subject, audience, sent_count, failed').order('sent_at', { ascending: false }).limit(20)
     setLog(l || [])
   }, [])
@@ -47,6 +48,7 @@ export default function Email() {
         ['Executive', pick(d.profiles.filter((x) => x.is_executive).map((x) => x.id))],
         ['Committee', kind('committee')],
         ['Coaches', kind('coach')],
+        [`${PREV_SEASON} coaches`, d.pastCoaches.filter((x) => x.email && isEmail(x.email.trim())).map((x) => ({ email: x.email.trim(), name: x.name || '' }))],
         ['Volunteers', kind('volunteer')],
         [`All ${REG_SEASON} parents`, parentsOf(d.players)],
         ['Everyone with an account', Object.values(byId)],
@@ -88,7 +90,7 @@ export default function Email() {
 
   if (!isExec) return <p className="muted">Sending club emails is for the executive committee.</p>
   if (!people) return <p className="muted">Loading…</p>
-  const matches = q.trim().length < 2 ? [] : [...people.all, ...people.contacts].filter((r) => `${r.name} ${r.email} ${r.label || ''}`.toLowerCase().includes(q.trim().toLowerCase())).slice(0, 8)
+  const matches = q.trim().length < 2 ? [] : [...people.all, ...people.contacts, ...people.groups.find(([l]) => l === `${PREV_SEASON} coaches`)[1]].filter((r) => `${r.name} ${r.email} ${r.label || ''}`.toLowerCase().includes(q.trim().toLowerCase())).slice(0, 8)
   const list = [...to.values()]
   const first = list[0]?.name?.split(' ')[0] || 'there'
 

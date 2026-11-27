@@ -269,3 +269,5 @@ export const thread_reads = []
 export const forum_reactions = [{ id: 'fr1', post_id: 'm1', reply_id: null, profile_id: 'u-parent', emoji: '👍' }]
 export const forum_prefs = []
 export const forum_mentions = [{ id: 'fm1', post_id: 'm1', reply_id: 'r3', mentioned_id: 'u-parent', by_name: 'Club Secretary', created_at: '2027-04-21T11:00:00Z', seen_at: null }]
+
+export const coach_contacts = []
